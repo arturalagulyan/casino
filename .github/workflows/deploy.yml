@@ -20,15 +20,8 @@ jobs:
           key: ${{ secrets.SSH_KEY }}
           script: |
             cd /var/www/html/casino
-            eval "$(ssh-agent -s)"
-            ssh-add ~/.ssh/id_rsa_github
             git pull origin main
-
-            # Use docker-compose directly on the server
-            # We use 'laravel.test' service but in a production-like way
             docker compose up -d --build
-
-            # Run Laravel maintenance commands
             docker compose exec -T laravel.test composer install --no-dev --optimize-autoloader
             docker compose exec -T laravel.test php artisan migrate --force
             docker compose exec -T laravel.test php artisan config:cache
