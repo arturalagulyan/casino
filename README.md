@@ -56,12 +56,17 @@ Every push to `main` (or a manual run from the Actions tab) runs
 
 **Required GitHub repo secrets** (Settings → Secrets and variables → Actions):
 
-| Secret      | Value                                    |
-|-------------|------------------------------------------|
-| `SSH_HOST`  | `207.180.253.8`                          |
-| `SSH_USER`  | `root`                                   |
-| `SSH_KEY`   | private key of the deploy key pair       |
-| `SSH_PORT`  | `22` (optional)                          |
+| Secret         | Value             |
+|----------------|-------------------|
+| `SSH_HOST`     | `207.180.253.8`   |
+| `SSH_USER`     | `root`            |
+| `SSH_PASSWORD` | the root password |
+| `SSH_PORT`     | `22`              |
+
+To switch to key-based auth later, add the public key to the server's
+`~/.ssh/authorized_keys`, set an `SSH_KEY` secret to the private key (make sure
+the pasted value keeps its trailing newline), and change `password:` back to
+`key:` in `.github/workflows/deploy.yml`.
 
 ### Manual deploy / first run on a fresh server
 
