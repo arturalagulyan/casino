@@ -1,0 +1,92 @@
+name: casino
+
+x-app: &app
+  build:
+    context: .
+    dockerfile: docker/Dockerfile
+    target: app
+  image: casino-app:latest
+  restart: unless-stopped
+  # Laravel reads its own .env file (correct ${VAR} interpolation); it is
+  # mounted read-only so the same file drives the app and compose substitution.
+  volumes:
+    - ./.env:/var/www/html/.env:ro
+    - ./storage:/var/www/html/storage
+  networks:
+    - casino
+  depends_on:
+    mysql:
+      condition: service_healthy
+    redis:
+      condition: service_started
+
+services:
+  app:
+    <<: *app
+
+  web:
+    build:
+      context: .
+      dockerfile: docker/Dockerfile
+      target: web
+    image: casino-web:latest
+    restart: unless-stopped
+    ports:
+      - "8080:80"
+    networks:
+      - casino
+    depends_on:
+      - app
+
+  queue:
+    <<: *app
+    command: php artisan queue:work --sleep=3 --tries=3 --max-time=3600 --timeout=90
+    environment:
+      CONTAINER_ROLE: queue
+
+  scheduler:
+    <<: *app
+    command: sh -c "while true; do php artisan schedule:run --no-interaction; sleep 60; done"
+    environment:
+      CONTAINER_ROLE: scheduler
+
+  mysql:
+    image: mysql:8.4
+    restart: unless-stopped
+    environment:
+      MYSQL_DATABASE: "${DB_DATABASE}"
+      MYSQL_USER: "${DB_USERNAME}"
+      MYSQL_PASSWORD: "${DB_PASSWORD}"
+      MYSQL_ROOT_PASSWORD: "${DB_ROOT_PASSWORD:-${DB_PASSWORD}}"
+    volumes:
+      - mysql-data:/var/lib/mysql
+    networks:
+      - casino
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "127.0.0.1", "-p${DB_PASSWORD}"]
+      interval: 10s
+      timeout: 5s
+      retries: 12
+      start_period: 30s
+
+  redis:
+    image: redis:7-alpine
+    restart: unless-stopped
+    command: ["redis-server", "--appendonly", "yes"]
+    volumes:
+      - redis-data:/data
+    networks:
+      - casino
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+volumes:
+  mysql-data:
+  redis-data:
+
+networks:
+  casino:
+    driver: bridge

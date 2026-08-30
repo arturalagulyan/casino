@@ -1,28 +1,61 @@
-name: Deploy Casino Project
+name: Deploy
 
 on:
   push:
     branches: [ main ]
-  workflow_dispatch: # This enables the manual "one-click" button
+  workflow_dispatch:        # manual "Run workflow" button
+
+concurrency:
+  group: deploy-production
+  cancel-in-progress: false
 
 jobs:
   deploy:
     runs-on: ubuntu-latest
     steps:
-      - name: Checkout code
-        uses: actions/checkout@v4
-
-      - name: Deploy via SSH
-        uses: appleboy/ssh-action@v1.0.3
+      - name: Deploy over SSH
+        uses: appleboy/ssh-action@v1.2.0
         with:
           host: ${{ secrets.SSH_HOST }}
           username: ${{ secrets.SSH_USER }}
           key: ${{ secrets.SSH_KEY }}
+          port: ${{ secrets.SSH_PORT }}
+          command_timeout: 20m
           script: |
-            cd /var/www/html/casino
-            git pull origin main
-            docker compose up -d --build
-            docker compose exec -T laravel.test composer install --no-dev --optimize-autoloader
-            docker compose exec -T laravel.test php artisan migrate --force
-            docker compose exec -T laravel.test php artisan config:cache
-            docker compose exec -T laravel.test php artisan route:cache
+            set -euo pipefail
+            cd /var/www/casino
+
+            echo "==> Pulling latest code"
+            git fetch --all --prune
+            git reset --hard origin/main
+
+            echo "==> Building images"
+            docker compose -f compose.prod.yaml build
+
+            echo "==> Starting containers"
+            docker compose -f compose.prod.yaml up -d --remove-orphans
+
+            echo "==> Waiting for the app container"
+            for i in $(seq 1 30); do
+              docker compose -f compose.prod.yaml exec -T app php -v >/dev/null 2>&1 && break
+              sleep 2
+            done
+
+            echo "==> Running migrations"
+            docker compose -f compose.prod.yaml exec -T app php artisan migrate --force
+
+            echo "==> Refreshing caches"
+            docker compose -f compose.prod.yaml exec -T app php artisan config:cache
+            docker compose -f compose.prod.yaml exec -T app php artisan view:cache
+            docker compose -f compose.prod.yaml exec -T app php artisan queue:restart
+
+            echo "==> Cycling nginx (fresh app DNS)"
+            docker compose -f compose.prod.yaml restart web
+
+            echo "==> Pruning old images"
+            docker image prune -f
+
+            echo "==> Health check"
+            curl -fsS -o /dev/null -w "HTTP %{http_code}\n" http://localhost:8080
+
+            echo "==> Done"
