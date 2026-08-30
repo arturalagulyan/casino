@@ -11,6 +11,12 @@ export default defineConfig({
         tailwindcss(),
     ],
     server: {
+        // Sail: bind every interface in the container, but tell the browser
+        // (and HMR) to talk to localhost:5173, which compose.yaml publishes.
+        host: '0.0.0.0',
+        hmr: {
+            host: 'localhost',
+        },
         watch: {
             ignored: ['**/storage/framework/views/**'],
         },

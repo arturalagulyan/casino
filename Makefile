@@ -37,7 +37,7 @@ dev: guard-setup up ## Start EVERYTHING at once: containers + queue + logs + Vit
 	$(SAIL) npx concurrently -k -n queue,logs,vite -c "green,magenta,cyan" \
 		"php artisan queue:listen --tries=1 --timeout=0" \
 		"php artisan pail --timeout=0" \
-		"npm run dev -- --host"
+		"npm run dev"
 
 .PHONY: up
 up: ## Start the containers in the background
