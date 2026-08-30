@@ -10,15 +10,36 @@ Laravel 13 application.
 
 ## Local development
 
+Runs on [Laravel Sail](https://laravel.com/docs/sail) (Docker). A `Makefile`
+wraps the common commands — run them from **WSL / a Linux shell** (not
+PowerShell), from the repo root.
+
 ```bash
-cp .env.example .env
-./vendor/bin/sail up -d
-./vendor/bin/sail composer install
-./vendor/bin/sail artisan key:generate
-./vendor/bin/sail artisan migrate
-./vendor/bin/sail npm install
-./vendor/bin/sail npm run dev
+make setup   # first time only: .env, dependencies, app key, database, assets
+make dev     # start everything at once, then open http://localhost
 ```
+
+`make dev` brings the containers up and runs the queue worker, the log tailer
+(`artisan pail`) and the Vite dev server together in one terminal with combined
+output. Press `Ctrl+C` to stop them (the containers keep running; `make down`
+stops those).
+
+Run `make` on its own to list every target. The most used ones:
+
+| Command        | What it does                                           |
+|----------------|-------------------------------------------------------|
+| `make dev`     | containers + queue + logs + Vite, all at once          |
+| `make up` / `make down` | start / stop the containers                    |
+| `make migrate` / `make fresh` | run migrations / rebuild the database   |
+| `make test`    | run the test suite                                     |
+| `make pint`    | format code                                            |
+| `make shell` / `make tinker` | shell / REPL in the app container        |
+| `make build`   | build production front-end assets                      |
+| `make deploy`  | `git push origin main` → triggers the server deploy    |
+
+Without `make`, the equivalent is `./vendor/bin/sail up -d`, then
+`./vendor/bin/sail npm run dev` (plus `sail artisan queue:listen` and
+`sail artisan pail` in other terminals).
 
 App: http://localhost
 
@@ -40,8 +61,9 @@ App: http://localhost
 | `redis`     | `redis:7`    | Cache / locks                                    |
 
 Code is **baked into the image** at build time — no bind-mounted source on the
-server. Only `./storage` is mounted so uploads and logs survive rebuilds.
-`.env` lives on the server only (it is git-ignored) and is read via `env_file`.
+server. Only `./storage` and `./.env` are mounted (the latter read-only), so
+uploads and logs survive rebuilds and the `.env` never enters the image. `.env`
+lives on the server only — it is git-ignored.
 
 ### Automatic deploy
 
