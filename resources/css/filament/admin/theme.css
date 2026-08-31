@@ -1,0 +1,104 @@
+@import '../../../../vendor/filament/filament/resources/css/theme.css';
+
+@source '../../../../app/Filament/**/*';
+@source '../../../../resources/views/filament/**/*';
+
+/* ------------------------------------------------------------------ *
+ *  Casino Control — admin theme
+ *  Deep felt-black surfaces, brushed-gold accents, a display serif for
+ *  the wordmark. Money reads green (win) / rose (loss).
+ * ------------------------------------------------------------------ */
+
+@import url('https://fonts.googleapis.com/css2?family=Cinzel:wght@500;600;700&family=Inter:wght@400;500;600;700&display=swap');
+
+@theme {
+    --font-serif: 'Cinzel', ui-serif, Georgia, serif;
+}
+
+:root {
+    --casino-gold: #d4af37;
+    --casino-gold-soft: #e7c968;
+    --casino-felt: #0b3d2e;
+}
+
+/* --- Brand wordmark ------------------------------------------------- */
+.fi-logo {
+    font-family: var(--font-serif);
+    font-weight: 700;
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+    color: var(--casino-gold-soft);
+}
+
+/* --- Dark chrome -------------------------------------------------- */
+.dark {
+    --gray-50: #f3f4f6;
+    --gray-950: #070a09;
+}
+
+.dark .fi-sidebar,
+.dark .fi-topbar > nav,
+.dark .fi-topbar {
+    background-color: #0c1210;
+    border-color: rgba(212, 175, 55, 0.14);
+}
+
+.dark .fi-main-ctn,
+.dark .fi-body {
+    background:
+        radial-gradient(1200px 600px at 15% -10%, rgba(212, 175, 55, 0.06), transparent 60%),
+        #0a0f0d;
+}
+
+.dark .fi-sidebar-nav .fi-sidebar-item-active .fi-sidebar-item-button {
+    background-color: rgba(212, 175, 55, 0.12);
+    box-shadow: inset 2px 0 0 var(--casino-gold);
+}
+
+.dark .fi-sidebar-group-label {
+    color: rgba(231, 201, 104, 0.6);
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    font-size: 0.68rem;
+}
+
+/* --- Panels / cards --------------------------------------------- */
+.dark .fi-section,
+.dark .fi-wi-stats-overview-stat,
+.dark .fi-ta-ctn,
+.dark .fi-fo-component-ctn > .fi-section {
+    border: 1px solid rgba(212, 175, 55, 0.16);
+    background-color: rgba(17, 24, 22, 0.72);
+    backdrop-filter: blur(4px);
+}
+
+/* --- Headings ---------------------------------------------------- */
+.fi-header-heading,
+.fi-section-header-heading,
+.fi-modal-heading {
+    font-family: var(--font-serif);
+    letter-spacing: 0.02em;
+}
+
+/* --- Primary buttons get a gold gradient ------------------------ */
+.fi-btn.fi-color-primary:not(.fi-btn-outlined):not(.fi-link) {
+    background-image: linear-gradient(180deg, var(--casino-gold-soft), var(--casino-gold));
+    color: #1a1200;
+    border: 1px solid rgba(0, 0, 0, 0.15);
+}
+
+/* --- Login screen ---------------------------------------------- */
+.fi-simple-layout {
+    background:
+        radial-gradient(900px 500px at 50% -20%, rgba(212, 175, 55, 0.12), transparent 65%),
+        linear-gradient(180deg, #0c1210, #070a09);
+}
+
+.dark .fi-simple-main {
+    border: 1px solid rgba(212, 175, 55, 0.2);
+    background-color: rgba(12, 18, 16, 0.85);
+}
+
+/* --- Money helpers (use in tables/infolists) ------------------- */
+.money-up { color: #34d399; font-variant-numeric: tabular-nums; }
+.money-down { color: #fb7185; font-variant-numeric: tabular-nums; }
