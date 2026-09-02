@@ -12,12 +12,15 @@ return new class extends Migration
         Schema::create('game_sessions', function (Blueprint $table) {
             $table->id();
             $table->foreignId('user_id')->constrained()->cascadeOnDelete();
+            $table->foreignId('game_id')->nullable()->constrained()->nullOnDelete();
             $table->string('token');                 // legacy subsession
             $table->boolean('is_active')->default(true);
+            $table->json('state')->nullable();       // per-game session state (legacy user.session blob)
             $table->timestamp('last_seen_at')->nullable();
             $table->timestamps();
 
             $table->index(['user_id', 'is_active']);
+            $table->index(['user_id', 'game_id']);
         });
     }
 

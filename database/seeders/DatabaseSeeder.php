@@ -59,6 +59,7 @@ class DatabaseSeeder extends Seeder
 
         if (app()->environment('local', 'testing') && ! app()->runningUnitTests()) {
             $this->call(DemoDataSeeder::class);
+            $this->call(ActionMoneyEgtSeeder::class);
         }
     }
 }

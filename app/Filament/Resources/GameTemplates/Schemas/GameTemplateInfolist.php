@@ -3,6 +3,7 @@
 namespace App\Filament\Resources\GameTemplates\Schemas;
 
 use Filament\Infolists\Components\IconEntry;
+use Filament\Infolists\Components\ImageEntry;
 use Filament\Infolists\Components\TextEntry;
 use Filament\Schemas\Schema;
 
@@ -12,10 +13,13 @@ class GameTemplateInfolist
     {
         return $schema
             ->components([
+                ImageEntry::make('poster_path')
+                    ->label('Poster')
+                    ->disk('public')
+                    ->height(120)
+                    ->placeholder('no poster'),
                 TextEntry::make('code'),
                 TextEntry::make('title'),
-                TextEntry::make('provider')
-                    ->placeholder('-'),
                 TextEntry::make('engine')
                     ->badge(),
                 TextEntry::make('package_path')

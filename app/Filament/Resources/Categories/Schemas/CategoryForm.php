@@ -2,6 +2,7 @@
 
 namespace App\Filament\Resources\Categories\Schemas;
 
+use App\Filament\Forms\JsonField;
 use Filament\Forms\Components\Select;
 use Filament\Forms\Components\TextInput;
 use Filament\Schemas\Schema;
@@ -25,6 +26,10 @@ class CategoryForm
                     ->required()
                     ->numeric()
                     ->default(0),
+                JsonField::make('config')
+                    ->rows(4)
+                    ->columnSpanFull()
+                    ->helperText('Shared game config every game in this category inherits (a game or template can override any key). e.g. {"client_protocol":"game_platform"} routes its games to the GamePlatform WebSocket protocol. Also accepts "min_match", "layout", "bonus_config", …'),
             ]);
     }
 }

@@ -89,7 +89,7 @@ class GameStatReport extends Page implements HasTable
             ->defaultSort('in', 'desc');
     }
 
-    /** @return Collection<int, array<string, mixed>> */
+    /** @param array<string, mixed> $filters @return Collection<int, array<string, mixed>> */
     protected function rows(array $filters): Collection
     {
         $from = Carbon::parse(($filters['period']['from'] ?? null) ?: now()->subWeek())->startOfDay();
@@ -114,16 +114,15 @@ class GameStatReport extends Page implements HasTable
             ->keyBy('id');
         $shops = Shop::whereIn('id', $agg->pluck('shop_id')->unique()->filter())->pluck('name', 'id');
 
-        return $agg->map(function ($r) use ($games, $shops) {
+        return $agg->map(function ($r) use ($games, $shops): array {
             $bet = (float) $r->bet;
             $win = (float) $r->win;
+            $game = $games->get($r->game_id);
 
             return [
-                'game' => $games[$r->game_id]?->title
-                    ?? $games[$r->game_id]?->template?->title
-                    ?? $r->game_code,
-                'shop' => $shops[$r->shop_id] ?? "#{$r->shop_id}",
-                'currency' => $r->currency instanceof Currency ? $r->currency->value : $r->currency,
+                'game' => $game ? ($game->title ?: $game->template->title) : $r->game_code,
+                'shop' => $shops->get($r->shop_id) ?? "#{$r->shop_id}",
+                'currency' => (string) $r->currency,
                 'spins' => (int) $r->spins,
                 'in' => $bet,
                 'out' => $win,

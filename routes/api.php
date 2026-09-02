@@ -1,6 +1,7 @@
 <?php
 
 use App\Http\Controllers\Api\GameLaunchController;
+use App\Http\Controllers\Api\GameServerController;
 use Illuminate\Support\Facades\Route;
 
 /*
@@ -17,3 +18,6 @@ Route::middleware('api.key')->prefix('game')->group(function () {
 });
 
 Route::get('game/play', [GameLaunchController::class, 'play'])->name('api.game.play');
+
+// Game-play commands from the front-end bundle — auth is the game-session token.
+Route::post('game/{code}/server', [GameServerController::class, 'handle'])->name('api.game.server');

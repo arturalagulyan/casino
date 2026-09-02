@@ -39,7 +39,7 @@ class GameLaunchController extends Controller
         }
 
         return response()->json([
-            'launch_url' => $this->launcher->launchUrl($token),
+            'launch_url' => $this->launcher->launchUrl($token, $game->template->code),
             'token' => $token,
             'expires_in' => $this->launcher->ttl(),
             'player' => ['id' => $player->id, 'username' => $player->username, 'currency' => $player->currency?->value],
@@ -61,7 +61,7 @@ class GameLaunchController extends Controller
             'status' => 'ok',
             'note' => 'Game serving is not implemented yet — token is valid.',
             'user' => ['id' => $user->id, 'balance' => $user->wallet?->balance, 'currency' => $user->currency?->value],
-            'game' => ['id' => $game->id, 'code' => $game->template?->code, 'title' => $game->title ?? $game->template?->title],
+            'game' => ['id' => $game->id, 'code' => $game->template->code, 'title' => $game->title ?? $game->template->title],
         ]);
     }
 }

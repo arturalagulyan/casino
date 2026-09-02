@@ -17,6 +17,7 @@ trait ScopesToViewer
         $user = auth()->user();
 
         if ($user && method_exists(static::getModel(), 'scopeVisibleTo')) {
+            /** @phpstan-ignore method.notFound (scope resolved dynamically, guarded by method_exists) */
             $query->visibleTo($user);
         }
 

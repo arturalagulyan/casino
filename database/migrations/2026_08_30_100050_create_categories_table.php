@@ -17,6 +17,7 @@ return new class extends Migration
             $table->string('title');
             $table->string('slug')->nullable();                      // legacy href
             $table->integer('position')->default(0);
+            $table->json('config')->nullable();                      // shared game config the category's games inherit (client_protocol, layout, engine knobs…)
             $table->timestamps();
 
             $table->index(['shop_id', 'position']);

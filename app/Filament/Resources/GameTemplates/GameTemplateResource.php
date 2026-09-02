@@ -53,7 +53,7 @@ class GameTemplateResource extends Resource
     public static function getRelations(): array
     {
         return [
-            //
+            RelationManagers\BundlesRelationManager::class,
         ];
     }
 

@@ -22,19 +22,27 @@ return new class extends Migration
             $table->string('label')->nullable();       // App\Enums\GameLabel
             $table->string('bank_type')->default('slots'); // App\Enums\BankType
 
-            // RTP / behaviour tuning
-            $table->unsignedTinyInteger('reserve_percent')->default(0);  // legacy rezerv
+            // RTP / behaviour tuning — per-shop overrides of the template spec
+            $table->unsignedTinyInteger('rtp_percent')->nullable();       // overrides shops.rtp_percent
+            $table->unsignedInteger('max_win_multiplier')->nullable();    // overrides shops.max_win_multiplier
+            $table->unsignedInteger('wild_multiplier')->nullable();       // overrides template
+            $table->unsignedInteger('free_spins_count')->nullable();      // overrides template
+            $table->json('free_spins_table')->nullable();                 // overrides template
+            $table->json('win_distribution')->nullable();                 // overrides template win-size curve
+            $table->unsignedTinyInteger('reserve_percent')->default(0);   // legacy rezerv — gamble win chance
             $table->unsignedInteger('cask')->default(0);
             $table->json('lines_config_spin')->nullable();
             $table->json('lines_config_spin_bonus')->nullable();
             $table->json('lines_config_bonus')->nullable();
             $table->json('lines_config_bonus_bonus')->nullable();
-            $table->json('jackpot_chances')->nullable();  // legacy chanceFirepot*/fireCount*
+            $table->json('win_chances')->nullable();       // overrides template win_chances wholesale
+            $table->json('jackpot_chances')->nullable();   // legacy chanceFirepot*/fireCount* (firepots)
             $table->json('advanced')->nullable();
-            $table->json('bet_options')->nullable();      // legacy bet / bet_ALL
+            $table->json('engine_state')->nullable();      // per-game RTP feedback loop (legacy game.advanced)
+            $table->json('bet_options')->nullable();       // legacy bet / bet_ALL
             $table->decimal('denomination', 20, 4)->default(1);
-            $table->string('scale_mode')->default('');
-            $table->string('view_state')->default('');
+            $table->string('scale_mode')->nullable();
+            $table->string('view_state')->nullable();
 
             $table->boolean('is_visible')->default(true); // legacy view
             $table->integer('sort_order')->default(0);

@@ -3,13 +3,12 @@
 namespace App\Filament\Widgets;
 
 use App\Models\Game;
-use App\Models\GameRound;
 use App\Models\Shop;
 use App\Models\User;
-use App\Models\Wallet;
 use App\Support\Money;
 use Filament\Widgets\StatsOverviewWidget;
 use Filament\Widgets\StatsOverviewWidget\Stat;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Number;
 
 class CasinoOverview extends StatsOverviewWidget
@@ -22,7 +21,7 @@ class CasinoOverview extends StatsOverviewWidget
 
         // GGR never crosses currencies — one card per currency with play today
         // (see docs/BUSINESS-LOGIC-REVIEW.md §1).
-        $byCurrency = GameRound::query()
+        $byCurrency = DB::table('game_rounds')
             ->where('played_at', '>=', $today)
             ->selectRaw('currency, SUM(bet) AS bet, SUM(win) AS win, COUNT(*) AS spins')
             ->groupBy('currency')
@@ -53,7 +52,7 @@ class CasinoOverview extends StatsOverviewWidget
             ->descriptionIcon('heroicon-m-user-group')
             ->color('primary');
 
-        $funds = Wallet::query()
+        $funds = DB::table('wallets')
             ->selectRaw('currency, SUM(balance) AS total')
             ->groupBy('currency')
             ->orderByDesc('total')
@@ -74,18 +73,22 @@ class CasinoOverview extends StatsOverviewWidget
         return $stats;
     }
 
-    /** GGR per hour for the last 12 hours (one currency), for the sparkline. */
+    /**
+     * GGR per hour for the last 12 hours (one currency), for the sparkline.
+     *
+     * @return list<float>
+     */
     private function hourlyGgr(string $currency): array
     {
         return collect(range(11, 0))
-            ->map(function (int $hoursAgo) use ($currency) {
+            ->map(function (int $hoursAgo) use ($currency): float {
                 $from = now()->subHours($hoursAgo)->startOfHour();
                 $to = (clone $from)->addHour();
 
-                $row = GameRound::query()
+                $row = DB::table('game_rounds')
                     ->where('currency', $currency)
                     ->whereBetween('played_at', [$from, $to])
-                    ->selectRaw('SUM(bet) AS bet, SUM(win) AS win')
+                    ->selectRaw('COALESCE(SUM(bet), 0) AS bet, COALESCE(SUM(win), 0) AS win')
                     ->first();
 
                 return round((float) $row->bet - (float) $row->win, 2);

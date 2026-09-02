@@ -8,6 +8,7 @@ use App\Enums\ShopStatus;
 use App\Enums\TxnDirection;
 use App\Enums\TxnSource;
 use App\Enums\UserStatus;
+use App\Models\Category;
 use App\Models\Game;
 use App\Models\GameBank;
 use App\Models\GameRound;
@@ -29,18 +30,48 @@ class DemoDataSeeder extends Seeder
     {
         $roles = Role::pluck('id', 'slug');
 
-        $templates = collect([
-            ['Sweet Bonanza', 'pragmatic'], ['Gates of Olympus', 'pragmatic'],
-            ['Book of Ra', 'gaminator'], ['Sizzling Hot', 'gaminator'],
-            ['Dolphins Pearl', 'merkur'], ['Lucky Ladys Charm', 'merkur'],
-        ])->map(fn ($t) => GameTemplate::firstOrCreate(
+        $rows = [
+            ['Sweet Bonanza', 'pragmatic', 'high'], ['Gates of Olympus', 'pragmatic', 'high'],
+            ['Book of Ra', 'gaminator', 'high'], ['Sizzling Hot', 'gaminator', 'medium'],
+            ['Dolphins Pearl', 'merkur', 'medium'], ['Lucky Ladys Charm', 'merkur', 'low'],
+        ];
+
+        // Provider / type groupings are Categories (admin-managed), not code.
+        $categories = collect(['Slots', 'Pragmatic', 'Gaminator', 'Merkur', 'Wazdan', 'NetGame', 'Arcade'])
+            ->mapWithKeys(fn ($t) => [strtolower($t) => Category::firstOrCreate(
+                ['shop_id' => null, 'slug' => Str::slug($t)],
+                ['title' => $t, 'position' => 0],
+            )]);
+
+        /** @var array<string, string> code => provider slug */
+        $providerByCode = collect($rows)->mapWithKeys(fn ($t) => [Str::studly($t[0]) => $t[1]])->all();
+
+        $templates = collect($rows)->map(fn ($t) => GameTemplate::firstOrCreate(
             ['code' => Str::studly($t[0])],
             [
                 'title' => $t[0],
-                'provider' => $t[1],
                 'device' => Device::Both->value,
                 'bank_type' => BankType::Slots->value,
                 'default_denomination' => 1,
+                'default_bet_options' => [10, 20, 50, 100, 200],
+                'reel_count' => 5,
+                'row_count' => 3,
+                'symbol_count' => 9,
+                'wild_symbol' => 8,
+                'scatter_symbol' => 7,
+                'wild_multiplier' => 2,
+                'symbols' => range(0, 8),
+                'has_bonus' => true,
+                'has_free_spins' => true,
+                'free_spins_count' => 10,
+                'free_spins_table' => [0, 0, 0, 10, 15, 20],   // by scatter count
+                'free_spins_multiplier' => $t[2] === 'high' ? 3 : 2,
+                'has_gamble' => $t[1] !== 'pragmatic',
+                'gamble_win_chance' => 3,
+                'volatility' => $t[2],
+                'rtp_control_window' => 200,
+                'paytable' => self::demoPaytable(),
+                'reel_strips' => self::demoReelStrips(),
             ],
         ));
 
@@ -78,18 +109,27 @@ class DemoDataSeeder extends Seeder
                 ],
             );
 
-            $games = $templates->map(fn (GameTemplate $tpl) => Game::firstOrCreate(
-                ['shop_id' => $shop->id, 'template_id' => $tpl->id],
-                [
-                    'title' => $tpl->title,
-                    'jackpot_id' => $jackpot->id,
-                    'bank_type' => BankType::Slots->value,
-                    'denomination' => 1,
-                    'bet_options' => [10, 20, 50, 100, 200],
-                    'reserve_percent' => fake()->randomElement([2, 4, 6]),
-                    'total_bet' => 0, 'total_win' => 0,
-                ],
-            ));
+            $games = $templates->map(function (GameTemplate $tpl) use ($shop, $jackpot, $categories, $providerByCode) {
+                $game = Game::firstOrCreate(
+                    ['shop_id' => $shop->id, 'template_id' => $tpl->id],
+                    [
+                        'title' => $tpl->title,
+                        'jackpot_id' => $jackpot->id,
+                        'bank_type' => BankType::Slots->value,
+                        'denomination' => 1,
+                        'bet_options' => [10, 20, 50, 100, 200],
+                        'reserve_percent' => fake()->randomElement([2, 4, 6]),
+                        'total_bet' => 0, 'total_win' => 0,
+                    ],
+                );
+
+                $game->categories()->syncWithoutDetaching(array_filter([
+                    $categories['slots']?->id,
+                    $categories[$providerByCode[$tpl->code] ?? '']?->id,
+                ]));
+
+                return $game;
+            });
 
             // cashier
             $cashier = User::firstOrCreate(
@@ -177,5 +217,39 @@ class DemoDataSeeder extends Seeder
                 $wallet->update(['balance' => $balance]);
             }
         }
+    }
+
+    /** @return array<int, list<int>> symbol => payout per 3/4/5-of-a-kind (idx 2/3/4), × betline */
+    private static function demoPaytable(): array
+    {
+        return [
+            0 => [0, 0, 5, 10, 25, 0],   1 => [0, 0, 5, 10, 25, 0],   2 => [0, 0, 5, 15, 40, 0],
+            3 => [0, 0, 10, 20, 60, 0],  4 => [0, 0, 15, 40, 100, 0], 5 => [0, 0, 20, 60, 150, 0],
+            6 => [0, 0, 25, 100, 250, 0],
+            7 => [0, 0, 2, 5, 20, 0],     // scatter — any-position
+            8 => [0, 0, 0, 0, 0, 0],      // wild — no own payout
+        ];
+    }
+
+    /** @return array<string, list<int>> */
+    private static function demoReelStrips(): array
+    {
+        $strips = [];
+        // weighted bag: low symbols common, high rare, wild/scatter scarce
+        $bag = array_merge(
+            array_fill(0, 8, 0), array_fill(0, 8, 1), array_fill(0, 7, 2), array_fill(0, 6, 3),
+            array_fill(0, 4, 4), array_fill(0, 3, 5), array_fill(0, 2, 6),
+            [7, 7], [8, 8],
+        );
+
+        foreach (['', 'Bonus'] as $variant) {
+            for ($reel = 1; $reel <= 5; $reel++) {
+                $strip = $bag;
+                shuffle($strip);
+                $strips['reelStrip'.$variant.$reel] = array_values($strip);
+            }
+        }
+
+        return $strips;
     }
 }

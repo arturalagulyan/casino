@@ -47,6 +47,15 @@ return [
             'report' => false,
         ],
 
+        // Uploaded game front-end bundles (one extracted zip per game version).
+        // Large binary assets — kept out of the repo, served via GameAssetController.
+        'game_bundles' => [
+            'driver' => 'local',
+            'root' => storage_path('app/game-bundles'),
+            'throw' => false,
+            'report' => false,
+        ],
+
         's3' => [
             'driver' => 's3',
             'key' => env('AWS_ACCESS_KEY_ID'),

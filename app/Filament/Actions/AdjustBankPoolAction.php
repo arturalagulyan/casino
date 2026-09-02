@@ -39,7 +39,7 @@ class AdjustBankPoolAction
                     ->required(),
                 TextInput::make('amount')
                     ->numeric()->minValue(0.01)->required()
-                    ->prefix(fn (GameBank $record) => $record->currency?->value),
+                    ->prefix(fn (GameBank $record) => $record->currency->value),
             ])
             ->action(function (array $data, GameBank $record) {
                 try {

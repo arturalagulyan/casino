@@ -50,6 +50,14 @@ services:
     environment:
       CONTAINER_ROLE: scheduler
 
+  gamesocket:
+    <<: *app
+    command: php artisan game:socket
+    environment:
+      CONTAINER_ROLE: gamesocket
+    ports:
+      - "${GAME_SOCKET_PORT:-2087}:2087"
+
   mysql:
     image: mysql:8.4
     restart: unless-stopped

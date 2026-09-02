@@ -8,7 +8,6 @@ use App\Models\ApiKey;
 use App\Models\Game;
 use App\Models\User;
 use Illuminate\Support\Facades\Crypt;
-use Illuminate\Support\Facades\URL;
 use RuntimeException;
 
 /**
@@ -23,18 +22,17 @@ use RuntimeException;
  */
 class GameLaunch
 {
-    private const TTL_SECONDS = 3600;
+    private const int TTL_SECONDS = 3600;
 
-    /** Upsert the provider's player inside the key's shop and sync their balance. */
+    /**
+     * Upsert the provider's player inside the key's shop and sync their balance.
+     *
+     * @param  array<string, mixed>  $data
+     */
     public function resolvePlayer(ApiKey $apiKey, array $data): User
     {
         $shop = $apiKey->shop;
-
-        if (! $shop) {
-            throw new RuntimeException('API key is not attached to a shop.');
-        }
-
-        $currency = Currency::tryFrom($data['currency'] ?? '') ?? $shop->currency ?? Currency::default();
+        $currency = Currency::tryFrom($data['currency'] ?? '') ?? $shop->currency;
 
         $user = User::firstOrNew([
             'shop_id' => $shop->id,
@@ -116,9 +114,16 @@ class GameLaunch
         return ['user' => $user, 'game' => $game];
     }
 
-    public function launchUrl(string $token): string
+    /**
+     * Absolute, shareable URL an external operator hands to a player. The host
+     * comes from `games.public_url` (may differ from the app's own host).
+     */
+    public function launchUrl(string $token, ?string $code = null): string
     {
-        return URL::route('api.game.play', ['token' => $token]);
+        $base = rtrim((string) config('games.public_url'), '/');
+        $path = $code ? "/games/{$code}" : '/api/game/play';
+
+        return $base.$path.'?token='.rawurlencode($token);
     }
 
     public function ttl(): int

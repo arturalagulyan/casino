@@ -27,6 +27,20 @@ services:
             - meilisearch
             - mailpit
             - selenium
+    gamesocket:
+        image: 'sail-8.5/app'
+        command: 'php artisan game:socket'
+        ports:
+            - '${GAME_SOCKET_PORT:-2087}:2087'
+        environment:
+            WWWUSER: '${WWWUSER}'
+            LARAVEL_SAIL: 1
+        volumes:
+            - '.:/var/www/html'
+        networks:
+            - sail
+        depends_on:
+            - laravel.test
     mysql:
         image: 'mysql:8.4'
         ports:

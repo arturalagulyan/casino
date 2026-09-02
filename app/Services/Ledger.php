@@ -173,7 +173,7 @@ class Ledger
             }
 
             $txn = $this->write(
-                user: $bank->shop?->owner ?? $actor,
+                user: $bank->shop->owner ?? $actor,
                 actor: $actor,
                 shop: $bank->shop,
                 direction: $direction,
@@ -360,14 +360,12 @@ class Ledger
 
     private function lockWallet(User $user): Wallet
     {
-        $wallet = $user->wallet()->lockForUpdate()->first();
-
-        if (! $wallet) {
-            $wallet = $user->wallet()->create([
+        $wallet = $user->wallet()->lockForUpdate()->first()
+            ?? $user->wallet()->create([
                 'currency' => $user->currency ?? $user->shop?->currency ?? Currency::default(),
             ]);
-        }
 
+        /** @var Wallet $wallet */
         return $wallet;
     }
 

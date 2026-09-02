@@ -10,7 +10,7 @@ use App\Models\Jackpot;
 use App\Models\Shop;
 use App\Models\Transaction;
 use App\Models\User;
-use Illuminate\Support\Collection;
+use Illuminate\Database\Eloquent\Collection;
 use Illuminate\Support\Facades\DB;
 
 /**
@@ -61,7 +61,7 @@ class Banker
      */
     public function sweepOverflow(GameBank $bank, BankType $pool, ?User $house = null): float
     {
-        $limit = (float) ($bank->shop?->player_limit ?? 0);
+        $limit = (float) $bank->shop->player_limit;
 
         if ($limit <= 0) {
             return 0.0;
@@ -75,7 +75,7 @@ class Banker
             return 0.0;
         }
 
-        $house ??= $bank->shop?->owner ?? User::whereHas('roles', fn ($q) => $q->where('slug', 'admin'))->first();
+        $house ??= $bank->shop->owner ?? User::whereHas('roles', fn ($q) => $q->where('slug', 'admin'))->first();
 
         if ($house) {
             $this->ledger->adjustBankPool($bank, $pool, $surplus, TxnDirection::Debit, $house, ['reason' => 'overflow_sweep']);
@@ -119,19 +119,24 @@ class Banker
             && ((float) $jackpot->payout_max === 0.0 || $balance <= (float) $jackpot->payout_max);
     }
 
-    /** Total liquidity a shop is holding, per currency. */
+    /**
+     * Total liquidity a shop is holding, per currency.
+     *
+     * @return array<string, float>
+     */
     public function shopLiquidity(Shop $shop): array
     {
-        return $shop->banks()
-            ->get()
-            ->mapWithKeys(fn (GameBank $b) => [
-                ($b->currency?->value ?? 'EUR') => (float) $b->total(),
-            ])
-            ->all();
+        $out = [];
+
+        foreach ($shop->banks as $bank) {
+            $out[$bank->currency->value] = (float) $bank->total();
+        }
+
+        return $out;
     }
 
-    /** @return Collection<int,Transaction> the sweeps in a period */
-    public function sweepsSince(\DateTimeInterface $since)
+    /** @return Collection<int, Transaction> the sweeps in a period */
+    public function sweepsSince(\DateTimeInterface $since): Collection
     {
         return Transaction::query()
             ->where('source', TxnSource::GameBank)

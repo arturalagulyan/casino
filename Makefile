@@ -39,6 +39,14 @@ dev: guard-setup up ## Start EVERYTHING at once: containers + queue + logs + Vit
 		"php artisan pail --timeout=0" \
 		"npm run dev"
 
+.PHONY: socket
+socket: ## Tail the game WebSocket server (runs as the `gamesocket` compose service)
+	docker compose logs -f gamesocket
+
+.PHONY: socket-fg
+socket-fg: ## Run the game WebSocket server in the foreground (stop the compose service first)
+	$(SAIL) artisan game:socket
+
 .PHONY: up
 up: ## Start the containers in the background
 	$(SAIL) up -d

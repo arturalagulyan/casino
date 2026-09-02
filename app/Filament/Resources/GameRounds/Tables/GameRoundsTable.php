@@ -54,7 +54,7 @@ class GameRoundsTable
                 TableFilters::dateRange('played_at', 'Played'),
                 Filter::make('big_wins')
                     ->label('Wins ≥ 50× bet')
-                    ->query(fn (Builder $q) => $q->whereColumn('win', '>=', \DB::raw('bet * 50'))),
+                    ->query(fn (Builder $q) => $q->whereRaw('win >= bet * 50')),
                 Filter::make('today')
                     ->query(fn (Builder $q) => $q->whereDate('played_at', today())),
             ])

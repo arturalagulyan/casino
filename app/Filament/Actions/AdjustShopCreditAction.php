@@ -35,7 +35,7 @@ class AdjustShopCreditAction
                     ->required(),
                 TextInput::make('amount')
                     ->numeric()->minValue(0.01)->required()
-                    ->prefix(fn (Shop $record) => $record->currency?->value)
+                    ->prefix(fn (Shop $record) => $record->currency->value)
                     ->helperText(fn (Shop $record) => new HtmlString(
                         'Current credit: <strong>'.Money::format($record->balance, $record->currency).'</strong>'
                     )),

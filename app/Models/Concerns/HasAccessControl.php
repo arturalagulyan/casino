@@ -4,6 +4,7 @@ namespace App\Models\Concerns;
 
 use App\Models\Permission;
 use App\Models\Role;
+use Illuminate\Database\Eloquent\Collection as EloquentCollection;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 use Illuminate\Support\Collection;
@@ -33,7 +34,8 @@ trait HasAccessControl
     }
 
     /** Every role: the primary (role_id) plus any in role_user. */
-    public function allRoles(): Collection
+    /** @return EloquentCollection<int, Role> */
+    public function allRoles(): EloquentCollection
     {
         return $this->roles
             ->when($this->role_id, fn ($roles) => $roles->push($this->role)->filter())

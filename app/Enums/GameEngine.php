@@ -5,7 +5,7 @@ namespace App\Enums;
 /** How the server side of a game runs. */
 enum GameEngine: string
 {
-    /** Server code shipped with the platform: \App\Games\<Code>\Server */
+    /** Runs on the platform's own engine — App\Services\GamePlay (fully DB-driven). */
     case Internal = 'internal';
     /** Merkur-style proxied game server. */
     case Merkur = 'merkur';

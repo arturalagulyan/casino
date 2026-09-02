@@ -88,7 +88,7 @@ class CashReport extends Page implements HasTable
             ->defaultSort('shop');
     }
 
-    /** @return Collection<int, array<string, mixed>> */
+    /** @param array<string, mixed> $filters @return Collection<int, array<string, mixed>> */
     protected function rows(array $filters): Collection
     {
         [$from, $until] = $this->period($filters);
@@ -105,13 +105,13 @@ class CashReport extends Page implements HasTable
 
         $shops = Shop::whereIn('id', $agg->pluck('shop_id')->unique()->filter())->pluck('name', 'id');
 
-        return $agg->map(function ($r) use ($shops) {
+        return $agg->map(function ($r) use ($shops): array {
             $bet = (float) $r->bet;
             $win = (float) $r->win;
 
             return [
-                'shop' => $shops[$r->shop_id] ?? "#{$r->shop_id}",
-                'currency' => $r->currency instanceof Currency ? $r->currency->value : $r->currency,
+                'shop' => $shops->get($r->shop_id) ?? "#{$r->shop_id}",
+                'currency' => (string) $r->currency,
                 'spins' => (int) $r->spins,
                 'in' => $bet,
                 'out' => $win,

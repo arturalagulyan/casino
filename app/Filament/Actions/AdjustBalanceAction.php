@@ -40,11 +40,11 @@ class AdjustBalanceAction
                     ->numeric()
                     ->minValue(0.01)
                     ->required()
-                    ->prefix(fn (User $record) => $record->wallet?->currency?->value ?? $record->currency?->value)
+                    ->prefix(fn (User $record) => $record->wallet->currency->value)
                     ->helperText(fn (User $record) => new HtmlString(
                         'Current balance: <strong>'.Money::format(
-                            $record->wallet?->balance ?? 0,
-                            $record->wallet?->currency ?? $record->currency
+                            $record->wallet->balance,
+                            $record->wallet->currency,
                         ).'</strong>'
                     )),
                 Textarea::make('note')->rows(2)->maxLength(255),

@@ -4,11 +4,13 @@ namespace App\Filament\Resources\Games\Tables;
 
 use App\Enums\BankType;
 use App\Enums\GameLabel;
+use App\Filament\Actions\PlayDemoAction;
 use Filament\Actions\BulkActionGroup;
 use Filament\Actions\DeleteBulkAction;
 use Filament\Actions\EditAction;
 use Filament\Actions\ViewAction;
 use Filament\Tables\Columns\IconColumn;
+use Filament\Tables\Columns\ImageColumn;
 use Filament\Tables\Columns\TextColumn;
 use Filament\Tables\Filters\SelectFilter;
 use Filament\Tables\Filters\TernaryFilter;
@@ -20,6 +22,11 @@ class GamesTable
     {
         return $table
             ->columns([
+                ImageColumn::make('template.poster_path')
+                    ->label('Poster')
+                    ->disk('public')
+                    ->height(40)
+                    ->extraImgAttributes(['loading' => 'lazy']),
                 TextColumn::make('shop.name')
                     ->searchable(),
                 TextColumn::make('template.title')
@@ -94,6 +101,7 @@ class GamesTable
                     ),
             ])
             ->recordActions([
+                PlayDemoAction::make(),
                 ViewAction::make(),
                 EditAction::make(),
             ])

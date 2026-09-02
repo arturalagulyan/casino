@@ -49,7 +49,7 @@ class UsersTable
                     ->label('Balance')
                     ->formatStateUsing(fn ($state, $record) => $state === null
                         ? '—'
-                        : Money::format($state, $record->wallet?->currency ?? $record->currency))
+                        : Money::format($state, $record->wallet->currency))
                     ->sortable()
                     ->alignEnd(),
                 TextColumn::make('status')

@@ -5,12 +5,14 @@ namespace App\Filament\Resources\GameTemplates\Tables;
 use App\Enums\BankType;
 use App\Enums\Device;
 use App\Enums\GameEngine;
-use App\Models\GameTemplate;
+use App\Filament\Actions\PlayDemoAction;
+use App\Filament\Actions\UploadGameBundleAction;
 use Filament\Actions\BulkActionGroup;
 use Filament\Actions\DeleteBulkAction;
 use Filament\Actions\EditAction;
 use Filament\Actions\ViewAction;
 use Filament\Tables\Columns\IconColumn;
+use Filament\Tables\Columns\ImageColumn;
 use Filament\Tables\Columns\TextColumn;
 use Filament\Tables\Filters\SelectFilter;
 use Filament\Tables\Filters\TernaryFilter;
@@ -22,41 +24,37 @@ class GameTemplatesTable
     {
         return $table
             ->columns([
+                ImageColumn::make('poster_path')
+                    ->label('Poster')
+                    ->disk('public')
+                    ->height(40)
+                    ->extraImgAttributes(['loading' => 'lazy']),
                 TextColumn::make('code')
-                    ->searchable(),
+                    ->weight('bold')
+                    ->searchable()
+                    ->sortable(),
                 TextColumn::make('title')
-                    ->searchable(),
-                TextColumn::make('provider')
                     ->searchable(),
                 TextColumn::make('engine')
                     ->badge()
                     ->searchable(),
-                TextColumn::make('package_path')
-                    ->searchable(),
-                TextColumn::make('client_path')
-                    ->searchable(),
-                TextColumn::make('device')
-                    ->badge()
-                    ->searchable(),
                 TextColumn::make('bank_type')
                     ->badge()
-                    ->searchable(),
-                TextColumn::make('default_denomination')
-                    ->numeric()
-                    ->sortable(),
-                TextColumn::make('scale_mode')
+                    ->toggleable(),
+                TextColumn::make('device')
                     ->badge()
-                    ->searchable(),
-                TextColumn::make('view_state')
+                    ->toggleable(),
+                TextColumn::make('front_end')
+                    ->label('Front-end')
                     ->badge()
-                    ->searchable(),
+                    ->state(fn ($record) => $record->activeBundle?->version
+                        ? "v{$record->activeBundle->version}"
+                        : 'not uploaded')
+                    ->color(fn ($state) => str_starts_with((string) $state, 'v') ? 'success' : 'danger'),
                 IconColumn::make('is_active')
+                    ->label('Active')
                     ->boolean(),
                 TextColumn::make('created_at')
-                    ->dateTime()
-                    ->sortable()
-                    ->toggleable(isToggledHiddenByDefault: true),
-                TextColumn::make('updated_at')
                     ->dateTime()
                     ->sortable()
                     ->toggleable(isToggledHiddenByDefault: true),
@@ -68,11 +66,17 @@ class GameTemplatesTable
                     ->options(collect(Device::cases())->mapWithKeys(fn ($c) => [$c->value => ucfirst($c->value)])),
                 SelectFilter::make('bank_type')
                     ->options(collect(BankType::cases())->mapWithKeys(fn ($c) => [$c->value => ucfirst($c->value)])),
-                SelectFilter::make('provider')
-                    ->options(fn () => GameTemplate::query()->whereNotNull('provider')->distinct()->orderBy('provider')->pluck('provider', 'provider')->all()),
                 TernaryFilter::make('is_active')->label('Active'),
+                TernaryFilter::make('has_bundle')
+                    ->label('Front-end uploaded')
+                    ->queries(
+                        true: fn ($q) => $q->whereHas('bundles', fn ($b) => $b->where('is_active', true)),
+                        false: fn ($q) => $q->whereDoesntHave('bundles', fn ($b) => $b->where('is_active', true)),
+                    ),
             ])
             ->recordActions([
+                PlayDemoAction::make(),
+                UploadGameBundleAction::make(),
                 ViewAction::make(),
                 EditAction::make(),
             ])

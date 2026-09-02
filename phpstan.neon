@@ -1,0 +1,15 @@
+includes:
+    - vendor/larastan/larastan/extension.neon
+    # Only entries: nullsafe `?->` on nullable belongsTo relations that Larastan's
+    # model extension wrongly treats as non-nullable. Regenerate with
+    # `phpstan analyse --generate-baseline` once Larastan resolves this.
+    - phpstan-baseline.neon
+
+parameters:
+    level: 5
+    paths:
+        - app
+    databaseMigrationsPath:
+        - database/migrations
+    excludePaths:
+        - app/Filament/Resources/*/Pages/*
