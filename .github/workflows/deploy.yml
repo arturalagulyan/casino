@@ -40,7 +40,12 @@ jobs:
             git reset --hard origin/main
 
             echo "==> Building images"
+            # Authenticate GitHub for Composer package downloads inside the build
+            # (GitHub throttles unauthenticated traffic). compose.prod.yaml reads
+            # GITHUB_TOKEN from the env into the image build args.
+            export GITHUB_TOKEN="${GH_TOKEN}"
             docker compose -f compose.prod.yaml build
+            unset GITHUB_TOKEN
 
             echo "==> Starting containers"
             docker compose -f compose.prod.yaml up -d --remove-orphans

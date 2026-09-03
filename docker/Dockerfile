@@ -4,19 +4,26 @@
 # Stage 1 — Composer dependencies (production only)
 # ---------------------------------------------------------------------------
 FROM composer:2 AS vendor
+
+# A GitHub token so package downloads/clones are authenticated — GitHub now
+# throttles unauthenticated traffic ("temporarily limiting some unauthenticated
+# downloads"). Passed from CI; the build still works without one, just rate-limited.
+ARG GITHUB_TOKEN=""
+
 WORKDIR /app
 COPY . .
+RUN if [ -n "$GITHUB_TOKEN" ]; then composer config --global github-oauth.github.com "$GITHUB_TOKEN"; fi
 # The bare composer image has no ext-intl (filament/support requires it); this
 # stage only *downloads* dependencies — the runtime image in stage 3 installs
-# every extension — so skip its platform checks.
-RUN composer install \
-      --no-dev \
-      --no-scripts \
-      --no-interaction \
-      --no-progress \
-      --prefer-dist \
-      --ignore-platform-reqs \
-      --optimize-autoloader
+# every extension — so skip its platform checks. Retry: GitHub occasionally
+# throttles even authenticated bursts ("retry later").
+RUN n=0; until composer install \
+        --no-dev --no-scripts --no-interaction --no-progress \
+        --prefer-dist --ignore-platform-reqs --optimize-autoloader; do \
+      n=$((n + 1)); \
+      [ "$n" -ge 5 ] && { echo "composer install failed after 5 attempts"; exit 1; }; \
+      echo "composer install failed (attempt ${n}/5); retrying in 20s"; sleep 20; \
+    done
 
 # ---------------------------------------------------------------------------
 # Stage 2 — Front-end asset build (Vite)
@@ -36,10 +43,13 @@ RUN npm run build
 # ---------------------------------------------------------------------------
 FROM php:8.4-fpm-alpine AS app
 
-# System deps + PHP extensions
+ARG GITHUB_TOKEN=""
+
+# System deps + PHP extensions (install-php-extensions pulls sources from GitHub;
+# the token keeps it off the unauthenticated rate limit).
 COPY --from=mlocati/php-extension-installer:latest /usr/bin/install-php-extensions /usr/local/bin/
 RUN apk add --no-cache su-exec \
- && install-php-extensions \
+ && GITHUB_API_TOKEN="$GITHUB_TOKEN" install-php-extensions \
       pdo_mysql \
       mbstring \
       bcmath \

@@ -5,6 +5,10 @@ x-app: &app
     context: .
     dockerfile: docker/Dockerfile
     target: app
+    args:
+      # Authenticates GitHub package downloads during the build (unauthenticated
+      # traffic is now throttled). Supplied by the deploy job; empty otherwise.
+      GITHUB_TOKEN: "${GITHUB_TOKEN:-}"
   image: casino-app:latest
   restart: unless-stopped
   # Laravel reads its own .env file (correct ${VAR} interpolation); it is
@@ -29,6 +33,8 @@ services:
       context: .
       dockerfile: docker/Dockerfile
       target: web
+      args:
+        GITHUB_TOKEN: "${GITHUB_TOKEN:-}"
     image: casino-web:latest
     restart: unless-stopped
     ports:
