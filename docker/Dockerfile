@@ -26,6 +26,9 @@ WORKDIR /app
 COPY package.json package-lock.json ./
 RUN npm ci --no-audit --no-fund
 COPY . .
+# The admin theme CSS (@import + @source) pulls from Filament's PHP package, so
+# the built vendor tree has to be present for the Tailwind/Vite build.
+COPY --from=vendor /app/vendor ./vendor
 RUN npm run build
 
 # ---------------------------------------------------------------------------
