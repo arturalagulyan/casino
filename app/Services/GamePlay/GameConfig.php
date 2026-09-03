@@ -4,6 +4,7 @@ namespace App\Services\GamePlay;
 
 use App\Enums\BonusFlow;
 use App\Enums\ClientProtocol;
+use App\Enums\Currency;
 use App\Enums\Volatility;
 use App\Models\Category;
 use App\Models\Game;
@@ -43,6 +44,8 @@ class GameConfig
     public function __construct(
         public readonly GameTemplate $template,
         public readonly Game $game,
+        /** The player's currency for this session — scales the denomination off `pricingCurrency()`. Null = no scaling (return the priced values as-is). */
+        public readonly ?Currency $currency = null,
     ) {}
 
     /** Memoise an accessor's result (the spin loop calls them thousands of times). */
@@ -469,9 +472,31 @@ class GameConfig
         return array_values(array_map('floatval', $opts));
     }
 
+    /** Priced denomination, scaled into the session currency (see CurrencyScaler). */
     public function denomination(): float
     {
+        return $this->once('denomination', fn () => app(CurrencyScaler::class)->denomination(
+            $this->baseDenomination(),
+            $this->pricingCurrency(),
+            $this->currency,
+        ));
+    }
+
+    /** Denomination as configured, in the game's pricing currency (no FX applied). */
+    public function baseDenomination(): float
+    {
         return (float) ($this->game->denomination ?: $this->template->default_denomination ?: 1);
+    }
+
+    /** The currency `bet_options` / `denomination` are priced in: game → template → EUR. */
+    public function pricingCurrency(): Currency
+    {
+        $value = $this->game->getAttribute('pricing_currency')
+            ?? $this->template->getAttribute('pricing_currency');
+
+        return $value instanceof Currency
+            ? $value
+            : (Currency::tryFrom((string) $value) ?? Currency::default());
     }
 
     // ---- serialisation for the client ---------------------------

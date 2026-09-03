@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use App\Enums\Currency;
 use App\Models\Concerns\ScopedToShopHierarchy;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Collection;
@@ -16,6 +17,7 @@ use Illuminate\Support\Carbon;
  * @property int $id
  * @property int|null $shop_id
  * @property string $name
+ * @property Currency|null $currency
  * @property numeric $balance
  * @property numeric $contribution_percent
  * @property numeric $seed_min
@@ -40,6 +42,7 @@ use Illuminate\Support\Carbon;
  * @method static Builder<static>|Jackpot whereBalance($value)
  * @method static Builder<static>|Jackpot whereContributionPercent($value)
  * @method static Builder<static>|Jackpot whereCreatedAt($value)
+ * @method static Builder<static>|Jackpot whereCurrency($value)
  * @method static Builder<static>|Jackpot whereId($value)
  * @method static Builder<static>|Jackpot whereIsActive($value)
  * @method static Builder<static>|Jackpot whereLastWinnerId($value)
@@ -64,6 +67,7 @@ class Jackpot extends Model
     protected function casts(): array
     {
         return [
+            'currency' => Currency::class,
             'balance' => 'decimal:6',
             'contribution_percent' => 'decimal:2',
             'seed_min' => 'decimal:4',
@@ -79,6 +83,18 @@ class Jackpot extends Model
     public function shop(): BelongsTo
     {
         return $this->belongsTo(Shop::class);
+    }
+
+    /**
+     * The pool's effective home currency: the explicit column, else the shop's
+     * currency, else EUR (a global pool with no shop). Every FX conversion in
+     * and out of this pool is anchored here.
+     */
+    public function poolCurrency(): Currency
+    {
+        return $this->currency
+            ?? $this->shop?->currency
+            ?? Currency::default();
     }
 
     public function lastWinner(): BelongsTo

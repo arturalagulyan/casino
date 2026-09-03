@@ -16,6 +16,7 @@ use App\Models\Shop;
 use App\Models\User;
 use App\Models\Wallet;
 use App\Services\Banker;
+use App\Services\Fx;
 use App\Services\Ledger;
 use Illuminate\Database\Eloquent\Collection;
 use Illuminate\Support\Facades\DB;
@@ -74,7 +75,7 @@ class GameContext
 
     public function config(): GameConfig
     {
-        return $this->config ??= new GameConfig($this->game->template, $this->game);
+        return $this->config ??= new GameConfig($this->game->template, $this->game, $this->currency);
     }
 
     public function wallet(): Wallet
@@ -202,11 +203,12 @@ class GameContext
         $bank = $this->ensureBank();
         $toBank = round($stake * $this->rtpTarget() / 100, 4);
 
+        // The pool is fed the FX-converted equivalent; the slice taken out of
+        // *this* player's stake for the round split stays in their currency.
         $toJackpot = 0.0;
         foreach ($this->jackpots() as $jackpot) {
-            $before = (float) $jackpot->balance;
-            $new = $this->banker->contributeToJackpot($jackpot, $stake);
-            $toJackpot += max(0.0, $new - $before);
+            $this->banker->contributeToJackpot($jackpot, $stake, $this->currency);
+            $toJackpot += round($stake * (float) $jackpot->contribution_percent / 100, 4);
         }
 
         DB::transaction(function () use ($bank, $toBank) {
@@ -284,7 +286,9 @@ class GameContext
     public function awardJackpot(Jackpot $jackpot): float
     {
         if ($this->demo) {
-            $amount = (float) $jackpot->balance;
+            $amount = app(Fx::class)->convert(
+                (float) $jackpot->balance, $jackpot->poolCurrency(), $this->currency,
+            );
             $this->wallet()->increment('balance', $amount);
 
             return $amount;

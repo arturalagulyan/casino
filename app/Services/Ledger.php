@@ -25,6 +25,8 @@ use RuntimeException;
  */
 class Ledger
 {
+    public function __construct(private Fx $fx) {}
+
     /**
      * Move a player's real balance. A cashier deposit (source=handpay) also
      * drains / refills the shop credit float, exactly like the legacy flow.
@@ -215,7 +217,7 @@ class Ledger
                 source: TxnSource::Jackpot,
                 amount: abs($delta),
                 balanceBefore: $before,
-                currency: $jackpot->shop?->currency ?? Currency::default(),
+                currency: $jackpot->poolCurrency(),
                 context: [],
                 title: $jackpot->name,
             );
@@ -237,13 +239,20 @@ class Ledger
                 throw new RuntimeException('No winner to pay this jackpot to.');
             }
 
-            $amount = (float) $jackpot->balance;
+            $poolAmount = (float) $jackpot->balance;
 
-            if ($amount <= 0) {
+            if ($poolAmount <= 0) {
                 throw new RuntimeException('Jackpot balance is zero.');
             }
 
             $wallet = $this->lockWallet($winner);
+            $currency = $wallet->currency ?? $jackpot->shop?->currency ?? Currency::default();
+
+            // The pool is denominated in its own currency; pay the winner the
+            // FX-converted equivalent in their wallet currency.
+            $poolCurrency = $jackpot->poolCurrency();
+            $amount = round($this->fx->convert($poolAmount, $poolCurrency, $currency), $currency->decimals());
+            $rate = $poolAmount > 0 ? $amount / $poolAmount : 1.0;
 
             $txn = $this->write(
                 user: $winner,
@@ -253,8 +262,12 @@ class Ledger
                 source: TxnSource::Jackpot,
                 amount: $amount,
                 balanceBefore: (float) $wallet->balance,
-                currency: $wallet->currency ?? $jackpot->shop?->currency ?? Currency::default(),
-                context: $context,
+                currency: $currency,
+                context: $context + ($poolCurrency !== $currency ? [
+                    'jackpot_pool_amount' => $poolAmount,
+                    'jackpot_pool_currency' => $poolCurrency->value,
+                    'fx_rate' => round($rate, 8),
+                ] : []),
                 title: "Jackpot: {$jackpot->name}",
             );
 
@@ -265,7 +278,7 @@ class Ledger
                 'user_id' => $winner->id,
                 'shop_id' => $winner->shop_id ?? $jackpot->shop_id,
                 'amount' => $amount,
-                'balance_before' => $jackpot->balance,
+                'balance_before' => $poolAmount,
                 'won_at' => now(),
             ]);
 
@@ -273,7 +286,7 @@ class Ledger
                 'balance' => 0,
                 'last_winner_id' => $winner->id,
                 'last_won_at' => now(),
-                'last_won_amount' => $amount,
+                'last_won_amount' => $poolAmount,
             ]);
 
             return $txn;

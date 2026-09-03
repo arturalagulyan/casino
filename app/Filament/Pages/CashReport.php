@@ -51,7 +51,7 @@ class CashReport extends Page implements HasTable
             ->records(fn (?array $filters): Collection => $this->rows($filters ?? []))
             ->columns([
                 TextColumn::make('shop')->label('Shop')->weight('bold')->sortable(),
-                TextColumn::make('currency')->badge()->color('gray'),
+                TextColumn::make('currency')->badge()->color('gray')->html()->formatStateUsing(fn ($state) => Currency::chipFor($state)),
                 TextColumn::make('spins')->numeric()->alignEnd()->sortable(),
                 TextColumn::make('in')
                     ->label('In (bet)')

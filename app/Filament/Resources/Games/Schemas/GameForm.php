@@ -3,6 +3,7 @@
 namespace App\Filament\Resources\Games\Schemas;
 
 use App\Enums\BankType;
+use App\Enums\Currency;
 use App\Enums\GameLabel;
 use App\Enums\ScaleMode;
 use App\Enums\ViewState;
@@ -60,6 +61,10 @@ class GameForm
                     ->schema([
                         JsonField::make('bet_options')->rows(2)->helperText('JSON array — blank inherits the template.'),
                         TextInput::make('denomination')->numeric()->default(1)->required(),
+                        Select::make('pricing_currency')
+                            ->options(Currency::options())
+                            ->searchable()
+                            ->helperText('Blank inherits the template. Currency the bet ladder is priced in; other currencies scale by FX.'),
                         Select::make('scale_mode')->options(ScaleMode::class)->default(''),
                         Select::make('view_state')->options(ViewState::class)->default(''),
                     ]),

@@ -52,7 +52,7 @@ class GameStatReport extends Page implements HasTable
             ->columns([
                 TextColumn::make('game')->label('Game')->weight('bold')->sortable(),
                 TextColumn::make('shop')->badge()->color('gray')->sortable(),
-                TextColumn::make('currency')->badge()->color('gray'),
+                TextColumn::make('currency')->badge()->color('gray')->html()->formatStateUsing(fn ($state) => Currency::chipFor($state)),
                 TextColumn::make('spins')->numeric()->alignEnd()->sortable(),
                 TextColumn::make('in')
                     ->alignEnd()->sortable()

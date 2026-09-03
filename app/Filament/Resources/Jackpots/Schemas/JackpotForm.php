@@ -2,6 +2,7 @@
 
 namespace App\Filament\Resources\Jackpots\Schemas;
 
+use App\Enums\Currency;
 use Filament\Forms\Components\DateTimePicker;
 use Filament\Forms\Components\Select;
 use Filament\Forms\Components\TextInput;
@@ -18,6 +19,10 @@ class JackpotForm
                     ->relationship('shop', 'name'),
                 TextInput::make('name')
                     ->required(),
+                Select::make('currency')
+                    ->options(Currency::options())
+                    ->searchable()
+                    ->helperText('Pool home currency. Stakes convert in, payouts convert out. Blank = shop currency.'),
                 TextInput::make('balance')
                     ->required()
                     ->numeric()

@@ -2,6 +2,7 @@
 
 namespace App\Filament\Resources\Users\Schemas;
 
+use App\Enums\Currency;
 use App\Models\User;
 use Filament\Infolists\Components\IconEntry;
 use Filament\Infolists\Components\TextEntry;
@@ -46,6 +47,9 @@ class UserInfolist
                     ->placeholder('-'),
                 TextEntry::make('language'),
                 TextEntry::make('currency')
+                    ->badge()
+                    ->html()
+                    ->formatStateUsing(fn ($state) => Currency::chipFor($state))
                     ->placeholder('-'),
                 TextEntry::make('rating')
                     ->numeric(),

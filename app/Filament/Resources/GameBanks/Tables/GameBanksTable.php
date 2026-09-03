@@ -2,6 +2,7 @@
 
 namespace App\Filament\Resources\GameBanks\Tables;
 
+use App\Enums\Currency;
 use App\Filament\Actions\AdjustBankPoolAction;
 use App\Filament\Support\TableFilters;
 use App\Support\Money;
@@ -23,7 +24,7 @@ class GameBanksTable
         return $table
             ->columns([
                 TextColumn::make('shop.name')->weight('bold')->searchable()->sortable(),
-                TextColumn::make('currency')->badge()->color('gray')->formatStateUsing(fn ($state) => $state?->value),
+                TextColumn::make('currency')->badge()->color('gray')->html()->formatStateUsing(fn ($state) => Currency::chipFor($state)),
                 $pool('slots', 'Slots'),
                 $pool('little', 'Little'),
                 $pool('table_bank', 'Table'),

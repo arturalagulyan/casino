@@ -37,7 +37,7 @@ class AdminPanelTest extends TestCase
 
         $slugs = [
             'shops', 'users', 'api-keys', 'operators', 'game-templates', 'games', 'categories',
-            'jackpots', 'game-banks', 'transactions', 'game-rounds', 'roles', 'permissions',
+            'jackpots', 'game-banks', 'currency-rates', 'transactions', 'game-rounds', 'roles', 'permissions',
         ];
 
         foreach ($slugs as $slug) {

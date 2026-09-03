@@ -2,6 +2,7 @@
 
 namespace App\Filament\Resources\GameRounds\Tables;
 
+use App\Enums\Currency;
 use App\Filament\Support\TableFilters;
 use App\Support\Money;
 use Filament\Actions\ViewAction;
@@ -30,7 +31,7 @@ class GameRoundsTable
                     ->label('Game')
                     ->description(fn ($record) => $record->game_code)
                     ->searchable(),
-                TextColumn::make('currency')->badge()->color('gray')->formatStateUsing(fn ($state) => $state?->value),
+                TextColumn::make('currency')->badge()->color('gray')->html()->formatStateUsing(fn ($state) => Currency::chipFor($state)),
                 $money('bet', 'Bet'),
                 $money('win', 'Win')->color(fn ($state) => (float) $state > 0 ? 'success' : 'gray'),
                 TextColumn::make('result')

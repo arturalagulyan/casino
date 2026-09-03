@@ -3,6 +3,7 @@
 namespace App\Models;
 
 use App\Enums\BankType;
+use App\Enums\Currency;
 use App\Enums\GameLabel;
 use App\Enums\ScaleMode;
 use App\Enums\ViewState;
@@ -46,6 +47,7 @@ use Illuminate\Support\Carbon;
  * @property array<array-key, mixed>|null $engine_state
  * @property array<array-key, mixed>|null $bet_options
  * @property numeric $denomination
+ * @property Currency|null $pricing_currency
  * @property ScaleMode|null $scale_mode
  * @property ViewState|null $view_state
  * @property bool $is_visible
@@ -85,6 +87,7 @@ use Illuminate\Support\Carbon;
  * @method static Builder<static>|Game whereLinesConfigSpin($value)
  * @method static Builder<static>|Game whereLinesConfigSpinBonus($value)
  * @method static Builder<static>|Game whereMaxWinMultiplier($value)
+ * @method static Builder<static>|Game wherePricingCurrency($value)
  * @method static Builder<static>|Game whereReservePercent($value)
  * @method static Builder<static>|Game whereRoundsCount($value)
  * @method static Builder<static>|Game whereRtpPercent($value)
@@ -128,6 +131,7 @@ class Game extends Model
             'engine_state' => 'array',
             'bet_options' => 'array',
             'denomination' => 'decimal:4',
+            'pricing_currency' => Currency::class,
             'is_visible' => 'boolean',
             'total_bet' => 'decimal:4',
             'total_win' => 'decimal:4',

@@ -2,6 +2,7 @@
 
 namespace App\Filament\Resources\Shops\Tables;
 
+use App\Enums\Currency;
 use App\Enums\GameOrder;
 use App\Enums\ShopStatus;
 use App\Filament\Actions\AdjustShopCreditAction;
@@ -38,7 +39,8 @@ class ShopsTable
                 TextColumn::make('currency')
                     ->badge()
                     ->color('gray')
-                    ->formatStateUsing(fn ($state) => $state->value)
+                    ->html()
+                    ->formatStateUsing(fn ($state) => Currency::chipFor($state))
                     ->sortable(),
                 TextColumn::make('balance')
                     ->label('Credit')

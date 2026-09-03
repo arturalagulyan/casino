@@ -245,14 +245,18 @@ class LegacyImport
 
     private function jackpots(): void
     {
+        $shopCurrency = Shop::pluck('currency', 'id')->all();
+
         foreach ($this->legacy('jpg')->whereIn('shop_id', $this->liveShopIds)->get() as $j) {
             $shopId = $this->shopMap[$j->shop_id] ?? null;
             if (! $shopId) {
                 continue;
             }
+            $currency = $shopCurrency[$shopId] ?? null;
             $jp = Jackpot::updateOrCreate(
                 ['shop_id' => $shopId, 'name' => $j->name ?: "JPG {$j->id}"],
                 [
+                    'currency' => $currency instanceof Currency ? $currency->value : $currency,
                     'balance' => $j->balance,
                     'contribution_percent' => $j->percent,
                     'seed_min' => $j->start_balance,

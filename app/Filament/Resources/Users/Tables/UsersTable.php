@@ -2,6 +2,7 @@
 
 namespace App\Filament\Resources\Users\Tables;
 
+use App\Enums\Currency;
 use App\Enums\UserStatus;
 use App\Filament\Actions\AdjustBalanceAction;
 use App\Filament\Support\TableFilters;
@@ -42,7 +43,8 @@ class UsersTable
                 TextColumn::make('currency')
                     ->badge()
                     ->color('gray')
-                    ->formatStateUsing(fn ($state) => $state?->value)
+                    ->html()
+                    ->formatStateUsing(fn ($state) => Currency::chipFor($state))
                     ->placeholder('—')
                     ->toggleable(),
                 TextColumn::make('wallet.balance')

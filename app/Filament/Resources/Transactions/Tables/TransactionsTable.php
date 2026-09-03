@@ -2,6 +2,7 @@
 
 namespace App\Filament\Resources\Transactions\Tables;
 
+use App\Enums\Currency;
 use App\Enums\TxnDirection;
 use App\Enums\TxnSource;
 use App\Filament\Support\TableFilters;
@@ -30,7 +31,7 @@ class TransactionsTable
                     ->badge()
                     ->formatStateUsing(fn (TxnDirection $state) => ucfirst($state->value))
                     ->color(fn (TxnDirection $state) => $state === TxnDirection::Credit ? 'success' : 'danger'),
-                TextColumn::make('currency')->badge()->color('gray')->formatStateUsing(fn ($state) => $state?->value)->toggleable(),
+                TextColumn::make('currency')->badge()->color('gray')->html()->formatStateUsing(fn ($state) => Currency::chipFor($state))->toggleable(),
                 TextColumn::make('amount')
                     ->alignEnd()
                     ->weight('bold')

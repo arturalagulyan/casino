@@ -15,8 +15,14 @@ parameters:
 		-
 			message: '#^Using nullsafe property access "\?\-\>currency" on left side of \?\? is unnecessary\. Use \-\> instead\.$#'
 			identifier: nullsafe.neverNull
-			count: 3
+			count: 2
 			path: app/Services/Ledger.php
+
+		-
+			message: '#^Using nullsafe property access "\?\-\>currency" on left side of \?\? is unnecessary\. Use \-\> instead\.$#'
+			identifier: nullsafe.neverNull
+			count: 1
+			path: app/Models/Jackpot.php
 
 		-
 			message: '#^Using nullsafe property access "\?\-\>owner" on left side of \?\? is unnecessary\. Use \-\> instead\.$#'

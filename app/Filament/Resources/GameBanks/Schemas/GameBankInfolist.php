@@ -2,6 +2,7 @@
 
 namespace App\Filament\Resources\GameBanks\Schemas;
 
+use App\Enums\Currency;
 use Filament\Infolists\Components\TextEntry;
 use Filament\Schemas\Schema;
 
@@ -13,7 +14,10 @@ class GameBankInfolist
             ->components([
                 TextEntry::make('shop.name')
                     ->label('Shop'),
-                TextEntry::make('currency'),
+                TextEntry::make('currency')
+                    ->badge()
+                    ->html()
+                    ->formatStateUsing(fn ($state) => Currency::chipFor($state)),
                 TextEntry::make('slots')
                     ->numeric(),
                 TextEntry::make('little')

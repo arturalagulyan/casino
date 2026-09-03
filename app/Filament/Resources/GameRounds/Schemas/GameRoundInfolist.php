@@ -2,6 +2,7 @@
 
 namespace App\Filament\Resources\GameRounds\Schemas;
 
+use App\Enums\Currency;
 use Filament\Infolists\Components\TextEntry;
 use Filament\Schemas\Schema;
 
@@ -19,7 +20,10 @@ class GameRoundInfolist
                     ->label('Game')
                     ->placeholder('-'),
                 TextEntry::make('game_code'),
-                TextEntry::make('currency'),
+                TextEntry::make('currency')
+                    ->badge()
+                    ->html()
+                    ->formatStateUsing(fn ($state) => Currency::chipFor($state)),
                 TextEntry::make('bet')
                     ->numeric(),
                 TextEntry::make('win')

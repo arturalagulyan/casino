@@ -2,6 +2,7 @@
 
 namespace App\Filament\Resources\Jackpots\Schemas;
 
+use App\Support\Money;
 use Filament\Infolists\Components\IconEntry;
 use Filament\Infolists\Components\TextEntry;
 use Filament\Schemas\Schema;
@@ -16,8 +17,13 @@ class JackpotInfolist
                     ->label('Shop')
                     ->placeholder('-'),
                 TextEntry::make('name'),
+                TextEntry::make('currency')
+                    ->label('Pool currency')
+                    ->html()
+                    ->state(fn ($record) => $record->poolCurrency()->chip())
+                    ->badge(),
                 TextEntry::make('balance')
-                    ->numeric(),
+                    ->formatStateUsing(fn ($state, $record) => Money::format($state, $record->poolCurrency())),
                 TextEntry::make('contribution_percent')
                     ->numeric(),
                 TextEntry::make('seed_min')

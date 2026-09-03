@@ -4,6 +4,7 @@ namespace App\Models;
 
 use App\Enums\BankType;
 use App\Enums\ClientProtocol;
+use App\Enums\Currency;
 use App\Enums\Device;
 use App\Enums\GameEngine;
 use App\Enums\ScaleMode;
@@ -37,6 +38,7 @@ use Illuminate\Support\Facades\Storage;
  * @property array<array-key, mixed>|null $bonus_config
  * @property array<array-key, mixed>|null $default_bet_options
  * @property numeric $default_denomination
+ * @property Currency $pricing_currency
  * @property array<array-key, mixed>|null $default_lines_config
  * @property array<array-key, mixed>|null $default_jackpot_chances
  * @property array<array-key, mixed>|null $default_advanced
@@ -110,6 +112,7 @@ use Illuminate\Support\Facades\Storage;
  * @method static Builder<static>|GameTemplate wherePackagePath($value)
  * @method static Builder<static>|GameTemplate wherePaylines($value)
  * @method static Builder<static>|GameTemplate wherePaytable($value)
+ * @method static Builder<static>|GameTemplate wherePricingCurrency($value)
  * @method static Builder<static>|GameTemplate whereReelCount($value)
  * @method static Builder<static>|GameTemplate whereReelStrips($value)
  * @method static Builder<static>|GameTemplate whereRowCount($value)
@@ -152,6 +155,7 @@ class GameTemplate extends Model
             'default_jackpot_chances' => 'array',
             'default_advanced' => 'array',
             'default_denomination' => 'decimal:4',
+            'pricing_currency' => Currency::class,
             'has_bonus' => 'boolean',
             'has_free_spins' => 'boolean',
             'has_gamble' => 'boolean',

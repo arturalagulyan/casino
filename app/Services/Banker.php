@@ -3,6 +3,7 @@
 namespace App\Services;
 
 use App\Enums\BankType;
+use App\Enums\Currency;
 use App\Enums\TxnDirection;
 use App\Enums\TxnSource;
 use App\Models\GameBank;
@@ -23,7 +24,10 @@ use Illuminate\Support\Facades\DB;
  */
 class Banker
 {
-    public function __construct(private Ledger $ledger) {}
+    public function __construct(
+        private Ledger $ledger,
+        private Fx $fx,
+    ) {}
 
     /**
      * Settle one round's money movement against a shop bank. `$split['bank']` is
@@ -88,18 +92,26 @@ class Banker
 
     /**
      * Accrue a jackpot from a stake slice (legacy w_jpg.percent contribution).
-     * Returns the new pool balance.
+     * The stake is converted from the player's currency into the pool's home
+     * currency before the percent is taken, so a 1000 ALL stake and a €10 stake
+     * feed a EUR pool by the same real amount. Returns the new pool balance
+     * (in the pool's currency).
      */
-    public function contributeToJackpot(Jackpot $jackpot, float $stake): float
+    public function contributeToJackpot(Jackpot $jackpot, float $stake, Currency|string|null $stakeCurrency = null): float
     {
-        return DB::transaction(function () use ($jackpot, $stake) {
+        return DB::transaction(function () use ($jackpot, $stake, $stakeCurrency) {
             $jackpot = Jackpot::whereKey($jackpot->getKey())->lockForUpdate()->first();
 
             if (! $jackpot->is_active) {
                 return (float) $jackpot->balance;
             }
 
-            $contribution = round($stake * (float) $jackpot->contribution_percent / 100, 6);
+            $poolCurrency = $jackpot->poolCurrency();
+            $stakeInPool = $stakeCurrency === null
+                ? $stake
+                : $this->fx->convert($stake, $stakeCurrency, $poolCurrency);
+
+            $contribution = round($stakeInPool * (float) $jackpot->contribution_percent / 100, 6);
             $jackpot->increment('balance', $contribution);
 
             return (float) $jackpot->fresh()->balance;

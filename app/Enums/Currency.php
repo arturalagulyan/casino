@@ -48,10 +48,70 @@ enum Currency: string
     case BTC = 'BTC';
     case MBTC = 'mBTC'; // milli-bitcoin (legacy "mBTC")
 
-    /** Human label for selects. */
+    /** Human label for selects (plain text — no image). */
     public function label(): string
     {
         return "{$this->value} — {$this->currencyName()}";
+    }
+
+    /**
+     * Flag + code as HTML, for Filament columns/entries with `->html()`.
+     * Regional-indicator emoji don't render on Chrome/Windows, so the flag is a
+     * real SVG served from flagcdn.com.
+     */
+    public function chip(): string
+    {
+        $flag = $this->flag();
+
+        return ($flag !== '' ? $flag.' ' : '').e($this->value);
+    }
+
+    /** {@see chip()} tolerant of a raw string / null state (Filament column values). */
+    public static function chipFor(self|string|null $currency): string
+    {
+        if ($currency === null || $currency === '') {
+            return '—';
+        }
+
+        if ($currency instanceof self) {
+            return $currency->chip();
+        }
+
+        return self::tryFrom($currency)?->chip() ?? e($currency);
+    }
+
+    /** ISO 3166-1 alpha-2 region for the flag, or null for supranational / crypto codes. */
+    public function region(): ?string
+    {
+        return match ($this) {
+            self::EUR => 'eu', self::USD => 'us', self::GBP => 'gb', self::AUD => 'au',
+            self::CAD => 'ca', self::NZD => 'nz', self::NOK => 'no', self::SEK => 'se',
+            self::CHF => 'ch', self::ZAR => 'za', self::INR => 'in', self::RUB => 'ru',
+            self::UAH => 'ua', self::GEL => 'ge', self::RON => 'ro', self::HUF => 'hu',
+            self::HRK => 'hr', self::BRL => 'br', self::ARS => 'ar', self::MYR => 'my',
+            self::CNY => 'cn', self::JPY => 'jp', self::KRW => 'kr', self::IDR => 'id',
+            self::VND => 'vn', self::THB => 'th', self::TND => 'tn', self::KES => 'ke',
+            self::ALL => 'al',
+            self::CFA, self::BTC, self::MBTC => null,
+        };
+    }
+
+    /** An `<img>` of the flag (SVG, ~1em tall), or '' for codes with no country. */
+    public function flag(): string
+    {
+        $region = $this->region();
+
+        if ($region === null) {
+            return '';
+        }
+
+        return sprintf(
+            '<img src="https://flagcdn.com/%s.svg" alt="%s" '.
+            'style="display:inline-block;width:auto;height:0.9em;margin-bottom:0.1em;'.
+            'vertical-align:middle;border-radius:2px">',
+            $region,
+            e($this->value),
+        );
     }
 
     public function currencyName(): string
@@ -129,6 +189,12 @@ enum Currency: string
     public function isCrypto(): bool
     {
         return in_array($this, [self::BTC, self::MBTC], true);
+    }
+
+    /** Smallest representable amount (10^-decimals) — the rounding floor for FX-scaled bets. */
+    public function minorUnit(): float
+    {
+        return 10 ** -$this->decimals();
     }
 
     /** [value => label] for Filament selects / filters. */

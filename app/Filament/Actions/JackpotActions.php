@@ -70,7 +70,7 @@ class JackpotActions
                 TextInput::make('balance')
                     ->numeric()->minValue(0)->required()
                     ->default(fn (Jackpot $record) => (float) $record->balance)
-                    ->prefix(fn (Jackpot $record) => $record->shop?->currency?->value),
+                    ->prefix(fn (Jackpot $record) => $record->poolCurrency()->value),
             ])
             ->action(function (array $data, Jackpot $record) {
                 try {

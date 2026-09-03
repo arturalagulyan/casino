@@ -4,6 +4,7 @@ namespace App\Filament\Resources\GameTemplates\Schemas;
 
 use App\Enums\BankType;
 use App\Enums\ClientProtocol;
+use App\Enums\Currency;
 use App\Enums\Device;
 use App\Enums\GameEngine;
 use App\Enums\ScaleMode;
@@ -112,8 +113,12 @@ class GameTemplateForm
                     ->columns(2)
                     ->schema([
                         JsonField::make('default_bet_options', 'Bet options')
-                            ->rows(2)->helperText('JSON array, e.g. [10, 20, 50, 100, 200].'),
+                            ->rows(2)->helperText('JSON array, e.g. [10, 20, 50, 100, 200]. Fixed "credit" values — the same for every currency.'),
                         TextInput::make('default_denomination')->numeric()->default(1)->required(),
+                        Select::make('pricing_currency')
+                            ->options(Currency::options())
+                            ->default('EUR')->required()->searchable()
+                            ->helperText('Currency the bet options / denomination are priced in. Other currencies scale the denomination by the FX rate.'),
                         Select::make('scale_mode')->options(ScaleMode::class)->default(''),
                         Select::make('view_state')->options(ViewState::class)->default(''),
                     ]),

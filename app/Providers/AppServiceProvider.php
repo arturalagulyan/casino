@@ -3,6 +3,7 @@
 namespace App\Providers;
 
 use App\Models\User;
+use App\Services\Fx;
 use App\Services\GamePlay\GameRegistry;
 use App\Services\Legacy\LegacyGameReader;
 use Illuminate\Support\Facades\DB;
@@ -15,6 +16,10 @@ class AppServiceProvider extends ServiceProvider
     {
         // One registry so title/provider overrides registered at boot stick.
         $this->app->singleton(GameRegistry::class);
+
+        // FX rates are read once and reused for the whole request (they don't
+        // move mid-request) — every jackpot conversion + bet scaler shares this.
+        $this->app->singleton(Fx::class);
 
         // Reads a local mirror of the legacy game files (import:legacy). The
         // w_game_path folder map comes from the legacy DB when it's reachable.

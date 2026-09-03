@@ -2,7 +2,9 @@
 
 namespace App\Filament\Resources\Jackpots\Tables;
 
+use App\Enums\Currency;
 use App\Filament\Actions\JackpotActions;
+use App\Services\Fx;
 use App\Support\Money;
 use Filament\Actions\BulkActionGroup;
 use Filament\Actions\DeleteBulkAction;
@@ -18,7 +20,7 @@ class JackpotsTable
 {
     public static function configure(Table $table): Table
     {
-        $shopCurrency = fn ($record) => $record->shop?->currency;
+        $poolCurrency = fn ($record) => $record->poolCurrency();
 
         return $table
             ->columns([
@@ -30,8 +32,18 @@ class JackpotsTable
                 TextColumn::make('name')
                     ->weight('bold')
                     ->searchable(),
+                TextColumn::make('currency')
+                    ->label('Ccy')
+                    ->badge()
+                    ->color('gray')
+                    ->html()
+                    ->state(fn ($record) => $poolCurrency($record)->chip())
+                    ->tooltip(fn ($record) => $record->currency ? null : 'inherited from shop'),
                 TextColumn::make('balance')
-                    ->formatStateUsing(fn ($state, $record) => Money::format($state, $shopCurrency($record)))
+                    ->formatStateUsing(fn ($state, $record) => Money::format($state, $poolCurrency($record)))
+                    ->description(fn ($state, $record) => $poolCurrency($record) === Currency::EUR
+                        ? null
+                        : '≈ '.Money::format(app(Fx::class)->toEur((float) $state, $poolCurrency($record)), Currency::EUR))
                     ->weight('bold')
                     ->color('success')
                     ->alignEnd()
@@ -43,11 +55,11 @@ class JackpotsTable
                     ->sortable(),
                 TextColumn::make('seed_range')
                     ->label('Seed')
-                    ->state(fn ($record) => Money::format($record->seed_min, $shopCurrency($record)).' – '.Money::format($record->seed_max, $shopCurrency($record)))
+                    ->state(fn ($record) => Money::format($record->seed_min, $poolCurrency($record)).' – '.Money::format($record->seed_max, $poolCurrency($record)))
                     ->toggleable(),
                 TextColumn::make('payout_range')
                     ->label('Pays at')
-                    ->state(fn ($record) => Money::format($record->payout_min, $shopCurrency($record)).' – '.Money::format($record->payout_max, $shopCurrency($record)))
+                    ->state(fn ($record) => Money::format($record->payout_min, $poolCurrency($record)).' – '.Money::format($record->payout_max, $poolCurrency($record)))
                     ->toggleable(),
                 TextColumn::make('lastWinner.username')
                     ->label('Last winner')
@@ -63,6 +75,7 @@ class JackpotsTable
             ])
             ->filters([
                 SelectFilter::make('shop')->relationship('shop', 'name'),
+                SelectFilter::make('currency')->options(Currency::options()),
                 TernaryFilter::make('is_active')->label('Active'),
             ])
             ->recordActions([
