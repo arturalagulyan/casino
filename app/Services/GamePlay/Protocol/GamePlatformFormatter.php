@@ -54,13 +54,25 @@ class GamePlatformFormatter
             }
         }
 
+        // The "fake" blur reels the client scrolls behind a spin. The per-game
+        // engines (BaseSlot) only have a static texture for the low plain
+        // symbols and crash (`Cannot read '_frame' of undefined`) on anything
+        // higher — legacy hand-authored these plain-only, so we clamp to the
+        // same safe range.
+        $max = $this->safeMax($cfg);
+        $fake = [];
+        foreach (array_values($cfg->reelStrips(false)) as $strip) {
+            $out = [];
+            foreach (array_slice(array_map('intval', $strip), 0, 20) as $sym) {
+                $out[] = $sym >= 0 && $sym <= $max ? $sym : $sym % ($max + 1);
+            }
+            $fake[] = $out;
+        }
+
         return [
             'paytableCoef' => $coef,
             'scatterCoef' => $scatterCoef ?: (object) [],
-            'mainFakeReels' => array_map(
-                fn ($strip) => array_slice(array_map('intval', $strip), 0, 20),
-                array_values($cfg->reelStrips(false)),
-            ),
+            'mainFakeReels' => $fake,
         ];
     }
 
@@ -75,14 +87,46 @@ class GamePlatformFormatter
         $rows = $cfg->rowCount();
         $out = [];
         for ($reel = 0; $reel < $cfg->reelCount(); $reel++) {
-            $out[] = random_int(0, 6);
+            $out[] = $this->fillerSymbol($cfg);
             for ($r = 0; $r < $rows; $r++) {
                 $out[] = (int) ($board[$reel][$r] ?? 0);
             }
-            $out[] = random_int(0, 6);
+            $out[] = $this->fillerSymbol($cfg);
         }
 
         return $out;
+    }
+
+    /**
+     * Plain paying symbols only — no wild / scatter / bonus. The per-game
+     * engines (BaseSlot especially) have no static texture for the special
+     * symbols and crash (`Cannot read '_frame' of undefined`) if one appears in
+     * the reel window they draw on init.
+     *
+     * @return list<int>
+     */
+    private function plainSymbols(GameConfig $cfg): array
+    {
+        $special = array_filter([$cfg->wildSymbol(), ...$cfg->triggerSymbols()], fn ($s) => $s !== null);
+        $plain = array_values(array_filter($cfg->symbols(), fn ($s) => ! in_array($s, $special, true)));
+
+        return $plain !== [] ? $plain : [0];
+    }
+
+    /**
+     * The always-safe-to-draw symbol range: 0..6 (legacy's `rand(0, 6)` for every
+     * idle / filler cell — the low symbols are the plain card faces every game
+     * has a static texture for; the high indices are wild / scatter / bonus /
+     * special art the per-game engines only draw in specific animated contexts).
+     */
+    private function safeMax(GameConfig $cfg): int
+    {
+        return max(2, min(6, $cfg->symbolCount() - 1));
+    }
+
+    private function fillerSymbol(GameConfig $cfg): int
+    {
+        return random_int(0, $this->safeMax($cfg));
     }
 
     /** `reelsSymbols`-style map for state recovery. */
@@ -111,41 +155,63 @@ class GamePlatformFormatter
     public function recoverReels(?array $payload, ?GameConfig $cfg = null): array
     {
         $stored = $payload['reels'] ?? null;
-        if (is_array($stored) && $stored !== []) {
-            $out = [];
+        if ($cfg && is_array($stored) && $stored !== []) {
+            $board = [];
             foreach ($stored as $col) {
-                $out[] = random_int(0, 6);
-                foreach ((array) $col as $sym) {
-                    $out[] = (int) $sym;
-                }
-                $out[] = random_int(0, 6);
+                $board[] = array_map('intval', (array) $col);
             }
 
-            return $out;
+            return $this->window($cfg, $this->sanitiseBoard($cfg, $board));
         }
 
         return $cfg ? $this->window($cfg, $this->idleBoard($cfg)) : array_map(fn () => random_int(0, 6), range(1, 25));
     }
 
     /**
-     * A plausible idle board: each reel strip cut at a random offset.
+     * A fresh idle board — every cell a low plain symbol (legacy Server.php's
+     * `rand(0, 6)` fill for a session with no last event). Nothing here may carry
+     * wild / scatter / bonus / special art: the per-game engines draw this array
+     * on init and throw `Cannot read '_frame' of undefined` on any symbol they
+     * have no static texture for.
      *
      * @return list<list<int>>
      */
     public function idleBoard(GameConfig $cfg): array
     {
-        $strips = array_values($cfg->reelStrips(false));
-        $rows = $cfg->rowCount();
+        $max = $this->safeMax($cfg);
         $board = [];
         for ($reel = 0; $reel < $cfg->reelCount(); $reel++) {
-            $strip = array_map('intval', $strips[$reel] ?? $strips[0] ?? [0]);
-            $strip = $strip !== [] ? $strip : [0];
-            $at = random_int(0, count($strip) - 1);
             $col = [];
-            for ($r = 0; $r < $rows; $r++) {
-                $col[] = $strip[($at + $r) % count($strip)];
+            for ($r = 0; $r < $cfg->rowCount(); $r++) {
+                $col[] = random_int(0, $max);
             }
             $board[] = $col;
+        }
+
+        return $board;
+    }
+
+    /**
+     * Swap any wild / scatter / bonus symbol on the board for a plain one — the
+     * idle / recovery window the client draws on init can't carry them.
+     *
+     * @param  list<list<int>>  $board
+     * @return list<list<int>>
+     */
+    private function sanitiseBoard(GameConfig $cfg, array $board): array
+    {
+        $special = array_filter([$cfg->wildSymbol(), ...$cfg->triggerSymbols()], fn ($s) => $s !== null);
+        if ($special === []) {
+            return $board;
+        }
+        $plain = $this->plainSymbols($cfg);
+
+        foreach ($board as $reel => $col) {
+            foreach ($col as $r => $sym) {
+                if (in_array($sym, $special, true)) {
+                    $board[$reel][$r] = $plain[($reel + $r) % count($plain)];
+                }
+            }
         }
 
         return $board;

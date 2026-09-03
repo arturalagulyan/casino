@@ -16,6 +16,10 @@ x-app: &app
   volumes:
     - ./.env:/var/www/html/.env:ro
     - ./storage:/var/www/html/storage
+    # Legacy game-file mirror (games-backend / games-frontend / games-icons),
+    # read by `php artisan egt:import` and the other legacy importers. Populated
+    # out of band on the host; absent by default (the importers no-op without it).
+    - "${LEGACY_MIRROR_PATH:-/var/www/casino-legacy}:/var/www/legacy:ro"
   networks:
     - casino
   depends_on:

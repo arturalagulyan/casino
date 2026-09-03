@@ -86,7 +86,7 @@ class BundleManager
      * Used by the legacy import, which has 1000+ multi-hundred-MB game folders
      * already on a local disk — zipping then re-extracting each is pointlessly slow.
      */
-    public function storeFromDirectory(GameTemplate $template, string $sourceDir, ?User $by = null, ?string $entry = null, ?string $notes = null): GameBundle
+    public function storeFromDirectory(GameTemplate $template, string $sourceDir, ?User $by = null, ?string $entry = null, ?string $notes = null, ?string $fallbackEntryHtml = null): GameBundle
     {
         $sourceDir = rtrim(str_replace('\\', '/', $sourceDir), '/');
         if (! is_dir($sourceDir)) {
@@ -146,6 +146,17 @@ class BundleManager
         $foundEntry = $entry === LegacyGameReader::SLOT_EVENT_SHELL
             ? $entry   // no HTML — the shell is synthesised at request time
             : $this->entryResolver->resolve($names, $template->code, $entry);
+
+        // Some legacy downloads are missing the portal shell HTML (the legacy
+        // server generated it per request). Drop a caller-supplied one in.
+        if (! $foundEntry && $fallbackEntryHtml !== null) {
+            file_put_contents($absDir.'/index.html', $fallbackEntryHtml);
+            $names[] = 'index.html';
+            $count++;
+            $bytes += strlen($fallbackEntryHtml);
+            $foundEntry = 'index.html';
+        }
+
         if (! $foundEntry) {
             File::deleteDirectory($absDir);
 

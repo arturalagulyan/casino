@@ -18,4 +18,15 @@ return [
     // Theme whose /frontend/<theme>/ico/<code>.jpg posters to prefer.
     'poster_theme' => env('LEGACY_POSTER_THEME', 'Default'),
     'frontend_path' => env('LEGACY_FRONTEND_PATH', '/var/www/legacy/frontend'),
+
+    /*
+     | Per-game drop the user maintains under $LEGACY_MIRROR_PATH:
+     |   games-backend/<Code>/{SlotSettings.php,Server.php,reels.txt,GameReel.php}
+     |   games-frontend/<Code>/...  (the playable bundle, zipped straight from here)
+     |   games-icons/<Code>.jpg     (poster)
+     | Used by `php artisan egt:import`.
+     */
+    'games_backend_path' => env('LEGACY_GAMES_BACKEND_PATH', '/var/www/legacy/games-backend'),
+    'games_frontend_path' => env('LEGACY_GAMES_FRONTEND_PATH', '/var/www/legacy/games-frontend'),
+    'games_icons_path' => env('LEGACY_GAMES_ICONS_PATH', '/var/www/legacy/games-icons'),
 ];
