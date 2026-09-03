@@ -33,7 +33,11 @@ return [
         'port' => (int) env('GAME_SOCKET_PORT', 2087),
         'workers' => (int) env('GAME_SOCKET_WORKERS', 1),
 
-        'public_host' => env('GAME_SOCKET_PUBLIC_HOST', 'localhost'),
+        // Where the browser is told to open the game WebSocket. Defaults to the
+        // APP_URL host (so a deploy behind http://<ip>:8080 just works) and only
+        // needs setting when the socket is reachable at a different hostname.
+        'public_host' => env('GAME_SOCKET_PUBLIC_HOST')
+            ?: (parse_url((string) env('APP_URL', 'http://localhost'), PHP_URL_HOST) ?: 'localhost'),
         'public_port' => (int) env('GAME_SOCKET_PUBLIC_PORT', (int) env('GAME_SOCKET_PORT', 2087)),
         'scheme' => env('GAME_SOCKET_SCHEME', 'ws'),   // ws | wss
         'path' => env('GAME_SOCKET_PATH', '/slots'),

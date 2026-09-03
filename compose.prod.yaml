@@ -43,6 +43,10 @@ services:
     restart: unless-stopped
     ports:
       - "8080:80"
+    volumes:
+      # nginx serves runtime-written public assets (game posters, bundle files
+      # the app writes at import time) — the baked image only has build assets.
+      - ./storage/app/public:/var/www/html/public/storage:ro
     networks:
       - casino
     depends_on:

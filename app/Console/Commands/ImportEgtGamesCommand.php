@@ -8,6 +8,7 @@ use App\Enums\Currency;
 use App\Enums\GameEngine;
 use App\Models\Category;
 use App\Models\Game;
+use App\Models\GameBank;
 use App\Models\GameTemplate;
 use App\Models\Shop;
 use App\Services\GamePlay\BundleEntryResolver;
@@ -114,7 +115,7 @@ class ImportEgtGamesCommand extends Command
             }
             $shops[$legacyId] = $shop;
             // Make sure the slots pool can pay.
-            /** @var \App\Models\GameBank $bank */
+            /** @var GameBank $bank */
             $bank = $shop->banks()->firstOrCreate(['currency' => $shop->currency->value]);
             if ((float) $bank->slots < 50_000) {
                 $bank->forceFill(['slots' => 250_000])->save();
@@ -155,7 +156,7 @@ class ImportEgtGamesCommand extends Command
                     $attrs['bonus_config'] = self::BONUS_OVERRIDES[$code];
                 }
 
-                $winChances = $legacyOk ? $this->winChances($code) : null;
+                $winChances = ($legacyOk ? $this->winChances($code) : null) ?? $this->bundledWinChances($code);
 
                 $title = $resolver->prettyName($code);
                 $poster = $dry ? null : $this->copyPoster($icons, $code);
@@ -168,7 +169,7 @@ class ImportEgtGamesCommand extends Command
                     'min' => $attrs['min_match'],
                     'lines' => is_array($attrs['paylines']) ? count($attrs['paylines']) : 0,
                     'free' => $attrs['has_free_spins'] ? 'y' : 'n',
-                    'wc' => $winChances ? 'db' : 'default',
+                    'wc' => $winChances ? 'set' : 'default',
                     'warn' => implode('; ', $parser->warnings),
                 ];
 
@@ -300,6 +301,30 @@ class ImportEgtGamesCommand extends Command
         $toInt = fn ($t) => collect($t)->map(fn ($bands) => collect($bands)->map(fn ($v) => (int) $v)->all())->all();
 
         return ['spin' => $toInt($spin), 'bonus' => $toInt($bonus)];
+    }
+
+    /** @var array<string, array>|null */
+    private ?array $bundledWinChances = null;
+
+    /**
+     * Win-chance tables exported from the legacy `w_games` table
+     * (`database/seeders/data/egt-win-chances.json`) — the fallback when the
+     * legacy DB isn't reachable from this box (e.g. the deploy server).
+     *
+     * @return array{spin: array, bonus: array}|null
+     */
+    private function bundledWinChances(string $code): ?array
+    {
+        if ($this->bundledWinChances === null) {
+            $path = database_path('seeders/data/egt-win-chances.json');
+            $this->bundledWinChances = is_file($path)
+                ? (array) json_decode((string) file_get_contents($path), true)
+                : [];
+        }
+
+        $row = $this->bundledWinChances[$code] ?? null;
+
+        return is_array($row) && isset($row['spin'], $row['bonus']) ? $row : null;
     }
 
     private array $legacyRowCache = [];

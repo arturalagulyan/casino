@@ -35,6 +35,7 @@ Thumbs.db
 /storage/legacy
 
 /scratch_sim.php
+/scratchpad
 
 # Windows `> nul` redirect artifact
 /nul
