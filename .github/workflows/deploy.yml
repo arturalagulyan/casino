@@ -12,21 +12,31 @@ concurrency:
 jobs:
   deploy:
     runs-on: ubuntu-latest
+    permissions:
+      contents: read          # lets GITHUB_TOKEN fetch this (private) repo
     steps:
       - name: Deploy over SSH
         uses: appleboy/ssh-action@v1.2.0
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          REPO: ${{ github.repository }}
         with:
           host: ${{ secrets.SSH_HOST }}
           username: ${{ secrets.SSH_USER }}
           password: ${{ secrets.SSH_PASSWORD }}
           port: ${{ secrets.SSH_PORT }}
           command_timeout: 20m
+          envs: GH_TOKEN,REPO
           script: |
             set -euo pipefail
             cd /var/www/casino
 
             echo "==> Pulling latest code"
-            git fetch --all --prune
+            # The server clone has an unauthenticated https:// origin; use this
+            # run's short-lived token just for the fetch, then scrub it back out.
+            git remote set-url origin "https://x-access-token:${GH_TOKEN}@github.com/${REPO}.git"
+            trap 'git remote set-url origin "https://github.com/${REPO}.git"' EXIT
+            git fetch --prune origin
             git reset --hard origin/main
 
             echo "==> Building images"
