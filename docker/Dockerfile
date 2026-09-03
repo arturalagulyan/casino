@@ -6,12 +6,16 @@
 FROM composer:2 AS vendor
 WORKDIR /app
 COPY . .
+# The bare composer image has no ext-intl (filament/support requires it); this
+# stage only *downloads* dependencies — the runtime image in stage 3 installs
+# every extension — so skip its platform checks.
 RUN composer install \
       --no-dev \
       --no-scripts \
       --no-interaction \
       --no-progress \
       --prefer-dist \
+      --ignore-platform-reqs \
       --optimize-autoloader
 
 # ---------------------------------------------------------------------------
