@@ -2,59 +2,62 @@
 
 namespace App\Services\GamePlay\Protocol;
 
-use App\Enums\ClientProtocol;
 use App\Models\Game;
 use App\Models\Shop;
 use App\Services\GamePlay\GameConfig;
 
 /**
  * Builds the `complex` game-list the EGT GamePlatform client expects in its
- * login response — from the shop's actual games on this protocol, not a static
- * catalogue. The client only needs its own entry (matched by gin) but hands the
- * whole map to its lobby.
+ * login response.
  *
- * A game is "on this protocol" if its resolved config (category → template) says
- * so — there is no dedicated field to filter on.
+ * **Single-game launch only.** Every launch opens one specific game in an iframe;
+ * the client boots straight into it when `complex` holds exactly that one entry.
+ * As soon as `complex` has 2+ games the client renders its multi-game *lobby*
+ * (and 404s on every `<GameType>JSlot_idle.png` thumbnail) instead of the game —
+ * which is the "opens a game list" bug. So `for()` returns just the session game.
  */
 class GamePlatformLobby
 {
     /**
+     * @param  Game|null  $current  the session's own game
+     * @param  int|null  $currentGin  gin the client's bundle connected with — must
+     *                                equal the entry's gin (GameAssetController
+     *                                rewrites the bundle to `gin($config)`)
      * @return array<string, list<array<string, mixed>>> gameType => [ entry ]
      */
-    public function for(Shop $shop): array
+    public function for(Shop $shop, ?Game $current = null, ?int $currentGin = null): array
     {
-        $games = Game::query()
-            ->where('shop_id', $shop->id)
-            ->where('is_visible', true)
-            ->with(['template', 'categories'])
-            ->get();
-
-        $list = [];
-        $order = 1;
-
-        foreach ($games as $game) {
-            $config = new GameConfig($game->template, $game);
-            if ($config->clientProtocol() !== ClientProtocol::GamePlatform) {
-                continue;
-            }
-
-            $list[$this->gameType($config)] = [[
-                'gameIdentificationNumber' => $this->gin($config),
-                'recovery' => 'norecovery',
-                'gameName' => $game->title ?? $game->template->title,
-                'featured' => false,
-                'mlmJackpot' => true,
-                'totalBet' => 0,
-                'groups' => [
-                    ['order' => $order, 'name' => 'all'],
-                    ['order' => $order, 'name' => 'myGames'],
-                ],
-                'jackpotGameType' => 'MLMJackpot',
-            ]];
-            $order++;
+        if (! $current) {
+            return [];
         }
 
-        return $list;
+        $config = new GameConfig($current->template, $current);
+
+        return [
+            $this->gameType($config) => [
+                $this->entry($current, $currentGin ?: $this->gin($config), 1),
+            ],
+        ];
+    }
+
+    /**
+     * @return array<string, mixed>
+     */
+    private function entry(Game $game, int $gin, int $order): array
+    {
+        return [
+            'gameIdentificationNumber' => $gin,
+            'recovery' => 'norecovery',
+            'gameName' => $game->title ?? $game->template->title,
+            'featured' => false,
+            'mlmJackpot' => true,
+            'totalBet' => 0,
+            'groups' => [
+                ['order' => $order, 'name' => 'all'],
+                ['order' => $order, 'name' => 'myGames'],
+            ],
+            'jackpotGameType' => 'MLMJackpot',
+        ];
     }
 
     /** Client key for a game — `layout.egt.game_type`, else derived from the code. */

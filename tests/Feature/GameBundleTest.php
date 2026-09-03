@@ -98,7 +98,7 @@ class GameBundleTest extends TestCase
     {
         $tpl = $this->template();
 
-        $this->expectExceptionMessage('no index.html');
+        $this->expectExceptionMessage('no HTML entry');
         app(BundleManager::class)->store($tpl, $this->zip(['readme.txt' => 'nothing here']));
     }
 

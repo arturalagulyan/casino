@@ -27,14 +27,26 @@ class GamesTable
                     ->disk('public')
                     ->height(40)
                     ->extraImgAttributes(['loading' => 'lazy']),
-                TextColumn::make('shop.name')
-                    ->searchable(),
                 TextColumn::make('template.title')
+                    ->label('Game')
+                    ->weight('bold')
+                    ->searchable()
+                    ->sortable(),
+                TextColumn::make('shop.name')
+                    ->badge()
                     ->searchable(),
+                TextColumn::make('categories.title')
+                    ->label('Categories')
+                    ->badge()
+                    ->separator(',')
+                    ->toggleable(),
                 TextColumn::make('jackpot.name')
-                    ->searchable(),
+                    ->searchable()
+                    ->toggleable(),
                 TextColumn::make('title')
-                    ->searchable(),
+                    ->label('Per-shop name')
+                    ->searchable()
+                    ->toggleable(isToggledHiddenByDefault: true),
                 TextColumn::make('label')
                     ->badge()
                     ->searchable(),

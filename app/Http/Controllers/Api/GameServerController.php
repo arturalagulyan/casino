@@ -2,10 +2,13 @@
 
 namespace App\Http\Controllers\Api;
 
+use App\Enums\ClientProtocol;
 use App\Models\GameSession;
 use App\Services\Banker;
+use App\Services\GamePlay\GameConfig;
 use App\Services\GamePlay\GameContext;
 use App\Services\GamePlay\GameRegistry;
+use App\Services\GamePlay\Protocol\SlotEventProtocol;
 use App\Services\Ledger;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -30,7 +33,8 @@ class GameServerController extends Controller
     {
         $token = $request->bearerToken()
             ?? $request->input('session')
-            ?? $request->header('X-Game-Session');
+            ?? $request->header('X-Game-Session')
+            ?? $request->query('sessionId');   // legacy slotEvent bundles
 
         $session = $token
             ? GameSession::where('token', $token)->where('is_active', true)->with('user.wallet', 'game.template', 'game.shop')->first()
@@ -43,8 +47,14 @@ class GameServerController extends Controller
         $session->forceFill(['last_seen_at' => now()])->saveQuietly();
 
         $context = new GameContext($session->user, $session->game, $this->ledger, $this->banker);
+        $protocol = (new GameConfig($session->game->template, $session->game))->clientProtocol();
 
         try {
+            // Legacy `slotEvent` games return their own `{responseEvent,…}` frame.
+            if ($protocol === ClientProtocol::SlotEvent) {
+                return response()->json(app(SlotEventProtocol::class)->dispatch($context, $request->all()));
+            }
+
             $server = $this->registry->for($session->game);
             $result = $server->handle($context, $request->all() + ['command' => $request->input('command', 'init')]);
         } catch (\Throwable $e) {

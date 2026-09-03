@@ -1,5 +1,6 @@
 <?php
 
+use App\Http\Controllers\Api\GameServerController;
 use App\Http\Controllers\DemoPlayController;
 use App\Http\Controllers\GameAssetController;
 use Illuminate\Support\Facades\Route;
@@ -20,6 +21,13 @@ Route::get('games/{code}', [GameAssetController::class, 'play'])->name('games.pl
 Route::get('games/{code}/{path}', [GameAssetController::class, 'asset'])
     ->where('path', '.*')
     ->name('games.asset');
+
+/*
+ * Legacy per-game command endpoint. Novomatic / Greentube (`slotEvent`) bundles
+ * hard-code `POST /game/<Code>/server?sessionId=…` — auth is the game-session
+ * token, CSRF-excluded in bootstrap/app.php.
+ */
+Route::post('game/{code}/server', [GameServerController::class, 'handle'])->name('games.server.legacy');
 
 /*
  * Legacy EGT "GamePlatform" bundles fetch this from an absolute path to learn

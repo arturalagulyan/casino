@@ -69,8 +69,10 @@ class GameSocketCommand extends Command
         $worker->onWorkerStop = fn (Worker $w) => $this->log("worker {$w->id} stopping");
 
         $worker->onMessage = function (TcpConnection $conn, $data) use ($server) {
+            // SocketServer returns ready-to-send frames (each protocol owns its
+            // own framing — GamePlatform prefixes `:::`, Amatic sends raw hex).
             foreach ($this->safeHandle($server, (string) $data) as $message) {
-                $conn->send(':::'.$message);
+                $conn->send($message);
             }
         };
 

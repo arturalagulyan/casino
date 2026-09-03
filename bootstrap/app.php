@@ -17,6 +17,12 @@ return Application::configure(basePath: dirname(__DIR__))
         $middleware->alias([
             'api.key' => ResolveApiKey::class,
         ]);
+
+        // Legacy game bundles POST here cross-site from an <iframe> with a
+        // game-session token — no CSRF cookie.
+        $middleware->validateCsrfTokens(except: [
+            'game/*/server',
+        ]);
     })
     ->withExceptions(function (Exceptions $exceptions): void {
         //

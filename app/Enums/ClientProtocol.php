@@ -19,16 +19,33 @@ enum ClientProtocol: string
     /** login / settings / subscribe / bet handshake over a raw `:::`-framed WebSocket (EGT-style bundles). */
     case GamePlatform = 'game_platform';
 
+    /**
+     * Legacy VanguardLTE `slotEvent` HTTP protocol: `POST /game/{code}/server`
+     * with `{slotEvent:getSettings|bet|freespin|slotGamble|…}` → `{responseEvent,
+     * serverResponse}`. Novomatic / Greentube front-end engine (js/loader.js +
+     * js/core.js, HTML shell synthesised at request time).
+     */
+    case SlotEvent = 'slot_event';
+
+    /**
+     * Legacy Amatic "amarent" protocol: a WebSocket (shared with GamePlatform,
+     * behind App\Services\GamePlay\SocketServer) carrying `{"gameData":"A/uNNN,…"}`
+     * frames and packed hex-string replies. Front-end bundle is `amarent/index.html`.
+     */
+    case Amatic = 'amatic';
+
     public function label(): string
     {
         return match ($this) {
             self::Standard => 'Standard (HTTP JSON)',
             self::GamePlatform => 'GamePlatform (WebSocket)',
+            self::SlotEvent => 'slotEvent (legacy HTTP)',
+            self::Amatic => 'Amatic amarent (WebSocket)',
         };
     }
 
     public function usesWebSocket(): bool
     {
-        return $this === self::GamePlatform;
+        return $this === self::GamePlatform || $this === self::Amatic;
     }
 }

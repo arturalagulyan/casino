@@ -31,6 +31,9 @@ Thumbs.db
 /storage/app/bundles
 /storage/framework/game-socket.pid
 
+# Local mirror of the legacy server's game files, pulled for import:legacy
+/storage/legacy
+
 /scratch_sim.php
 
 # Windows `> nul` redirect artifact

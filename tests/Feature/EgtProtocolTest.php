@@ -84,9 +84,14 @@ class EgtProtocolTest extends TestCase
 
     private function frame(GameSession $session, array $payload): array
     {
-        return app(SocketServer::class)->handle(':::'.json_encode(
-            $payload + ['sessionId' => $session->token, 'messageId' => 'r-r_'.uniqid()],
-        ));
+        // SocketServer now returns ready-to-send frames; GamePlatform ones carry
+        // the legacy `:::` prefix — strip it so the tests can decode the JSON.
+        return array_map(
+            fn (string $f) => str_starts_with($f, ':::') ? substr($f, 3) : $f,
+            app(SocketServer::class)->handle(':::'.json_encode(
+                $payload + ['sessionId' => $session->token, 'messageId' => 'r-r_'.uniqid()],
+            )),
+        );
     }
 
     private function openSession(User $player, Game $game): GameSession

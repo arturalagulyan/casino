@@ -57,9 +57,9 @@ class DatabaseSeeder extends Seeder
         $admin->roles()->syncWithoutDetaching([$adminRole?->id]);
         Wallet::firstOrCreate(['user_id' => $admin->id], ['currency' => 'EUR']);
 
-        if (app()->environment('local', 'testing') && ! app()->runningUnitTests()) {
-            $this->call(DemoDataSeeder::class);
-            $this->call(ActionMoneyEgtSeeder::class);
-        }
+        // Everything else — shops, games + their settings, users, wallets,
+        // jackpots, categories, API keys — is production data, pulled in with
+        // `php artisan import:legacy`. The hand-built ActionMoneyEgtSeeder is
+        // kept in the tree for isolated local testing but is no longer seeded.
     }
 }

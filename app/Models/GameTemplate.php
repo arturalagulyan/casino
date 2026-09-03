@@ -15,6 +15,7 @@ use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\Relations\HasOne;
 use Illuminate\Support\Carbon;
+use Illuminate\Support\Collection as BaseCollection;
 use Illuminate\Support\Facades\Storage;
 
 /**
@@ -77,6 +78,7 @@ use Illuminate\Support\Facades\Storage;
  * @property-read int|null $bundles_count
  * @property-read Collection<int, Game> $games
  * @property-read int|null $games_count
+ * @property-read BaseCollection<int, Category> $categories
  *
  * @method static Builder<static>|GameTemplate newModelQuery()
  * @method static Builder<static>|GameTemplate newQuery()
@@ -170,6 +172,25 @@ class GameTemplate extends Model
     public function games(): HasMany
     {
         return $this->hasMany(Game::class, 'template_id');
+    }
+
+    /**
+     * Categories this template's games belong to — inherited upward from the
+     * per-shop {@see Game} rows (categories attach to games, never to the master
+     * template, and a template's games can span several shops). Read-only;
+     * eager-load `games.categories` where this is listed to avoid N+1.
+     *
+     * @return BaseCollection<int, Category>
+     */
+    public function getCategoriesAttribute(): BaseCollection
+    {
+        $this->loadMissing('games.categories');
+
+        return $this->games
+            ->flatMap(fn (Game $game) => $game->categories)
+            ->unique('id')
+            ->sortBy('title')
+            ->values();
     }
 
     public function bundles(): HasMany

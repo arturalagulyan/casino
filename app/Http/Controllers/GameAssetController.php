@@ -3,10 +3,13 @@
 namespace App\Http\Controllers;
 
 use App\Models\Game;
+use App\Models\GameBundle;
 use App\Models\GameSession;
 use App\Models\GameTemplate;
 use App\Models\User;
 use App\Services\GamePlay\GameConfig;
+use App\Services\GamePlay\Protocol\GamePlatformLobby;
+use App\Services\Legacy\LegacyGameReader;
 use App\Services\SeamlessWallet\GameLaunch;
 use Illuminate\Http\Request;
 use Illuminate\Routing\Controller;
@@ -43,18 +46,46 @@ class GameAssetController extends Controller
             ['token' => bin2hex(random_bytes(20)), 'is_active' => true, 'last_seen_at' => now()],
         );
 
+        // Novomatic / Greentube bundle — ships only its JS engine, no HTML. Build
+        // the loader shell at request time (the bundle is never modified).
+        if ($bundle->entry === LegacyGameReader::SLOT_EVENT_SHELL || $this->isEngineOnlyBundle($bundle)) {
+            return $this->slotEventShell($request, $template, $game, $session, $bundle);
+        }
+
         $rel = $bundle->filePath($bundle->entry) ?? abort(500, 'Bundle entry file missing.');
         $html = $bundle->disk()->get($rel);
+
+        // Legacy bundles nest the entry (amarent/index.html, gs2c/html5Game.html,
+        // app/<slug>/index.html, …). Relative asset URLs inside it must resolve
+        // against the entry's own directory, not the bundle root. Bundles that
+        // ship their own <base> (EGT's "/games/<Code>/html5/") are left alone —
+        // `code` is unchanged, so those absolute paths still hit the asset route.
+        $entryDir = trim(str_replace('\\', '/', dirname((string) $bundle->entry)), '/.');
+        if ($entryDir !== '' && ! preg_match('/<base\s/i', $html)) {
+            $base = rtrim(url("/games/{$code}/{$entryDir}"), '/').'/';
+            $html = $this->injectHead($html, "<base href=\"{$base}\">");
+        }
 
         // WebSocket bundles (EGT GamePlatform, …) identify the player by a
         // `sessionId` in the page, not a POST endpoint. Force this launch's token
         // in (overwriting any stale value the tab's sessionStorage kept).
-        if ((new GameConfig($template, $game))->clientProtocol()->usesWebSocket()) {
+        $config = new GameConfig($template, $game);
+        if ($config->clientProtocol()->usesWebSocket()) {
             $token = json_encode($session->token);
             $inject = "<script>try{sessionStorage.setItem('sessionId',{$token});}catch(e){}</script>";
-            $html = preg_match('/<head[^>]*>/i', $html)
-                ? preg_replace('/(<head[^>]*>)/i', '$1'.$inject, $html, 1)
-                : $inject.$html;
+            $html = $this->injectHead($html, $inject);
+
+            // The bundle hard-codes a stale `gameIdentificationNumber` (legacy
+            // reused "546" across games). Rewrite it to the gin our login/lobby
+            // will actually return for this game, so the client finds its entry
+            // instead of dropping to the portal / "game unavailable".
+            $gin = app(GamePlatformLobby::class)->gin($config);
+            $html = preg_replace(
+                '/(gameIdentificationNumber\s*[:=]\s*["\']?)\d+(["\']?)/',
+                '${1}'.$gin.'${2}',
+                $html,
+                1,
+            ) ?? $html;
 
             return response($html)->header('Content-Type', 'text/html');
         }
@@ -70,6 +101,14 @@ class GameAssetController extends Controller
 
         $rel = $bundle->filePath($path);
 
+        // EGT portal bundles ship only `library-v<n>.json`; the client asks for
+        // `library-single-game-v<n>.json` once its game list has one entry. Alias
+        // it at request time so nothing has to be written into the bundle.
+        if (! $rel && preg_match('#(^|/)assets/library-single-game-(v\d+\.\w+)$#', $path, $m)) {
+            $rel = $bundle->filePath(str_replace('library-single-game-', 'library-', $path))
+                ?? $bundle->filePath('html5/assets/library-'.$m[2]);
+        }
+
         if (! $rel) {
             abort(404);
         }
@@ -83,6 +122,84 @@ class GameAssetController extends Controller
     }
 
     // ---- helpers ----------------------------------------------------
+
+    private function isEngineOnlyBundle(GameBundle $bundle): bool
+    {
+        return $bundle->filePath('js/loader.js') !== null
+            && $bundle->filePath('js/core.js') !== null
+            && $bundle->filePath($bundle->entry) === null;
+    }
+
+    /**
+     * Render the Novomatic/Greentube loader HTML (js/core.js POSTs `{slotEvent}`
+     * to `/game/{code}/server`). Script order + canvas match the legacy
+     * server-generated page; only class files that exist in the bundle are
+     * included (the `*GT` variant drops a couple).
+     */
+    private function slotEventShell(Request $request, GameTemplate $template, Game $game, GameSession $session, GameBundle $bundle): Response
+    {
+        $config = new GameConfig($template, $game);
+
+        $libs = collect($bundle->disk()->files($bundle->path.'/js/lib'))
+            ->map(fn ($p) => 'js/lib/'.basename($p))
+            ->reject(fn ($p) => str_ends_with($p, '.map'))
+            ->sortBy(fn ($p) => match (true) {          // font loader → pixi core → pixi plugins → the rest
+                str_contains($p, 'webfont') => 0,
+                str_ends_with($p, 'pixi.min.js') => 1,
+                str_contains($p, 'pixi') => 2,
+                default => 3,
+            })
+            ->values();
+        // The newer Greentube `*GT`/`*DX` bundles render with PIXI and append
+        // their own <canvas>; the older Novomatic engine draws into #game.
+        $pixi = $libs->contains(fn ($p) => str_ends_with($p, 'pixi.min.js'));
+        if ($libs->isEmpty()) {
+            $libs = collect(['js/lib/createjs.min.js']);
+        }
+
+        $classes = ['GameButton', 'GameBack', 'GameUI', 'GameView', 'GameReels', 'GameLines', 'GameCounters', 'GameRules'];
+        if ($config->hasGamble()) {
+            $classes[] = 'GameGamble';
+        }
+        if ($config->hasFreeSpins() || $config->hasBonus()) {
+            $classes[] = 'GameBonus';
+        }
+        $classes[] = 'GameMessages';
+
+        $scripts = $libs->all();
+        foreach ($classes as $c) {
+            if ($bundle->filePath("js/classes/{$c}.js")) {
+                $scripts[] = "js/classes/{$c}.js";
+            }
+        }
+        foreach (['js/utils.js', 'js/loader.js', 'js/core.js', 'js/classes/Sounds.js'] as $s) {
+            if ($bundle->filePath($s)) {
+                $scripts[] = $s;
+            }
+        }
+
+        // The PIXI engine's loader gates every frame on a global `isFontLoaded`
+        // that the legacy host page set via WebFont; synthesise it from the
+        // bundle's own css/fonts.css @font-face names.
+        $fontsCss = $bundle->filePath('css/fonts.css') ? 'css/fonts.css' : null;
+        $fontFamilies = [];
+        if ($pixi && $fontsCss && ($raw = $bundle->disk()->get($bundle->path.'/css/fonts.css'))) {
+            preg_match_all('/font-family:\s*[\'"]([^\'"]+)[\'"]/i', $raw, $m);
+            $fontFamilies = array_values(array_unique($m[1]));
+        }
+
+        return response()->view('games.slot-event-shell', [
+            'title' => $game->title ?? $template->title,
+            'base' => rtrim(url("/games/{$template->code}"), '/').'/',
+            'token' => $session->token,
+            'scripts' => $scripts,
+            'fontsCss' => $fontsCss,
+            'canvas' => ! $pixi,
+            'fontFamilies' => $fontFamilies,
+            'width' => 750,
+            'height' => 630,
+        ]);
+    }
 
     /** @return array{user: User, game: Game} */
     private function resolveFromToken(Request $request, GameTemplate $template): array
@@ -114,15 +231,22 @@ class GameAssetController extends Controller
         $head = "<script>window.CasinoGame={$config};</script>";
 
         // Relative asset paths in the bundle resolve against the asset route,
-        // not the launch URL — unless the bundle ships its own <base>.
+        // not the launch URL — unless the bundle ships its own <base> (or a
+        // nested-entry <base> was already injected by play()).
         if (! preg_match('/<base\s/i', $html)) {
             $base = rtrim(url("/games/{$code}"), '/').'/';
             $head = "<base href=\"{$base}\">".$head;
         }
 
+        return $this->injectHead($html, $head);
+    }
+
+    /** Insert markup right after <head> (or prepend it if the doc has no head). */
+    private function injectHead(string $html, string $markup): string
+    {
         return preg_match('/<head[^>]*>/i', $html)
-            ? preg_replace('/(<head[^>]*>)/i', '$1'.addcslashes($head, '\\$'), $html, 1)
-            : $head.$html;
+            ? (string) preg_replace('/(<head[^>]*>)/i', '$1'.addcslashes($markup, '\\$'), $html, 1)
+            : $markup.$html;
     }
 
     private function demoShell(Request $request, GameTemplate $template): Response

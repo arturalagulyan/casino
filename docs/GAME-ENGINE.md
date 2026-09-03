@@ -18,15 +18,18 @@ NG / NET … — the shape is the same per provider; only the *values* differ:
 | paytable, reel strips, paylines, wild/scatter/bonus symbols, wild mult, free-spin count/mult, gamble chance, bonus type, `slotReelsConfig` | **hardcoded** in each `SlotSettings.php` | **DB** — `game_templates` columns + JSON |
 | `percent`, `rezerv`, `cask`, `gamebank`, `jpg_id`, `chanceFirepot*`, `fireCount*`, `lines_percent_config_*`, `bet`, `denomination` | legacy admin game-edit form | **DB** — `games` per-shop override columns |
 
-Front-end files lived loose in `public/games/<Code>/` (only `ActionMoneyEGT` is
-present). Code names carried a provider suffix (`ActionMoney` + `EGT`); dropped —
-`code` is clean, `provider` is a separate field.
+Front-end files lived loose in `public/games/<Code>/`. Code names carry a provider
+suffix (`ActionMoneyEGT`, `AgeOfEgyptPT`).
 
 ## The rebuild
 
 ### Naming
-`game_templates.code` is the **clean** name (`ActionMoney`); `game_templates.provider`
-is the family (`egt`, `gaminator`, `amatic`, `playtech`, `merkur`, …). No suffix.
+`game_templates.code` **keeps** the legacy provider suffix (`ActionMoneyEGT`) —
+it's the key for the bundle's own hard-coded asset paths (`/games/<Code>/…` in
+the shipped HTML/JS), so renaming it would 404 every asset. The **display name is
+`game_templates.title`** ("Action Money") — clean, shown everywhere a human sees
+the game; `games:normalize-titles` backfills it from the code. There is no `provider`
+column — provider/type grouping is a Category.
 
 ### The platform contract — `App\Games\GameContext`
 One object per running game. A game server **never** touches wallets / banks /
@@ -112,12 +115,30 @@ Legacy shipped these in the repo. Now: **`game_templates` → Front-end bundles*
 relation manager (Games ▸ Game Templates ▸ a row ▸ *Upload front-end*).
 
 - Accepts a **`.zip`** of the game front-end. A single wrapping folder is
-  unwrapped; `index.html` (or a named entry) must be present; **PHP files are
-  rejected**.
+  unwrapped; **PHP files are rejected**.
 - Extracted to the `game_bundles` disk — `storage/app/game-bundles/<slug>/<version>/`
   (gitignored — large binary assets stay out of the repo).
 - Each upload is a new `game_bundles` **version**; the newest is active. Older
   versions can be re-activated or deleted from the relation manager.
+
+#### Entry resolution — `App\Services\GamePlay\BundleEntryResolver`
+
+The legacy front-ends share no entry convention and every bundle ships decoys
+(browser-check stubs, GWT platform loaders, paytable pages, `help.html`). The
+resolver, keyed off the code's provider suffix, knows each family's real entry
+(`amarent/index.html`, `gs2c/html5Game.html`, `app/<slug>/index.html`,
+`<abbr>/index.html`, `games/<slug>/game/<slug>.xhtml`, …) and a decoy blocklist;
+if *every* HTML file is a decoy it returns "no entry" (the real HTML was
+server-generated and isn't in the bundle — that provider needs a loader shim).
+`php artisan bundles:reresolve` re-runs it against bundles already on disk and
+rewrites `game_bundles.entry` in place (no re-copy).
+
+#### Nested entries and `<base href>`
+
+Most legacy entries are nested (`amarent/index.html`). `GameAssetController@play`
+injects `<base href="/games/{code}/{entry-dir}/">` so the bundle's own relative
+asset URLs resolve — **unless** the bundle ships its own `<base>` (EGT's
+`/games/<Code>/html5/`), which still works because `code` is never renamed.
 
 ### Serving + launch flow
 ```

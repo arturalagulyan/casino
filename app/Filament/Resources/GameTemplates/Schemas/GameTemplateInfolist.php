@@ -2,6 +2,7 @@
 
 namespace App\Filament\Resources\GameTemplates\Schemas;
 
+use App\Models\GameTemplate;
 use Filament\Infolists\Components\IconEntry;
 use Filament\Infolists\Components\ImageEntry;
 use Filament\Infolists\Components\TextEntry;
@@ -22,6 +23,11 @@ class GameTemplateInfolist
                 TextEntry::make('title'),
                 TextEntry::make('engine')
                     ->badge(),
+                TextEntry::make('categories')
+                    ->label('Categories')
+                    ->badge()
+                    ->state(fn (GameTemplate $record) => $record->categories->pluck('title')->all())
+                    ->placeholder('— (inherited from this template\'s games)'),
                 TextEntry::make('package_path')
                     ->placeholder('-'),
                 TextEntry::make('client_path')

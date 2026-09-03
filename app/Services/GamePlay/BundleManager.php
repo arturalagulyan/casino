@@ -5,6 +5,7 @@ namespace App\Services\GamePlay;
 use App\Models\GameBundle;
 use App\Models\GameTemplate;
 use App\Models\User;
+use App\Services\Legacy\LegacyGameReader;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\File;
@@ -22,6 +23,8 @@ use ZipArchive;
  */
 class BundleManager
 {
+    public function __construct(private readonly BundleEntryResolver $entryResolver = new BundleEntryResolver) {}
+
     private const string DISK = 'game_bundles';
 
     /**
@@ -50,7 +53,7 @@ class BundleManager
         File::ensureDirectoryExists($absDir);
 
         try {
-            [$fileCount, $size, $foundEntry] = $this->extract($zip->getRealPath(), $absDir, $entry);
+            [$fileCount, $size, $foundEntry] = $this->extract($zip->getRealPath(), $absDir, $entry, $template->code);
         } catch (\Throwable $e) {
             File::deleteDirectory($absDir);
 
@@ -67,6 +70,100 @@ class BundleManager
                 'entry' => $foundEntry,
                 'size' => $size,
                 'file_count' => $fileCount,
+                'checksum' => $checksum,
+                'uploaded_by' => $by?->id,
+                'is_active' => true,
+                'notes' => $notes,
+            ]);
+            $template->bundles()->save($bundle);
+
+            return $bundle;
+        });
+    }
+
+    /**
+     * Register a bundle straight from an unpacked directory (no zip round-trip).
+     * Used by the legacy import, which has 1000+ multi-hundred-MB game folders
+     * already on a local disk — zipping then re-extracting each is pointlessly slow.
+     */
+    public function storeFromDirectory(GameTemplate $template, string $sourceDir, ?User $by = null, ?string $entry = null, ?string $notes = null): GameBundle
+    {
+        $sourceDir = rtrim(str_replace('\\', '/', $sourceDir), '/');
+        if (! is_dir($sourceDir)) {
+            throw new RuntimeException("Not a directory: {$sourceDir}");
+        }
+
+        $version = (int) ($template->bundles()->max('version') ?? 0) + 1;
+        $slug = Str::slug($template->code) ?: 'game-'.$template->id;
+        $relDir = "{$slug}/{$version}";
+        $absDir = Storage::disk(self::DISK)->path($relDir);
+
+        File::deleteDirectory($absDir);
+        File::ensureDirectoryExists($absDir);
+
+        $count = 0;
+        $bytes = 0;
+        $names = [];
+        $hasher = hash_init('sha256');
+
+        try {
+            $it = new \RecursiveIteratorIterator(
+                new \RecursiveDirectoryIterator($sourceDir, \FilesystemIterator::SKIP_DOTS),
+                \RecursiveIteratorIterator::LEAVES_ONLY,
+            );
+            foreach ($it as $file) {
+                /** @var \SplFileInfo $file */
+                if (! $file->isFile()) {
+                    continue;
+                }
+                $relative = ltrim(substr(str_replace('\\', '/', $file->getPathname()), strlen($sourceDir) + 1), '/');
+                if ($relative === '' || str_contains($relative, '..')) {
+                    continue;
+                }
+                if (in_array(strtolower($file->getExtension()), self::BLOCKED_EXTENSIONS, true)) {
+                    continue; // legacy Server.php etc. — front-end assets only
+                }
+
+                $target = $absDir.'/'.$relative;
+                File::ensureDirectoryExists(dirname($target));
+                // Hard-link when we can (same filesystem, e.g. the legacy import
+                // mirror) — instant and no extra disk; fall back to a real copy.
+                if (! @link($file->getPathname(), $target)) {
+                    copy($file->getPathname(), $target);
+                }
+
+                $count++;
+                $bytes += $file->getSize();
+                $names[] = $relative;
+                hash_update($hasher, $relative."\0".$file->getSize()."\n");
+            }
+        } catch (\Throwable $e) {
+            File::deleteDirectory($absDir);
+
+            throw $e;
+        }
+
+        $foundEntry = $entry === LegacyGameReader::SLOT_EVENT_SHELL
+            ? $entry   // no HTML — the shell is synthesised at request time
+            : $this->entryResolver->resolve($names, $template->code, $entry);
+        if (! $foundEntry) {
+            File::deleteDirectory($absDir);
+
+            throw new RuntimeException('Bundle has no HTML entry (or the entry file you named).');
+        }
+
+        $checksum = hash_final($hasher);
+
+        return DB::transaction(function () use ($template, $version, $relDir, $foundEntry, $bytes, $count, $checksum, $by, $notes): GameBundle {
+            $template->bundles()->update(['is_active' => false]);
+
+            $bundle = new GameBundle([
+                'version' => $version,
+                'disk' => self::DISK,
+                'path' => $relDir,
+                'entry' => $foundEntry,
+                'size' => $bytes,
+                'file_count' => $count,
                 'checksum' => $checksum,
                 'uploaded_by' => $by?->id,
                 'is_active' => true,
@@ -99,7 +196,7 @@ class BundleManager
     /**
      * @return array{0:int,1:int,2:string} [fileCount, totalBytes, entryFile]
      */
-    private function extract(string $zipPath, string $destination, ?string $entry): array
+    private function extract(string $zipPath, string $destination, ?string $entry, ?string $code = null): array
     {
         $archive = new ZipArchive;
 
@@ -148,11 +245,11 @@ class BundleManager
 
         $archive->close();
 
-        $entryFile = $this->resolveEntry($names, $entry);
+        $entryFile = $this->entryResolver->resolve($names, $code, $entry);
 
         if (! $entryFile) {
             File::deleteDirectory($destination);
-            throw new RuntimeException('Bundle has no index.html (or the entry file you named). Nothing extracted.');
+            throw new RuntimeException('Bundle has no HTML entry (or the entry file you named). Nothing extracted.');
         }
 
         return [$count, $bytes, $entryFile];
@@ -178,25 +275,5 @@ class BundleManager
         }
 
         return $top ? $top.'/' : '';
-    }
-
-    /** @param list<string> $names */
-    private function resolveEntry(array $names, ?string $entry): ?string
-    {
-        if ($entry && in_array($entry, $names, true)) {
-            return $entry;
-        }
-
-        foreach (['index.html', 'index.htm', 'game.html'] as $candidate) {
-            if (in_array($candidate, $names, true)) {
-                return $candidate;
-            }
-        }
-
-        // deepest fallback: any *.html at the shallowest depth
-        $html = array_values(array_filter($names, fn ($n) => str_ends_with(strtolower($n), '.html')));
-        usort($html, fn ($a, $b) => substr_count($a, '/') <=> substr_count($b, '/'));
-
-        return $html[0] ?? null;
     }
 }

@@ -75,7 +75,11 @@ class GamePlatformProtocol implements GameProtocol
             'showRtp' => false,
             'multigame' => true,
             'sendTotalsInfo' => false,
-            'complex' => $this->lobby->for($context->shop),
+            'complex' => $this->lobby->for(
+                $context->shop,
+                $context->game,
+                (int) ($request['gameIdentificationNumber'] ?? 0) ?: null,
+            ),
         ], $this->meta($context, $request, 'login', 'LoginResponse'));
     }
 
@@ -118,7 +122,7 @@ class GamePlatformProtocol implements GameProtocol
                         'denomination' => (int) round($context->config()->denomination() * 100),
                         'state' => $freeLeft > 0 ? 'freespin' : 'idle',
                         'winAmount' => $this->cents((float) ($state['bonus_win'] ?? 0)),
-                        'reels' => $this->formatter->recoverReels($this->lastSpinPayload($context)),
+                        'reels' => $this->formatter->recoverReels($this->lastSpinPayload($context), $context->config()),
                         'lines' => [],
                         'scatters' => [],
                         'expand' => [],

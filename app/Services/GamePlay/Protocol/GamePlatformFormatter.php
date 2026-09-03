@@ -101,24 +101,54 @@ class GamePlatformFormatter
         return $out;
     }
 
-    /** Reconstruct a client reel window from a stored spin payload (subscribe). */
-    public function recoverReels(?array $payload): array
+    /**
+     * Reel window for the `subscribe` response. Reuses a stored spin board when
+     * there is one, otherwise samples a fresh idle board from the real strips.
+     * Shape matches {@see window()} exactly — [filler, ...rows, filler] per reel,
+     * `rowCount` rows — which the per-game engines (BaseSlot especially) require
+     * on init; a mis-sized / flat array crashes their reel controller.
+     */
+    public function recoverReels(?array $payload, ?GameConfig $cfg = null): array
     {
-        $reels = $payload['reels'] ?? null;
-        if (! is_array($reels)) {
-            return array_map(fn () => random_int(0, 6), range(1, 25));
-        }
-
-        $out = [];
-        foreach ($reels as $col) {
-            $out[] = random_int(0, 6);
-            foreach ((array) $col as $sym) {
-                $out[] = (int) $sym;
+        $stored = $payload['reels'] ?? null;
+        if (is_array($stored) && $stored !== []) {
+            $out = [];
+            foreach ($stored as $col) {
+                $out[] = random_int(0, 6);
+                foreach ((array) $col as $sym) {
+                    $out[] = (int) $sym;
+                }
+                $out[] = random_int(0, 6);
             }
-            $out[] = random_int(0, 6);
+
+            return $out;
         }
 
-        return $out ?: array_map(fn () => random_int(0, 6), range(1, 25));
+        return $cfg ? $this->window($cfg, $this->idleBoard($cfg)) : array_map(fn () => random_int(0, 6), range(1, 25));
+    }
+
+    /**
+     * A plausible idle board: each reel strip cut at a random offset.
+     *
+     * @return list<list<int>>
+     */
+    public function idleBoard(GameConfig $cfg): array
+    {
+        $strips = array_values($cfg->reelStrips(false));
+        $rows = $cfg->rowCount();
+        $board = [];
+        for ($reel = 0; $reel < $cfg->reelCount(); $reel++) {
+            $strip = array_map('intval', $strips[$reel] ?? $strips[0] ?? [0]);
+            $strip = $strip !== [] ? $strip : [0];
+            $at = random_int(0, count($strip) - 1);
+            $col = [];
+            for ($r = 0; $r < $rows; $r++) {
+                $col[] = $strip[($at + $r) % count($strip)];
+            }
+            $board[] = $col;
+        }
+
+        return $board;
     }
 
     /** @return list<array<string, mixed>> */

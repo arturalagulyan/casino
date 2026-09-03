@@ -19,6 +19,12 @@ services:
             IGNITION_LOCAL_SITES_PATH: '${PWD}'
         volumes:
             - '.:/var/www/html'
+            # Local mirror of the legacy server's game files (app/Games + public/games
+            # + posters), read by `php artisan import:legacy`. Set LEGACY_MIRROR_PATH
+            # in .env to the mirror's absolute host path — on Docker Desktop + WSL that
+            # is a UNC path with forward slashes, e.g.
+            # //wsl.localhost/Ubuntu-24.04/var/www/casino-legacy
+            - '${LEGACY_MIRROR_PATH:-/var/www/casino-legacy}:/var/www/legacy:ro'
         networks:
             - sail
         depends_on:

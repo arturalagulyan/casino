@@ -84,6 +84,24 @@ return [
             ]) : [],
         ],
 
+        // Read-only connection to the legacy VanguardLTE ("w_" prefix) casino DB,
+        // used only by `php artisan import:legacy` to migrate production data in.
+        'legacy' => [
+            'driver' => 'mysql',
+            'host' => env('LEGACY_DB_HOST', '127.0.0.1'),
+            'port' => env('LEGACY_DB_PORT', '3306'),
+            'database' => env('LEGACY_DB_DATABASE', 'casino'),
+            'username' => env('LEGACY_DB_USERNAME', 'root'),
+            'password' => env('LEGACY_DB_PASSWORD', ''),
+            'unix_socket' => env('LEGACY_DB_SOCKET', ''),
+            'charset' => 'utf8mb4',
+            'collation' => 'utf8mb4_unicode_ci',
+            'prefix' => env('LEGACY_DB_PREFIX', 'w_'),
+            'prefix_indexes' => true,
+            'strict' => false,
+            'engine' => null,
+        ],
+
         'pgsql' => [
             'driver' => 'pgsql',
             'url' => env('DB_URL'),

@@ -135,11 +135,11 @@ The master catalogue — one row per real game package (≈136 live).
 | column | type | note |
 |---|---|---|
 | code | string unique | legacy `name` e.g. `PragmaticSweetBonanza` |
-| title | string | |
-| provider | string | derived (`pragmatic`, `merkur`, `gaminator`, …) |
+| code | string unique | legacy game name, provider suffix kept (`ActionMoneyEGT`) — keys the bundle asset paths |
+| title | string | clean display name (`Action Money`); `games:normalize-titles` backfills it. No `provider` column — grouping is a Category. |
 | engine | string→`GameEngine` | `internal` / `merkur` / `seamless` — how the server side runs |
 | package_path | string nullable | legacy `w_game_path.path` — server code location |
-| client_path | string nullable | front-end bundle location |
+| client_path | string nullable | legacy field, unused — front-end bundles live in the `game_bundles` table (`disk`/`path`/`entry`) |
 | device | string→`Device` | `desktop` / `mobile` / `both` (legacy `device` 1/2) |
 | bank_type | string→`BankType` | default pool: `slots`/`little`/`table`/`bonus`/`fish` (legacy `gamebank`) |
 | default_bet_options | json | legacy `bet` / `bet_ALL` |
