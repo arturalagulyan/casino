@@ -153,6 +153,32 @@ class EgtProtocolTest extends TestCase
         $this->assertEqualsWithDelta(10000 + $signed, (float) $player->wallet->fresh()->balance, 0.001);
     }
 
+    public function test_bet_stake_ignores_the_denomination_the_client_already_folded_in(): void
+    {
+        // The EGT client computes betPerLine = betOption × denomination and puts
+        // that in `bet.bet` (×100). The server must therefore treat the stake as
+        // `betline × lines` only — multiplying by the denomination again turns a
+        // 100-unit spin into a 500-unit one and locks a solvent player out with
+        // "invalid balance" (the prod ActionMoney bug).
+        [, $game, $player] = $this->egtGame();
+        $game->update(['denomination' => 5]);            // e.g. an FX-scaled credit
+        $session = $this->openSession($player, $game);
+        $player->wallet->update(['balance' => 300]);     // 3 spins of the real stake, 0 of the buggy one
+
+        $out = json_decode($this->frame($session, [
+            'command' => 'bet', 'gameIdentificationNumber' => 851,
+            // betOption 1 × denomination 5 → betPerLine 5.00 → wire 500
+            'bet' => ['gameCommand' => 'bet', 'bet' => 500, 'lines' => 20, 'bonus' => 'false'],
+        ])[0], true);
+
+        $this->assertArrayNotHasKey('responseEvent', $out, 'solvent player got an error');
+        $this->assertSame('bet', $out['command']);
+
+        $round = $player->rounds()->latest('id')->first();
+        $this->assertNotNull($round);
+        $this->assertSame('100.0000', $round->bet);      // 5.00 betline × 20 lines, NOT ×5 again
+    }
+
     public function test_full_launch_flow_via_api_key_injects_the_socket_session(): void
     {
         [, $tplGame, , $apiKey] = $this->egtGame();

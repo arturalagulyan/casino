@@ -107,7 +107,7 @@ class SpinDecider
         }
 
         // Near-broke nudge (legacy: balance ~empty → small forced win).
-        if ($event === 'spin' && $context->balance() <= 2 / $context->denomination() && random_int(1, 10) === 1) {
+        if ($event === 'spin' && $context->balance() <= 2 * $context->denomination() && random_int(1, 10) === 1) {
             return $make('win');
         }
 

@@ -158,10 +158,13 @@ class GamePlatformProtocol implements GameProtocol
     {
         $cfg = $context->config();
         $lines = max(1, (int) ($request['bet']['lines'] ?? $cfg->lineCount()));
+        // The EGT client folds the denomination into `bet.bet` itself
+        // (betPerLine = betOption × denomination), then sends it ×100. So the
+        // stake is `betline × lines` in the player's currency — no denomination
+        // factor here, exactly as legacy Server.php ($allbet = $betline * $lines).
         $betline = (float) ($request['bet']['bet'] ?? 0) / 100;
         $isFree = in_array($request['bet']['bonus'] ?? null, ['true', true], true);
-        $denom = $cfg->denomination();
-        $stake = round($lines * $betline * $denom, 4);
+        $stake = round($lines * $betline, 4);
 
         if ($betline <= 0) {
             return [$this->error($request, 'invalid bet state')];
@@ -197,7 +200,7 @@ class GamePlatformProtocol implements GameProtocol
         $bonusMult = $isFree ? max(1, (int) ($state['multiplier'] ?? 1)) : 1;
         $extraWild = $isFree ? (int) ($state['extra_wild'] ?? -1) : -1;
 
-        $result = $this->engine->spin($context, $stake, $lines, $betline * $denom, $isFree);
+        $result = $this->engine->spin($context, $stake, $lines, $betline, $isFree);
         $result->win = round($result->win * $bonusMult, 4);
         if ($result->win > 0) {
             $context->awardWin($result->win);
