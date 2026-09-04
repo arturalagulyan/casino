@@ -2,6 +2,7 @@
 
 namespace App\Console\Commands;
 
+use App\Services\GamePlay\JackpotChannel;
 use App\Services\GamePlay\SocketServer;
 use Illuminate\Console\Command;
 use Illuminate\Support\Facades\DB;
@@ -36,7 +37,7 @@ class GameSocketCommand extends Command
 
     protected $description = 'Run the one WebSocket server for all socket-based game front-ends';
 
-    public function handle(SocketServer $server): int
+    public function handle(SocketServer $server, JackpotChannel $jackpots): int
     {
         $host = (string) config('games.socket.host', '0.0.0.0');
         $port = (int) config('games.socket.port', 2087);
@@ -51,7 +52,7 @@ class GameSocketCommand extends Command
         $worker->count = max(1, $workers);
         $worker->reloadable = true;
 
-        $worker->onWorkerStart = function (Worker $w) {
+        $worker->onWorkerStart = function (Worker $w) use ($jackpots) {
             $this->log("worker {$w->id} up");
             // Keep the pooled DB connection from going stale on an idle socket.
             Timer::add(30, function () {
@@ -64,17 +65,37 @@ class GameSocketCommand extends Command
                     }
                 }
             });
+
+            // Live jackpot ticker: balance ticks + win pushes, independent of
+            // the per-game wire protocols below (see JackpotChannel).
+            Timer::add(1, function () use ($jackpots) {
+                try {
+                    $jackpots->tick();
+                } catch (Throwable $e) {
+                    report($e);
+                }
+            });
         };
 
         $worker->onWorkerStop = fn (Worker $w) => $this->log("worker {$w->id} stopping");
 
-        $worker->onMessage = function (TcpConnection $conn, $data) use ($server) {
+        $worker->onMessage = function (TcpConnection $conn, $data) use ($server, $jackpots) {
+            $decoded = json_decode((string) $data, true);
+
+            if ($jackpots->isChannelMessage($decoded)) {
+                $jackpots->handle($conn, $decoded);
+
+                return;
+            }
+
             // SocketServer returns ready-to-send frames (each protocol owns its
             // own framing — GamePlatform prefixes `:::`, Amatic sends raw hex).
             foreach ($this->safeHandle($server, (string) $data) as $message) {
                 $conn->send($message);
             }
         };
+
+        $worker->onClose = fn (TcpConnection $conn) => $jackpots->unsubscribe($conn);
 
         // Workerman reads the process verb from the global argv.
         global $argv;

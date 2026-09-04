@@ -34,7 +34,6 @@ use Illuminate\Support\Carbon;
  * @property-read Shop|null $shop
  * @property-read Collection<int, JackpotWin> $wins
  * @property-read int|null $wins_count
- *
  * @method static Builder<static>|Jackpot newModelQuery()
  * @method static Builder<static>|Jackpot newQuery()
  * @method static Builder<static>|Jackpot query()
@@ -55,7 +54,7 @@ use Illuminate\Support\Carbon;
  * @method static Builder<static>|Jackpot whereSeedMin($value)
  * @method static Builder<static>|Jackpot whereShopId($value)
  * @method static Builder<static>|Jackpot whereUpdatedAt($value)
- *
+ * @method static Builder<static>|Jackpot applicableTo(\App\Models\Shop $shop, ?int $extraJackpotId = null)
  * @mixin \Eloquent
  */
 class Jackpot extends Model
@@ -105,5 +104,20 @@ class Jackpot extends Model
     public function wins(): HasMany
     {
         return $this->hasMany(JackpotWin::class);
+    }
+
+    /**
+     * Jackpots visible to a game: global pools (no shop), the shop's own pool,
+     * and the game's explicitly-attached pool, if any.
+     */
+    public function scopeApplicableTo(Builder $query, Shop $shop, ?int $extraJackpotId = null): Builder
+    {
+        return $query->where(function (Builder $q) use ($shop, $extraJackpotId) {
+            $q->where('shop_id', $shop->id)->orWhereNull('shop_id');
+
+            if ($extraJackpotId) {
+                $q->orWhere('id', $extraJackpotId);
+            }
+        });
     }
 }

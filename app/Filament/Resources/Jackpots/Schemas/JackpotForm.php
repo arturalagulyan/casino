@@ -48,7 +48,8 @@ class JackpotForm
                     ->numeric()
                     ->default(0.0),
                 Select::make('last_winner_id')
-                    ->relationship('lastWinner', 'id'),
+                    ->relationship('lastWinner', 'username')
+                    ->searchable(),
                 DateTimePicker::make('last_won_at'),
                 TextInput::make('last_won_amount')
                     ->numeric(),

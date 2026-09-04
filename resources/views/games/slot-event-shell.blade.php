@@ -27,6 +27,7 @@
         #game { display: block; }
         canvas { display: block; }
     </style>
+    {!! $jackpotTicker ?? '' !!}
 </head>
 <body onload="InitializeGame()">
     @if ($canvas ?? true)

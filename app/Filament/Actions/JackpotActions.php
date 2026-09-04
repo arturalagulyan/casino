@@ -29,13 +29,15 @@ class JackpotActions
             ->schema([
                 Select::make('winner_id')
                     ->label('Winner')
-                    ->options(fn (Jackpot $record) => User::query()
+                    ->searchable()
+                    ->getSearchResultsUsing(fn (string $search, Jackpot $record) => User::query()
                         ->when($record->shop_id, fn ($q) => $q->where('shop_id', $record->shop_id))
                         ->whereHas('roles', fn ($q) => $q->where('slug', 'user'))
+                        ->where('username', 'like', "%{$search}%")
                         ->orderBy('username')
-                        ->limit(200)
+                        ->limit(50)
                         ->pluck('username', 'id'))
-                    ->searchable()
+                    ->getOptionLabelUsing(fn ($value) => User::find($value)?->username)
                     ->default(fn (Jackpot $record) => $record->last_winner_id)
                     ->required(),
             ])

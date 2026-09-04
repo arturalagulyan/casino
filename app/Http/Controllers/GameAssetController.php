@@ -6,6 +6,7 @@ use App\Models\Game;
 use App\Models\GameBundle;
 use App\Models\GameSession;
 use App\Models\GameTemplate;
+use App\Models\Jackpot;
 use App\Models\User;
 use App\Services\GamePlay\GameConfig;
 use App\Services\GamePlay\Protocol\GamePlatformLobby;
@@ -49,7 +50,7 @@ class GameAssetController extends Controller
         // Novomatic / Greentube bundle — ships only its JS engine, no HTML. Build
         // the loader shell at request time (the bundle is never modified).
         if ($bundle->entry === LegacyGameReader::SLOT_EVENT_SHELL || $this->isEngineOnlyBundle($bundle)) {
-            return $this->slotEventShell($request, $template, $game, $session, $bundle);
+            return $this->slotEventShell($request, $template, $game, $session, $bundle, $user);
         }
 
         $rel = $bundle->filePath($bundle->entry) ?? abort(500, 'Bundle entry file missing.');
@@ -73,6 +74,7 @@ class GameAssetController extends Controller
         if ($config->clientProtocol()->usesWebSocket()) {
             $token = json_encode($session->token);
             $inject = "<script>try{sessionStorage.setItem('sessionId',{$token});}catch(e){}</script>";
+            $inject .= $this->jackpotTickerSnippet($game, $user);
             $html = $this->injectHead($html, $inject);
 
             // The bundle hard-codes a stale `gameIdentificationNumber` (legacy
@@ -136,7 +138,7 @@ class GameAssetController extends Controller
      * server-generated page; only class files that exist in the bundle are
      * included (the `*GT` variant drops a couple).
      */
-    private function slotEventShell(Request $request, GameTemplate $template, Game $game, GameSession $session, GameBundle $bundle): Response
+    private function slotEventShell(Request $request, GameTemplate $template, Game $game, GameSession $session, GameBundle $bundle, User $user): Response
     {
         $config = new GameConfig($template, $game);
 
@@ -198,6 +200,7 @@ class GameAssetController extends Controller
             'fontFamilies' => $fontFamilies,
             'width' => 750,
             'height' => 630,
+            'jackpotTicker' => $this->jackpotTickerSnippet($game, $user),
         ]);
     }
 
@@ -229,6 +232,7 @@ class GameAssetController extends Controller
         ], JSON_UNESCAPED_SLASHES);
 
         $head = "<script>window.CasinoGame={$config};</script>";
+        $head .= $this->jackpotTickerSnippet($game, $user);
 
         // Relative asset paths in the bundle resolve against the asset route,
         // not the launch URL — unless the bundle ships its own <base> (or a
@@ -239,6 +243,47 @@ class GameAssetController extends Controller
         }
 
         return $this->injectHead($html, $head);
+    }
+
+    /**
+     * Jackpots this game should show a live ticker for, plus the data the
+     * frontend ticker (public/js/jackpot-ticker.js) needs to render + subscribe.
+     *
+     * @return array{userId: int, jackpots: list<array{id: int, name: string, balance: float, currency: string}>}
+     */
+    private function jackpotBootstrap(Game $game, User $user): array
+    {
+        $game->loadMissing('shop');
+
+        $jackpots = Jackpot::query()
+            ->where('is_active', true)
+            ->applicableTo($game->shop, $game->jackpot_id)
+            ->get(['id', 'name', 'balance', 'currency', 'shop_id']);
+
+        return [
+            'userId' => $user->id,
+            'jackpots' => $jackpots->map(fn (Jackpot $j) => [
+                'id' => $j->id,
+                'name' => $j->name,
+                'balance' => (float) $j->balance,
+                'currency' => $j->poolCurrency()->value,
+            ])->values()->all(),
+        ];
+    }
+
+    /** HTML to inject in <head> for the live jackpot ticker; '' if nothing applies. */
+    private function jackpotTickerSnippet(Game $game, User $user): string
+    {
+        $bootstrap = $this->jackpotBootstrap($game, $user);
+
+        if (empty($bootstrap['jackpots'])) {
+            return '';
+        }
+
+        $json = json_encode($bootstrap, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE);
+        $src = e(asset('js/jackpot-ticker.js'));
+
+        return "<script>window.CasinoJackpots={$json};</script><script src=\"{$src}\" defer></script>";
     }
 
     /** Insert markup right after <head> (or prepend it if the doc has no head). */
