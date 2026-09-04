@@ -13,6 +13,7 @@ use Filament\Pages\Dashboard;
 use Filament\Panel;
 use Filament\PanelProvider;
 use Filament\Support\Colors\Color;
+use Filament\View\PanelsRenderHook;
 use Illuminate\Cookie\Middleware\AddQueuedCookiesToResponse;
 use Illuminate\Cookie\Middleware\EncryptCookies;
 use Illuminate\Foundation\Http\Middleware\PreventRequestForgery;
@@ -61,6 +62,10 @@ class AdminPanelProvider extends PanelProvider
             ->widgets([
                 CasinoOverview::class,
             ])
+            ->renderHook(
+                PanelsRenderHook::TOPBAR_START,
+                fn () => view('filament.shop-switcher-topbar'),
+            )
             ->middleware([
                 EncryptCookies::class,
                 AddQueuedCookiesToResponse::class,
