@@ -127,12 +127,12 @@ class ImportAmaticGamesCommand extends Command
             try {
                 $attrs = $parser->templateAttributes();
 
-                $legacyBets = $legacyOk ? $this->legacyBetOptions($code) : null;
+                $legacyBets = ($legacyOk ? $this->legacyBetOptions($code) : null) ?? $this->bundledData($code)['bets'] ?? null;
                 if ($legacyBets) {
                     $attrs['default_bet_options'] = $legacyBets;
                 }
 
-                $winChances = $legacyOk ? $this->winChances($code) : null;
+                $winChances = ($legacyOk ? $this->winChances($code) : null) ?? $this->bundledWinChances($code);
 
                 $title = $resolver->prettyName($code);
                 $poster = $dry ? null : $this->copyPoster($icons, $code);
@@ -264,6 +264,37 @@ class ImportAmaticGamesCommand extends Command
         ), fn ($v) => $v > 0));
 
         return $bets ?: null;
+    }
+
+    /** @var array<string, array>|null */
+    private ?array $bundled = null;
+
+    /**
+     * Win-chance tables + bet ladders exported from the legacy `games` table
+     * (`database/seeders/data/amatic-win-chances.json`) — the fallback when the
+     * legacy DB isn't reachable from this box (e.g. the deploy server), same
+     * pattern as {@see ImportEgtGamesCommand::bundledWinChances()}.
+     *
+     * @return array{spin?: array, bonus?: array, bets?: list<float>}
+     */
+    private function bundledData(string $code): array
+    {
+        if ($this->bundled === null) {
+            $path = database_path('seeders/data/amatic-win-chances.json');
+            $this->bundled = is_file($path)
+                ? (array) json_decode((string) file_get_contents($path), true)
+                : [];
+        }
+
+        return (array) ($this->bundled[$code] ?? []);
+    }
+
+    /** @return array{spin: array, bonus: array}|null */
+    private function bundledWinChances(string $code): ?array
+    {
+        $row = $this->bundledData($code);
+
+        return isset($row['spin'], $row['bonus']) ? ['spin' => $row['spin'], 'bonus' => $row['bonus']] : null;
     }
 
     // ---- legacy DB ------------------------------------------------
