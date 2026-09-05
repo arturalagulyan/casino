@@ -15,6 +15,7 @@ use App\Services\SeamlessWallet\GameLaunch;
 use Illuminate\Http\Request;
 use Illuminate\Routing\Controller;
 use Symfony\Component\HttpFoundation\Response;
+use Symfony\Component\Mime\MimeTypes;
 
 /**
  * Serves the uploaded front-end bundle for a game and boots a play session.
@@ -118,12 +119,27 @@ class GameAssetController extends Controller
         $disk = $bundle->disk();
 
         return response($disk->get($rel), 200, [
-            'Content-Type' => $disk->mimeType($rel) ?: 'application/octet-stream',
+            'Content-Type' => $this->mimeType($rel) ?? ($disk->mimeType($rel) ?: 'application/octet-stream'),
             'Cache-Control' => 'public, max-age=3600',
         ]);
     }
 
     // ---- helpers ----------------------------------------------------
+
+    /**
+     * Extension-based MIME lookup. Legacy loader scripts build up HTML
+     * (`document.write('<script>…</script>')`) as string literals, which
+     * makes content-sniffing (`Storage::mimeType()`, backed by finfo/libmagic)
+     * misdetect plain `.js`/`.css` files as `text/html`. Combined with the
+     * `X-Content-Type-Options: nosniff` header, browsers then silently refuse
+     * to execute the script. Trust the extension for known text asset types.
+     */
+    private function mimeType(string $path): ?string
+    {
+        $extension = strtolower(pathinfo($path, PATHINFO_EXTENSION));
+
+        return MimeTypes::getDefault()->getMimeTypes($extension)[0] ?? null;
+    }
 
     private function isEngineOnlyBundle(GameBundle $bundle): bool
     {
