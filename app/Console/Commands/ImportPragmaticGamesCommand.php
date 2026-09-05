@@ -9,6 +9,7 @@ use App\Enums\GameEngine;
 use App\Models\Category;
 use App\Models\Game;
 use App\Models\GameBank;
+use App\Models\GameBundle;
 use App\Models\GameTemplate;
 use App\Models\Shop;
 use App\Services\GamePlay\BundleManager;
@@ -180,7 +181,8 @@ class ImportPragmaticGamesCommand extends Command
                             entry: self::PLATFORM_SHELL,
                             notes: 'Pragmatic Play platform+bib front-end (pragmatic:import).',
                         );
-                        $report[$code]['bundle'] = "v{$bundle->version}/{$bundle->file_count}f (synthesised shell)";
+                        $phpCopied = $this->copyStaticPhpAssets($src, $bundle);
+                        $report[$code]['bundle'] = "v{$bundle->version}/{$bundle->file_count}f (synthesised shell)".($phpCopied ? ", +{$phpCopied} static .php" : '');
                     } else {
                         $report[$code]['bundle'] = 'MISSING SRC';
                         $parser->warnings[] = 'no frontend dir';
@@ -332,6 +334,57 @@ class ImportPragmaticGamesCommand extends Command
         }
 
         return $this->shopPercentCache[$shopId];
+    }
+
+    // ---- static ".php" assets ------------------------------------
+
+    /**
+     * The Playtech "platform" chrome hardcodes a handful of request paths
+     * ending in `.php` (`locked_games.php`, `games_info.php`, `gls_config.php`,
+     * `integration.js.php`, per-game `js/gls_config.php`, …) — but on the
+     * legacy server every one of them is a static, hand-authored JSON/JS
+     * literal with no actual PHP logic (verified: none contain a `<?php` or
+     * `<?=` tag). `BundleManager` strips `.php` from every uploaded bundle on
+     * principle (untrusted content must never execute server-side) — that's
+     * still correct for admin uploads, but blocks these known-static legacy
+     * files the client requires by that exact path. Copy them in here, after
+     * re-verifying each is tag-free, rather than loosening the general rule.
+     *
+     * @return int files copied
+     */
+    private function copyStaticPhpAssets(string $sourceDir, GameBundle $bundle): int
+    {
+        $absDir = $bundle->disk()->path($bundle->path);
+        $copied = 0;
+
+        $it = new \RecursiveIteratorIterator(
+            new \RecursiveDirectoryIterator($sourceDir, \FilesystemIterator::SKIP_DOTS),
+        );
+        foreach ($it as $file) {
+            /** @var \SplFileInfo $file */
+            if (! $file->isFile() || strtolower($file->getExtension()) !== 'php') {
+                continue;
+            }
+
+            $contents = (string) file_get_contents($file->getPathname());
+            if (str_contains($contents, '<?php') || str_contains($contents, '<?=')) {
+                $this->warn("  skipped {$file->getFilename()} — contains a PHP tag, not static");
+
+                continue;
+            }
+
+            $relative = ltrim(str_replace('\\', '/', substr($file->getPathname(), strlen($sourceDir))), '/');
+            $target = $absDir.'/'.$relative;
+            File::ensureDirectoryExists(dirname($target));
+            file_put_contents($target, $contents);
+            $copied++;
+        }
+
+        if ($copied > 0) {
+            $bundle->increment('file_count', $copied);
+        }
+
+        return $copied;
     }
 
     // ---- poster -------------------------------------------------
