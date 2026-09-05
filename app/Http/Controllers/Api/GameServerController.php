@@ -8,11 +8,12 @@ use App\Services\Banker;
 use App\Services\GamePlay\GameConfig;
 use App\Services\GamePlay\GameContext;
 use App\Services\GamePlay\GameRegistry;
+use App\Services\GamePlay\Protocol\PragmaticProtocol;
 use App\Services\GamePlay\Protocol\SlotEventProtocol;
 use App\Services\Ledger;
-use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Routing\Controller;
+use Symfony\Component\HttpFoundation\Response;
 
 /**
  * The universal game-play endpoint. The front-end bundle POSTs every command
@@ -29,7 +30,7 @@ class GameServerController extends Controller
         private Banker $banker,
     ) {}
 
-    public function handle(Request $request, string $code): JsonResponse
+    public function handle(Request $request, string $code): Response
     {
         $token = $request->bearerToken()
             ?? $request->input('session')
@@ -53,6 +54,13 @@ class GameServerController extends Controller
             // Legacy `slotEvent` games return their own `{responseEvent,…}` frame.
             if ($protocol === ClientProtocol::SlotEvent) {
                 return response()->json(app(SlotEventProtocol::class)->dispatch($context, $request->all()));
+            }
+
+            // Legacy Pragmatic games speak a raw `3:::{…}------3:::{…}` text
+            // body (a faked Socket.IO v0.9 transport) — never JSON-wrapped.
+            if ($protocol === ClientProtocol::Pragmatic) {
+                return response(app(PragmaticProtocol::class)->dispatch($context, $request->all()))
+                    ->header('Content-Type', 'text/plain');
             }
 
             $server = $this->registry->for($session->game);

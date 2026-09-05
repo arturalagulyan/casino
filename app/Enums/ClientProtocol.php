@@ -34,6 +34,17 @@ enum ClientProtocol: string
      */
     case Amatic = 'amatic';
 
+    /**
+     * Legacy Pragmatic Play HTTP protocol: `POST /game/{code}/server?sessionId=…`
+     * with a JSON body (`umid`/`ID` housekeeping calls, or a spin's `spinType`/
+     * `lines`/`bet`/`index`) → a Socket.IO-v0.9-flavoured plain-text body,
+     * multiple `3:::{…}` frames joined by `------` (the legacy platform faked
+     * Pragmatic's real GWT client transport over plain HTTP — no actual
+     * WebSocket/socket.io server ever ran). Front-end bundle ships a "platform"
+     * GWT app (chrome/login) that hosts a nested "bib" GWT app (the game).
+     */
+    case Pragmatic = 'pragmatic';
+
     public function label(): string
     {
         return match ($this) {
@@ -41,6 +52,7 @@ enum ClientProtocol: string
             self::GamePlatform => 'GamePlatform (WebSocket)',
             self::SlotEvent => 'slotEvent (legacy HTTP)',
             self::Amatic => 'Amatic amarent (WebSocket)',
+            self::Pragmatic => 'Pragmatic Play (legacy HTTP)',
         };
     }
 

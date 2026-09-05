@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers;
 
+use App\Enums\ClientProtocol;
 use App\Models\Game;
 use App\Models\GameBundle;
 use App\Models\GameSession;
@@ -52,6 +53,13 @@ class GameAssetController extends Controller
         // the loader shell at request time (the bundle is never modified).
         if ($bundle->entry === LegacyGameReader::SLOT_EVENT_SHELL || $this->isEngineOnlyBundle($bundle)) {
             return $this->slotEventShell($request, $template, $game, $session, $bundle, $user);
+        }
+
+        // Pragmatic Play bundle — a compiled GWT "platform" chrome app that
+        // boots a nested "bib" game app. The top-level page legacy served was
+        // never a bundle file (it was a per-game Blade view); synthesise it.
+        if ((new GameConfig($template, $game))->clientProtocol() === ClientProtocol::Pragmatic) {
+            return $this->pragmaticShell($template, $game, $session, $user);
         }
 
         $rel = $bundle->filePath($bundle->entry) ?? abort(500, 'Bundle entry file missing.');
@@ -216,6 +224,25 @@ class GameAssetController extends Controller
             'fontFamilies' => $fontFamilies,
             'width' => 750,
             'height' => 630,
+            'jackpotTicker' => $this->jackpotTickerSnippet($game, $user),
+        ]);
+    }
+
+    /**
+     * The legacy per-game Blade shell (`resources/views/frontend/games/list/<Code>.blade.php`
+     * on the legacy server) — identical boilerplate across every Pragmatic
+     * title bar `$game->name` / `$game->title`, so synthesised generically
+     * instead of shipping ~60 near-duplicate Blade files. Base href points at
+     * the bundle's `platform/` folder (the GWT "chrome" app, not the game
+     * itself); it boots and internally loads the nested "bib" game app.
+     */
+    private function pragmaticShell(GameTemplate $template, Game $game, GameSession $session, User $user): Response
+    {
+        return response()->view('games.pragmatic-shell', [
+            'title' => $game->title ?? $template->title,
+            'base' => rtrim(url("/games/{$template->code}/platform"), '/').'/',
+            'sessionsPlayerKey' => 'bs='.$template->code,
+            'token' => $session->token,
             'jackpotTicker' => $this->jackpotTickerSnippet($game, $user),
         ]);
     }

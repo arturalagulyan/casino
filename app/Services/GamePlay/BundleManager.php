@@ -5,7 +5,6 @@ namespace App\Services\GamePlay;
 use App\Models\GameBundle;
 use App\Models\GameTemplate;
 use App\Models\User;
-use App\Services\Legacy\LegacyGameReader;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\File;
@@ -143,8 +142,12 @@ class BundleManager
             throw $e;
         }
 
-        $foundEntry = $entry === LegacyGameReader::SLOT_EVENT_SHELL
-            ? $entry   // no HTML — the shell is synthesised at request time
+        // "__..._shell__"-style sentinels (SlotEventShell, Pragmatic's platform
+        // shell, …) mean the bundle ships no real HTML entry — the host page is
+        // synthesised at request time by GameAssetController instead.
+        $isSentinel = $entry !== null && str_starts_with($entry, '__') && str_ends_with($entry, '__');
+        $foundEntry = $isSentinel
+            ? $entry
             : $this->entryResolver->resolve($names, $template->code, $entry);
 
         // Some legacy downloads are missing the portal shell HTML (the legacy

@@ -63,6 +63,7 @@ class SlotEngine
                 'scatters' => $eval['scatters'],
                 'scatter_cells' => $eval['scatter_cells'],
                 'decision' => $decision->type,
+                'reel_offsets' => $eval['offsets'],
             ],
         );
     }
@@ -86,7 +87,7 @@ class SlotEngine
      * Spin the real reels until the board matches the gated outcome + bank.
      * Legacy Server.php's `for ($i = 0; $i <= 2000; $i++)` loop.
      *
-     * @return array{0: array, 1: array{win: float, lines: array, scatters: array<int,int>, scatter_cells: array<int,array>}}
+     * @return array{0: array, 1: array{win: float, lines: array, scatters: array<int,int>, scatter_cells: array<int,array>, offsets: ?array<int,int>}}
      */
     private function rollToOutcome(GameConfig $cfg, int $lines, float $betline, bool $free, SpinDecision $decision, float $ceiling, float $floor): array
     {
@@ -101,25 +102,27 @@ class SlotEngine
         // matches the gated outcome and fits the bank — the win is whatever
         // those reels naturally pay. (No "keep the smallest of N" — that made
         // wins feel artificially stingy.)
+        $bestOffsets = null;
+
         for ($i = 0; $i < self::MAX_TRIES; $i++) {
-            $board = $this->spinReels($cfg, $free || $wantBonus, $wantBonus);
+            $board = $this->spinReels($cfg, $free || $wantBonus, $wantBonus, $offsets);
             $eval = $this->evaluate($board, $cfg, $betline, $lines);
             $trigger = $this->hasFeatureTrigger($cfg, $eval['scatters']);
             $floorNow = $i < self::DROP_FLOOR_AT ? $floor : 0.0;
 
             if ($wantBonus) {
                 if ($trigger && $eval['win'] <= $ceiling) {
-                    return [$board, $eval];
+                    return [$board, $eval + ['offsets' => $offsets]];
                 }
                 $score = ($trigger ? 0 : 1e9) + max(0, $eval['win'] - $ceiling);
             } elseif (! $wantWin) {
                 if ($eval['win'] <= 0 && ! $trigger) {
-                    return [$board, $eval];
+                    return [$board, $eval + ['offsets' => $offsets]];
                 }
                 $score = $eval['win'] + ($trigger ? 1e9 : 0);
             } else {
                 if (! $trigger && $eval['win'] >= max($floorNow, 0.0001) && $eval['win'] <= $ceiling) {
-                    return [$board, $eval];
+                    return [$board, $eval + ['offsets' => $offsets]];
                 }
                 $score = ($trigger ? 1e9 : 0)
                     + ($eval['win'] > $ceiling ? $eval['win'] - $ceiling : 0)
@@ -131,19 +134,24 @@ class SlotEngine
                 $bestScore = $score;
                 $best = $eval;
                 $bestBoard = $board;
+                $bestOffsets = $offsets;
             }
         }
 
         // Never found a match — fall back to the closest board, forced clean for a loser.
-        $bestBoard ??= $this->spinReels($cfg, $free, false);
+        $bestBoard ??= $this->spinReels($cfg, $free, false, $bestOffsets);
         $best ??= $this->evaluate($bestBoard, $cfg, $betline, $lines);
 
         if (! $wantWin && ($best['win'] > 0 || $this->hasFeatureTrigger($cfg, $best['scatters']))) {
             $bestBoard = $this->forceLoser($cfg, $bestBoard, $lines);
             $best = $this->evaluate($bestBoard, $cfg, $betline, $lines);
+            // forceLoser mutates cells directly — the strip offsets no longer
+            // reconstruct this exact board. Rare fallback path (MAX_TRIES
+            // exhausted); only affects protocols that transmit raw reel
+            // positions (Pragmatic) instead of the resolved symbol grid.
         }
 
-        return [$bestBoard, $best];
+        return [$bestBoard, $best + ['offsets' => $bestOffsets]];
     }
 
     /** Legacy GetRandomPay: a random paytable coefficient, or 0 if the game is ahead. */
@@ -202,13 +210,21 @@ class SlotEngine
 
     // ---- real reels ---------------------------------------------
 
-    /** One honest spin from the configured strips (random position per reel). */
-    public function spinReels(GameConfig $cfg, bool $bonusStrips, bool $forceScatter = false): array
+    /**
+     * One honest spin from the configured strips (random position per reel).
+     *
+     * @param  array<int,int>|null  $offsets  set to the chosen strip start index per
+     *                                        reel (row 0's position) — the raw
+     *                                        position Pragmatic's wire protocol
+     *                                        transmits instead of a symbol grid.
+     */
+    public function spinReels(GameConfig $cfg, bool $bonusStrips, bool $forceScatter = false, ?array &$offsets = null): array
     {
         $strips = $cfg->reelStrips($bonusStrips);
         $rows = $cfg->rowCount();
         $scatter = $cfg->scatterSymbol();
         $board = [];
+        $offsets = [];
 
         foreach ($strips as $reel => $strip) {
             $n = max(1, count($strip));
@@ -223,6 +239,7 @@ class SlotEngine
                 $col[$r] = (int) $strip[($at + $r) % $n];
             }
             $board[$reel] = $col;
+            $offsets[$reel] = $at;
         }
 
         return $board;
