@@ -7,6 +7,7 @@
 <!DOCTYPE html>
 <html>
 <head>
+    <script>var startTime = new Date();</script>
     <base href="{{ $base }}">
     <meta http-equiv="X-UA-Compatible" content="IE=edge">
     <meta http-equiv="Content-Type" content="text/html; charset=UTF-8">
