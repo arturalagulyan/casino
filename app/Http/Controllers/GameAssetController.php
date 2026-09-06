@@ -122,14 +122,19 @@ class GameAssetController extends Controller
                 $html,
             ) ?? $html;
 
-            // The bundle's own bootstrap reads `cur` AND `sessionId` off *this
-            // page's* URL (`qstr.cur.toUpperCase()`; the actual `doInit` POST
-            // was observed going out as `…/server?sessionId=null`, ignoring
-            // the `gameService` string rewrite above) — our launch URL only
-            // ever carries `?token=`. Add both before that script runs.
+            // The bundle's own bootstrap reads `cur` off *this page's* URL
+            // (`qstr.cur.toUpperCase()`) — our launch URL only ever carries
+            // `?token=`. But the actual `doInit` POST was observed going out
+            // as `…/server?sessionId=null` regardless — its request-builder
+            // (inside the compiled bootstrap.js) never honours `gameService`'s
+            // query string nor `qstr.sessionId`. Since we can't fix that
+            // client-side, GameServerController instead recovers the real
+            // token from this request's `Referer` header, which still points
+            // at this page's URL — force the *full* URL (query string
+            // included) to always be sent as referer for that to work.
             $currency = ($user->currency ?? $game->shop->currency)->value;
             $extra = "cur={$currency}&sessionId={$session->token}";
-            $html = $this->injectHead($html, "<script>(function(){var s=location.search;if(!/[?&]sessionId=/i.test(s)){history.replaceState(null,'',location.pathname+s+(s?'&':'?')+'{$extra}');}})();</script>");
+            $html = $this->injectHead($html, '<meta name="referrer" content="unsafe-url">'."<script>(function(){var s=location.search;if(!/[?&]cur=/i.test(s)){history.replaceState(null,'',location.pathname+s+(s?'&':'?')+'{$extra}');}})();</script>");
 
             return response($html)->header('Content-Type', 'text/html');
         }

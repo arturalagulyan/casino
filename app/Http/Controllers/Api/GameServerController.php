@@ -36,7 +36,8 @@ class GameServerController extends Controller
         $token = $request->bearerToken()
             ?? $request->input('session')
             ?? $request->header('X-Game-Session')
-            ?? $request->query('sessionId');   // legacy slotEvent bundles
+            ?? $this->realSessionId($request->query('sessionId'))   // legacy slotEvent bundles
+            ?? $this->tokenFromReferer($request);
 
         $session = $token
             ? GameSession::where('token', $token)->where('is_active', true)->with('user.wallet', 'game.template', 'game.shop')->first()
@@ -83,5 +84,32 @@ class GameServerController extends Controller
         }
 
         return response()->json($result);
+    }
+
+    /** Some legacy clients send the literal string "null" instead of omitting the param. */
+    private function realSessionId(?string $sessionId): ?string
+    {
+        return $sessionId === null || $sessionId === '' || $sessionId === 'null' ? null : $sessionId;
+    }
+
+    /**
+     * Real Pragmatic Play's HTML5 client builds its own request URL at
+     * runtime and always sends `?sessionId=null` — it never honours the
+     * session id we bake into the page's `gameService` config or the page's
+     * own URL (`qstr.sessionId`, verified against `AncientEgyptPM`'s
+     * `bootstrap.js`/`html5-script-external.js` — neither reads it back).
+     * The browser's `Referer` header still points at our launch page, which
+     * *does* carry the real token in its query string — recover it from there.
+     */
+    private function tokenFromReferer(Request $request): ?string
+    {
+        $referer = $request->headers->get('referer');
+        if (! $referer) {
+            return null;
+        }
+
+        parse_str((string) parse_url($referer, PHP_URL_QUERY), $query);
+
+        return $this->realSessionId($query['sessionId'] ?? null) ?? ($query['token'] ?? null);
     }
 }
