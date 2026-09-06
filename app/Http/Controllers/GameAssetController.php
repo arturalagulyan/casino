@@ -122,11 +122,14 @@ class GameAssetController extends Controller
                 $html,
             ) ?? $html;
 
-            // The bundle's own bootstrap reads `cur` off *this page's* URL
-            // (`qstr.cur.toUpperCase()`) — our launch URL only ever carries
-            // `?token=`. Add it to the visible URL before that script runs.
+            // The bundle's own bootstrap reads `cur` AND `sessionId` off *this
+            // page's* URL (`qstr.cur.toUpperCase()`; the actual `doInit` POST
+            // was observed going out as `…/server?sessionId=null`, ignoring
+            // the `gameService` string rewrite above) — our launch URL only
+            // ever carries `?token=`. Add both before that script runs.
             $currency = ($user->currency ?? $game->shop->currency)->value;
-            $html = $this->injectHead($html, "<script>(function(){var s=location.search;if(!/[?&]cur=/i.test(s)){history.replaceState(null,'',location.pathname+s+(s?'&':'?')+'cur=".$currency."');}})();</script>");
+            $extra = "cur={$currency}&sessionId={$session->token}";
+            $html = $this->injectHead($html, "<script>(function(){var s=location.search;if(!/[?&]sessionId=/i.test(s)){history.replaceState(null,'',location.pathname+s+(s?'&':'?')+'{$extra}');}})();</script>");
 
             return response($html)->header('Content-Type', 'text/html');
         }
