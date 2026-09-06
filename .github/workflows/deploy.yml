@@ -71,6 +71,24 @@ jobs:
             docker image prune -f
 
             echo "==> Health check"
-            curl -fsS -o /dev/null -w "HTTP %{http_code}\n" http://localhost:8080
+            # `restart web` returns as soon as the restart is issued, not once
+            # nginx's upstream (app:9000, php-fpm) is actually accepting
+            # connections again — the two land within the same second often
+            # enough that a bare curl here intermittently hits "Connection
+            # refused" before php-fpm finishes coming back up. Retry instead
+            # of failing the whole deploy on that startup race.
+            ok=0
+            for i in $(seq 1 15); do
+              if code=$(curl -fsS -o /dev/null -w "%{http_code}" http://localhost:8080 2>/dev/null); then
+                ok=1
+                break
+              fi
+              sleep 2
+            done
+            if [ "$ok" != "1" ]; then
+              echo "Health check failed after retries"
+              exit 1
+            fi
+            echo "HTTP ${code}"
 
             echo "==> Done"
