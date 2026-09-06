@@ -142,7 +142,7 @@ class BundleManager
             throw $e;
         }
 
-        // "__..._shell__"-style sentinels (SlotEventShell, Pragmatic's platform
+        // "__..._shell__"-style sentinels (SlotEventShell, Playtech's platform
         // shell, …) mean the bundle ships no real HTML entry — the host page is
         // synthesised at request time by GameAssetController instead.
         $isSentinel = $entry !== null && str_starts_with($entry, '__') && str_ends_with($entry, '__');

@@ -7,10 +7,10 @@ use App\Services\GamePlay\SpinResult;
 use App\Services\Legacy\EgtGameParser;
 
 /**
- * Builds the exact `3:::{…}` frames the legacy Pragmatic Play front-end (a
+ * Builds the exact `3:::{…}` frames the legacy Playtech front-end (a
  * compiled GWT "platform" + "bib" pair) expects — ported byte-for-byte from
  * the legacy per-game `Server.php` `switch ($umid)` housekeeping block, which
- * is identical across every Pragmatic title (only balance/currency/bet values
+ * is identical across every Playtech title (only balance/currency/bet values
  * are dynamic; verified by diffing GreatBluePT vs BuffaloBlitzPT). Each frame
  * is a fixed legacy RPC opcode (`ID`) the client's GWT deserializer expects
  * verbatim — this is not a designed API, it's a faithful transcript.
@@ -22,7 +22,7 @@ use App\Services\Legacy\EgtGameParser;
  * which must stay byte-identical to ours (imported from the same
  * `reels.txt` / `SlotSettings.php` — see {@see EgtGameParser}).
  */
-class PragmaticFormatter
+class PlaytechFormatter
 {
     /** Whole-cents balance, legacy `sprintf('%01.2f', credits) * 100`. */
     public function balanceInCents(GameContext $ctx): int

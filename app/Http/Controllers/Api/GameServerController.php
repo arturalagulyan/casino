@@ -8,7 +8,7 @@ use App\Services\Banker;
 use App\Services\GamePlay\GameConfig;
 use App\Services\GamePlay\GameContext;
 use App\Services\GamePlay\GameRegistry;
-use App\Services\GamePlay\Protocol\PragmaticProtocol;
+use App\Services\GamePlay\Protocol\PlaytechProtocol;
 use App\Services\GamePlay\Protocol\SlotEventProtocol;
 use App\Services\Ledger;
 use Illuminate\Http\Request;
@@ -56,10 +56,10 @@ class GameServerController extends Controller
                 return response()->json(app(SlotEventProtocol::class)->dispatch($context, $request->all()));
             }
 
-            // Legacy Pragmatic games speak a raw `3:::{…}------3:::{…}` text
+            // Legacy Playtech games speak a raw `3:::{…}------3:::{…}` text
             // body (a faked Socket.IO v0.9 transport) — never JSON-wrapped.
-            if ($protocol === ClientProtocol::Pragmatic) {
-                return response(app(PragmaticProtocol::class)->dispatch($context, $request->all()))
+            if ($protocol === ClientProtocol::Playtech) {
+                return response(app(PlaytechProtocol::class)->dispatch($context, $request->all()))
                     ->header('Content-Type', 'text/plain');
             }
 

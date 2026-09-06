@@ -1,7 +1,7 @@
-{{-- Request-time loader for the legacy Pragmatic Play "platform" chrome GWT
+{{-- Request-time loader for the legacy Playtech "platform" chrome GWT
      app (which boots the nested "bib" game GWT app). Port of the legacy
      per-game resources/views/frontend/games/list/<Code>.blade.php — that
-     Blade file was ~100% identical across every Pragmatic title (only
+     Blade file was ~100% identical across every Playtech title (only
      $game->name / $game->title varied), so this is one shared shell instead
      of ~60 near-duplicate views. The bundle itself is never modified. --}}
 <!DOCTYPE html>

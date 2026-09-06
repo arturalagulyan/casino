@@ -9,8 +9,8 @@ use App\Services\GamePlay\GameContext;
 use App\Services\GamePlay\SpinResult;
 
 /**
- * The legacy Pragmatic Play HTTP wire protocol — see {@see PragmaticFormatter}
- * for the frame shapes and {@see ClientProtocol::Pragmatic} for the
+ * The legacy Playtech HTTP wire protocol — see {@see PlaytechFormatter}
+ * for the frame shapes and {@see ClientProtocol::Playtech} for the
  * transport. All spin/win math is the generic {@see SlotEngine}; nothing here
  * is game-specific.
  *
@@ -18,11 +18,11 @@ use App\Services\GamePlay\SpinResult;
  * ({@see GameServerController}) must send it back
  * verbatim, not wrapped in a JSON envelope.
  */
-class PragmaticProtocol
+class PlaytechProtocol
 {
     public function __construct(
         private readonly SlotEngine $engine,
-        private readonly PragmaticFormatter $formatter,
+        private readonly PlaytechFormatter $formatter,
     ) {}
 
     /** @param  array<string,mixed>  $req  the decoded POST body */

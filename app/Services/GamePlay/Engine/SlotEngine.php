@@ -148,7 +148,7 @@ class SlotEngine
             // forceLoser mutates cells directly — the strip offsets no longer
             // reconstruct this exact board. Rare fallback path (MAX_TRIES
             // exhausted); only affects protocols that transmit raw reel
-            // positions (Pragmatic) instead of the resolved symbol grid.
+            // positions (Playtech) instead of the resolved symbol grid.
         }
 
         return [$bestBoard, $best + ['offsets' => $bestOffsets]];
@@ -215,7 +215,7 @@ class SlotEngine
      *
      * @param  array<int,int>|null  $offsets  set to the chosen strip start index per
      *                                        reel (row 0's position) — the raw
-     *                                        position Pragmatic's wire protocol
+     *                                        position Playtech's wire protocol
      *                                        transmits instead of a symbol grid.
      */
     public function spinReels(GameConfig $cfg, bool $bonusStrips, bool $forceScatter = false, ?array &$offsets = null): array

@@ -21,38 +21,39 @@ use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
 
 /**
- * Port the legacy Pragmatic Play games into the rebuild as pure DB config —
- * the same pipeline as {@see ImportAmaticGamesCommand} / {@see ImportEgtGamesCommand},
+ * Port the legacy Playtech games into the rebuild as pure DB config — the
+ * same pipeline as {@see ImportAmaticGamesCommand} / {@see ImportEgtGamesCommand},
  * since the legacy backend package shape is identical ({@see EgtGameParser} is
  * reused as-is). Two real differences from EGT, shared with Amatic:
  *  - the bet-per-line ladder isn't a `$gameBets` constant in Server.php — it's
  *    read at runtime from the legacy `games.bet` column, same as Amatic.
- *  - `client_protocol` is `pragmatic`, and the bundle has no single HTML
+ *  - `client_protocol` is `playtech`, and the bundle has no single HTML
  *    entry at all (the legacy host page was a server-rendered Blade view, not
- *    a bundle file) — `GameAssetController::pragmaticShell()` synthesises it,
+ *    a bundle file) — `GameAssetController::playtechShell()` synthesises it,
  *    so the bundle is registered with a sentinel entry, never resolved from
  *    the zip like every other provider.
  *
- * Desktop titles only (`*PT`, e.g. `GreatBluePT`) — the `*PTM` mobile variants
- * are separate legacy game codes, not yet ported.
+ * Desktop titles only (`*PT`, e.g. `GreatBluePT` — NOT `*PM`, which is real
+ * Pragmatic Play and a different, unrelated legacy protocol). The `*PTM`
+ * mobile variants are separate legacy game codes, not yet ported.
  *
- *   php artisan pragmatic:import
- *   php artisan pragmatic:import --only=GreatBluePT,BuffaloBlitzPT
- *   php artisan pragmatic:import --skip-bundles          # config only, keep bundles
- *   php artisan pragmatic:import --fresh-bundles         # re-upload even if present
+ *   php artisan playtech:import
+ *   php artisan playtech:import --only=GreatBluePT,BuffaloBlitzPT
+ *   php artisan playtech:import --skip-bundles          # config only, keep bundles
+ *   php artisan playtech:import --fresh-bundles         # re-upload even if present
  */
-class ImportPragmaticGamesCommand extends Command
+class ImportPlaytechGamesCommand extends Command
 {
     /** Bundles have no discoverable HTML entry — the shell is synthesised at request time. */
-    public const string PLATFORM_SHELL = '__pragmatic_platform__';
+    public const string PLATFORM_SHELL = '__playtech_platform__';
 
-    protected $signature = 'pragmatic:import
+    protected $signature = 'playtech:import
         {--only= : Comma list of game codes to (re)import}
         {--skip-bundles : Do not (re)upload front-end bundles}
         {--fresh-bundles : Re-upload bundles even when one is already active}
         {--dry-run : Parse and report, write nothing}';
 
-    protected $description = 'Import the legacy Pragmatic Play games as DB-driven templates + per-shop games';
+    protected $description = 'Import the legacy Playtech games as DB-driven templates + per-shop games';
 
     /** Legacy shop id → rebuild shop name, with the per-shop win cap (× bet) to apply. */
     private const array SHOP_MAP = [
@@ -77,12 +78,12 @@ class ImportPragmaticGamesCommand extends Command
             $this->warn('Legacy DB unreachable — bet ladders / win-chance tables will fall back to defaults.');
         }
 
-        $pragmatic = Category::firstOrCreate(
-            ['slug' => 'pragmatic'],
-            ['title' => 'Pragmatic Play', 'position' => 5, 'config' => ['client_protocol' => 'pragmatic']],
+        $playtech = Category::firstOrCreate(
+            ['slug' => 'playtech'],
+            ['title' => 'Playtech', 'position' => 5, 'config' => ['client_protocol' => 'playtech']],
         );
-        if (data_get($pragmatic->config, 'client_protocol') !== 'pragmatic') {
-            $pragmatic->update(['config' => array_merge((array) $pragmatic->config, ['client_protocol' => 'pragmatic'])]);
+        if (data_get($playtech->config, 'client_protocol') !== 'playtech') {
+            $playtech->update(['config' => array_merge((array) $playtech->config, ['client_protocol' => 'playtech'])]);
         }
 
         /** @var array<int, Shop> $shops legacy-shop-id => rebuild Shop */
@@ -165,7 +166,7 @@ class ImportPragmaticGamesCommand extends Command
                         'engine' => GameEngine::Internal,
                         'device' => 'both',
                         'bank_type' => BankType::Slots,
-                        'client_protocol' => ClientProtocol::Pragmatic,
+                        'client_protocol' => ClientProtocol::Playtech,
                         'pricing_currency' => Currency::USD,
                         'poster_path' => $poster,
                         'win_chances' => $winChances,
@@ -179,7 +180,7 @@ class ImportPragmaticGamesCommand extends Command
                         $bundle = $bundles->storeFromDirectory(
                             $template, $src,
                             entry: self::PLATFORM_SHELL,
-                            notes: 'Pragmatic Play platform+bib front-end (pragmatic:import).',
+                            notes: 'Playtech platform+bib front-end (playtech:import).',
                         );
                         $phpCopied = $this->copyStaticPhpAssets($src, $bundle);
                         $report[$code]['bundle'] = "v{$bundle->version}/{$bundle->file_count}f (synthesised shell)".($phpCopied ? ", +{$phpCopied} static .php" : '');
@@ -190,7 +191,7 @@ class ImportPragmaticGamesCommand extends Command
                 }
 
                 foreach ($shops as $legacyId => $shop) {
-                    $this->upsertGame($template, $shop, $legacyId, $pragmatic, $attrs, $winChances);
+                    $this->upsertGame($template, $shop, $legacyId, $playtech, $attrs, $winChances);
                 }
 
                 $done++;
@@ -212,13 +213,13 @@ class ImportPragmaticGamesCommand extends Command
             ])->values()->all(),
         );
 
-        $this->info(sprintf('%s done=%d  skipped=%d  failed=%d', $dry ? 'Dry run —' : 'Pragmatic import', $done, $skipped, $failed));
+        $this->info(sprintf('%s done=%d  skipped=%d  failed=%d', $dry ? 'Dry run —' : 'Playtech import', $done, $skipped, $failed));
 
         return $failed > 0 ? self::FAILURE : self::SUCCESS;
     }
 
-    /** Create/refresh the per-shop game row, tagged Pragmatic, with legacy tuning. */
-    private function upsertGame(GameTemplate $template, Shop $shop, int $legacyShopId, Category $pragmatic, array $attrs, ?array $winChances): void
+    /** Create/refresh the per-shop game row, tagged Playtech, with legacy tuning. */
+    private function upsertGame(GameTemplate $template, Shop $shop, int $legacyShopId, Category $playtech, array $attrs, ?array $winChances): void
     {
         $legacy = $this->legacyGameRow($template->code, $legacyShopId);
 
@@ -242,7 +243,7 @@ class ImportPragmaticGamesCommand extends Command
             ],
         );
 
-        $game->categories()->syncWithoutDetaching([$pragmatic->id]);
+        $game->categories()->syncWithoutDetaching([$playtech->id]);
     }
 
     // ---- bets (legacy `games.bet`, not a Server.php constant) ---------
