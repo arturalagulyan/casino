@@ -43,10 +43,19 @@ enum ClientProtocol: string
      * WebSocket/socket.io server ever ran). Front-end bundle ships a "platform"
      * GWT app (chrome/login) that hosts a nested "bib" GWT app (the game).
      * NB: legacy game codes with this protocol end in `PT` — not to be
-     * confused with real Pragmatic Play (`*PM`), a different, much simpler
-     * legacy protocol, not yet ported.
+     * confused with real Pragmatic Play (`*PM`), a different legacy protocol.
      */
     case Playtech = 'playtech';
+
+    /**
+     * Real Pragmatic Play HTTP protocol: `POST /game/{code}/server?sessionId=…`
+     * with a URL-encoded (not JSON) body (`action=doInit|doSpin|slotGamble|…`)
+     * → a bespoke `key=value&key2=value2` plain-text body (their own HTML5
+     * "gs2c" client wire format — a few sub-actions like gamble reply in JSON
+     * instead). Front-end bundle is a self-contained root `index.html`; no
+     * WebSocket. Legacy game codes end in `PM` (`*PMM` = mobile).
+     */
+    case Pragmatic = 'pragmatic';
 
     public function label(): string
     {
@@ -56,6 +65,7 @@ enum ClientProtocol: string
             self::SlotEvent => 'slotEvent (legacy HTTP)',
             self::Amatic => 'Amatic amarent (WebSocket)',
             self::Playtech => 'Playtech (legacy HTTP)',
+            self::Pragmatic => 'Pragmatic Play (legacy HTTP)',
         };
     }
 

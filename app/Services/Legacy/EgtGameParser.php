@@ -23,6 +23,12 @@ use Illuminate\Support\Str;
  *
  * Anything genuinely absent falls back to a sane EGT default; the win-chance
  * tables (`lines_percent_config_*`) come from the legacy DB, not here.
+ *
+ * Despite the name, this is reused as-is by Amatic, Playtech, and Pragmatic
+ * Play — same package shape, only the Paytable/wild naming convention
+ * differs: EGT/Amatic/Playtech key by name (`Paytable['SYM_8']`, `$wild =
+ * ['8']`), Pragmatic by bare symbol id (`Paytable[8]`, `$wild = '1'`) — both
+ * are tried.
  */
 class EgtGameParser
 {
@@ -57,7 +63,7 @@ class EgtGameParser
         return $this->settings !== ''
             && str_contains($this->server, '$linesId[')
             && str_contains($this->server, '$scatter')
-            && str_contains($this->settings, "Paytable['SYM_");
+            && (str_contains($this->settings, "Paytable['SYM_") || preg_match('/Paytable\[\d+\]\s*=/', $this->settings) === 1);
     }
 
     /**
@@ -123,12 +129,24 @@ class EgtGameParser
     /** @return array<int, list<int>> symbol index => payout per match count (index = count) */
     private function paytable(): array
     {
+        // EGT / Amatic / Playtech key by name (`Paytable['SYM_8']`); Pragmatic
+        // keys the same array by bare symbol id (`Paytable[8]`) — try the named
+        // form first, since a bare `\d+` pattern would also match array indices
+        // inside the named form's `SYM_` string if tried first.
         preg_match_all(
             "/Paytable\\['SYM_(\\d+)'\\]\\s*=\\s*\\[([\\s\\S]*?)\\]/",
             $this->settings,
             $m,
             PREG_SET_ORDER,
         );
+        if ($m === []) {
+            preg_match_all(
+                '/Paytable\\[(\\d+)\\]\\s*=\\s*\\[([\\s\\S]*?)\\]/',
+                $this->settings,
+                $m,
+                PREG_SET_ORDER,
+            );
+        }
 
         $out = [];
         foreach ($m as [, $sym, $body]) {
@@ -227,7 +245,9 @@ class EgtGameParser
 
     private function wildSymbol(): ?int
     {
-        if (preg_match("/\\\$wild\s*=\s*\[\s*'?(\d+)'?/", $this->server, $m)) {
+        // EGT/Amatic/Playtech: `$wild = ['8'];` (array). Pragmatic: `$wild = '1';`
+        // (bare scalar) — the bracket is optional so both match.
+        if (preg_match("/\\\$wild\s*=\s*\[?\s*'?(\d+)'?/", $this->server, $m)) {
             return (int) $m[1];
         }
         $this->warnings[] = 'no $wild in Server.php';

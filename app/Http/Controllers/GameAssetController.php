@@ -101,6 +101,24 @@ class GameAssetController extends Controller
             return response($html)->header('Content-Type', 'text/html');
         }
 
+        // Real Pragmatic Play bundles hard-code their POST endpoint
+        // (`"gameService":"https:///game/<Code>/server"` — note the broken,
+        // host-less scheme, baked in as-is by the legacy scrape) with no
+        // session identifier at all; the real client instead relied on the
+        // browser's own authenticated cookie session. Point it at our actual
+        // origin and append this launch's session token, matching every
+        // other provider's `?sessionId=` convention.
+        if ($config->clientProtocol() === ClientProtocol::Pragmatic) {
+            $endpoint = url("/game/{$code}/server")."?sessionId={$session->token}";
+            $html = preg_replace(
+                '#https?:///game/'.preg_quote($code, '#').'/server#i',
+                $endpoint,
+                $html,
+            ) ?? $html;
+
+            return response($html)->header('Content-Type', 'text/html');
+        }
+
         return response($this->injectBootstrap($html, $code, $session, $user, $game))
             ->header('Content-Type', 'text/html');
     }
