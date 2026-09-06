@@ -81,6 +81,14 @@ class EgtGameParser
         $wild = $this->wildSymbol();
         $scatter = $this->scatterSymbol();
         $symbolCount = count($paytable) ?: 10;
+        // EGT/Amatic/Playtech paytables happen to key 0..N-1 contiguously, so
+        // this was previously just `range(0, $symbolCount - 1)` — but that's
+        // an assumption, not a rule: Pragmatic's `AncientEgyptPM` keys its
+        // Paytable {1,3,4,…,11} (no 0, no 2 — that slot shares the wild and
+        // "mystery scatter" trigger under id 1, and never defines a symbol 2
+        // at all). Use the real keys so reel strips / paytable / the wire
+        // protocol's symbol ids all agree, whatever the numbering looks like.
+        $symbols = $paytable !== [] ? array_keys($paytable) : range(0, $symbolCount - 1);
 
         $hasBonusStrips = collect($strips)->keys()->contains(fn ($k) => Str::startsWith($k, 'reelStripBonus'));
         $slotBonus = $this->boolProp('slotBonus');
@@ -91,7 +99,7 @@ class EgtGameParser
             'reel_count' => $reelCount,
             'row_count' => $this->rowCount($paylines),
             'symbol_count' => $symbolCount,
-            'symbols' => range(0, $symbolCount - 1),
+            'symbols' => $symbols,
             'wild_symbol' => $wild,
             'scatter_symbol' => $scatter,
             'bonus_symbol' => null,
