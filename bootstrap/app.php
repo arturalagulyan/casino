@@ -22,6 +22,7 @@ return Application::configure(basePath: dirname(__DIR__))
         // game-session token — no CSRF cookie.
         $middleware->validateCsrfTokens(except: [
             'game/*/server',
+            'games/*/gs2c/v3/gameService',
         ]);
     })
     ->withExceptions(function (Exceptions $exceptions): void {

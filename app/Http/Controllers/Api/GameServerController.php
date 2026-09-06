@@ -10,6 +10,7 @@ use App\Services\GamePlay\GameContext;
 use App\Services\GamePlay\GameRegistry;
 use App\Services\GamePlay\Protocol\PlaytechProtocol;
 use App\Services\GamePlay\Protocol\PragmaticProtocol;
+use App\Services\GamePlay\Protocol\PragmaticTumbleProtocol;
 use App\Services\GamePlay\Protocol\SlotEventProtocol;
 use App\Services\Ledger;
 use Illuminate\Http\Request;
@@ -69,6 +70,13 @@ class GameServerController extends Controller
             // text body (their own HTML5 client wire format) — never JSON-wrapped.
             if ($protocol === ClientProtocol::Pragmatic) {
                 return response(app(PragmaticProtocol::class)->dispatch($context, $request->all()))
+                    ->header('Content-Type', 'text/plain');
+            }
+
+            // Modern Pragmatic Play "gs2c" games — same plain-text
+            // `key=value&…` shape, entirely different math/state machine.
+            if ($protocol === ClientProtocol::PragmaticTumble) {
+                return response(app(PragmaticTumbleProtocol::class)->dispatch($context, $request->all()))
                     ->header('Content-Type', 'text/plain');
             }
 

@@ -71,6 +71,7 @@ use Illuminate\Support\Facades\Storage;
  * @property array<array-key, mixed>|null $win_chances
  * @property array<array-key, mixed>|null $win_distribution
  * @property array<array-key, mixed>|null $rtp_control
+ * @property array<array-key, mixed>|null $tumble_config
  * @property array<array-key, mixed>|null $layout
  * @property bool $is_active
  * @property Carbon|null $created_at
@@ -168,6 +169,7 @@ class GameTemplate extends Model
             'win_chances' => 'array',
             'win_distribution' => 'array',
             'rtp_control' => 'array',
+            'tumble_config' => 'array',
             'layout' => 'array',
             'is_active' => 'boolean',
         ];

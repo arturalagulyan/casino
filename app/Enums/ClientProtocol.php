@@ -2,6 +2,8 @@
 
 namespace App\Enums;
 
+use App\Services\GamePlay\Engine\TumbleEngine;
+
 /**
  * The wire protocol a game's front-end bundle speaks to the server.
  *
@@ -57,6 +59,29 @@ enum ClientProtocol: string
      */
     case Pragmatic = 'pragmatic';
 
+    /**
+     * Real Pragmatic Play's MODERN "gs2c" HTML5 client (the actual current
+     * Pragmatic engine — SweetBonanza, GatesofOlympus, WolfGold, … ~100
+     * titles, discovered categorised as "Pragmatic" in the legacy DB despite
+     * carrying no `PM` suffix). A different generation entirely from
+     * {@see self::Pragmatic} (the older `*PM` titles' engine):
+     *   - Bundle entry is `gs2c/html5Game.html`, not a root `index.html`.
+     *   - Command endpoint is `POST /games/{code}/gs2c/v3/gameService` (baked
+     *     into the bundle itself, under the asset path — not our usual
+     *     `/game/{code}/server`), body/response shape otherwise similar
+     *     (`action=doInit|doSpin|…` → `key=value&…` plain text).
+     *   - Math model varies by game family: scatter-pays + tumble/cascade
+     *     (Sweet Bonanza-style — wins counted anywhere on the grid, winning
+     *     symbols removed and refilled, repeat until no more matches) for
+     *     some titles, classic paylines + bespoke features (money-collect,
+     *     pick-bonus, …) for others. Each legacy game folder ships its OWN
+     *     copy of a `PragmaticLib` math engine (not one shared class) — this
+     *     protocol currently only implements the tumble family
+     *     ({@see TumbleEngine}), piloted on
+     *     SweetBonanza.
+     */
+    case PragmaticTumble = 'pragmatic_tumble';
+
     public function label(): string
     {
         return match ($this) {
@@ -66,6 +91,7 @@ enum ClientProtocol: string
             self::Amatic => 'Amatic amarent (WebSocket)',
             self::Playtech => 'Playtech (legacy HTTP)',
             self::Pragmatic => 'Pragmatic Play (legacy HTTP)',
+            self::PragmaticTumble => 'Pragmatic Play gs2c (modern HTTP)',
         };
     }
 

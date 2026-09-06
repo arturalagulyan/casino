@@ -18,6 +18,17 @@ Route::get('/', function () {
 Route::get('games/demo/{code}', [DemoPlayController::class, 'start'])->name('games.demo');
 
 Route::get('games/{code}', [GameAssetController::class, 'play'])->name('games.play');
+
+/*
+ * Real Pragmatic Play's modern "gs2c" HTML5 client hard-codes its game-command
+ * endpoint at this exact path (baked into the bundle's own bootstrap config —
+ * see html5Game.html's `gameConfig.gameService`), unlike the legacy `slotEvent`
+ * bundles' `/game/{code}/server`. Must be registered before the asset wildcard
+ * below (a GET-only route, so no ordering hazard, but kept adjacent for clarity).
+ */
+Route::post('games/{code}/gs2c/v3/gameService', [GameServerController::class, 'handle'])
+    ->name('games.server.gs2c');
+
 Route::get('games/{code}/{path}', [GameAssetController::class, 'asset'])
     ->where('path', '.*')
     ->name('games.asset');

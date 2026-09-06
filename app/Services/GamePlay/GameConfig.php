@@ -390,6 +390,38 @@ class GameConfig
         );
     }
 
+    // ---- scatter-pays / tumble family (TumbleEngine) ---------------
+
+    /**
+     * Extra config for the modern Pragmatic "gs2c" tumble/scatter-pays family
+     * — the multiplier-bomb symbol + its value pool, the scatter's OWN
+     * count-indexed payout table (separate from the main `paytable` — the
+     * scatter symbol's row there is always zero; its trigger payout comes
+     * from this table instead, legacy `scatters=` field), and the scatter
+     * counts that trigger / retrigger free spins. Doesn't fit the line-slot
+     * columns.
+     *
+     * @return array{multiplier_symbol:?int, multiplier_values:list<int>, lines:int, needaddfs:int, addfs:int, free_spins:int, scatter_paytable:list<float>, raw:list<string>}
+     */
+    public function tumbleConfig(): array
+    {
+        $c = $this->template->tumble_config ?? [];
+
+        return [
+            'multiplier_symbol' => isset($c['multiplier_symbol']) ? (int) $c['multiplier_symbol'] : null,
+            'multiplier_values' => array_map('intval', $c['multiplier_values'] ?? [2]),
+            'lines' => (int) ($c['lines'] ?? 20),
+            'needaddfs' => (int) ($c['needaddfs'] ?? 3),
+            'addfs' => (int) ($c['addfs'] ?? 5),
+            'free_spins' => (int) ($c['free_spins'] ?? $this->freeSpinsCount()),
+            'scatter_paytable' => array_map('floatval', $c['scatter_paytable'] ?? []),
+            // The legacy `init.php`'s raw "key=value" lines, verbatim — it's
+            // already the exact doInit spec the real client expects; replayed
+            // near-as-is instead of reconstructed from the parsed fields above.
+            'raw' => array_map('strval', $c['raw'] ?? []),
+        ];
+    }
+
     // ---- RTP feedback loop (legacy GetSpinSettings) ----------------
 
     /** Spins between RTP self-corrections (legacy RtpControlCount, default 200). */

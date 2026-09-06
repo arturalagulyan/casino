@@ -107,6 +107,27 @@ class GameAssetController extends Controller
             return response($html)->header('Content-Type', 'text/html');
         }
 
+        // Real (modern "gs2c") Pragmatic Play bundles bake their command
+        // endpoint and sibling URLs into the page as
+        // `"https://'+location.hostname+'/games/<Code>/gs2c/..."` — built
+        // correctly at runtime EXCEPT it drops the port (`location.hostname`,
+        // not `location.host`), which breaks on this deploy's non-default
+        // port. Swap in `location.origin` (scheme+host+port together) so it
+        // resolves against wherever the page actually loaded from.
+        if ($config->clientProtocol() === ClientProtocol::PragmaticTumble) {
+            $html = str_replace("https://'+location.hostname+'", "'+location.origin+'", $html);
+
+            // Same session-recovery problem as the classic Pragmatic bundles
+            // (GameAssetController's other branch, below): the client doesn't
+            // echo back any token we hand it, so GameServerController falls
+            // back to recovering it from the Referer header — force the full
+            // launch URL (session id included) to always be sent as referer.
+            $extra = "sessionId={$session->token}";
+            $html = $this->injectHead($html, '<meta name="referrer" content="unsafe-url">'."<script>(function(){var s=location.search;if(!/[?&]sessionId=/i.test(s)){history.replaceState(null,'',location.pathname+s+(s?'&':'?')+'{$extra}');}})();</script>");
+
+            return response($html)->header('Content-Type', 'text/html');
+        }
+
         // Real Pragmatic Play bundles hard-code their POST endpoint
         // (`"gameService":"https:///game/<Code>/server"` — note the broken,
         // host-less scheme, baked in as-is by the legacy scrape) with no
