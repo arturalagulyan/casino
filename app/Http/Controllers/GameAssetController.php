@@ -67,11 +67,17 @@ class GameAssetController extends Controller
 
         // Legacy bundles nest the entry (amarent/index.html, gs2c/html5Game.html,
         // app/<slug>/index.html, …). Relative asset URLs inside it must resolve
-        // against the entry's own directory, not the bundle root. Bundles that
-        // ship their own <base> (EGT's "/games/<Code>/html5/") are left alone —
-        // `code` is unchanged, so those absolute paths still hit the asset route.
+        // against the entry's own directory, not the bundle root — and even a
+        // root-level index.html needs this: the launch URL is `/games/{code}`
+        // with no trailing slash, so relative paths would otherwise resolve one
+        // level too high, against `/games/` instead of `/games/{code}/`
+        // (verified against Pragmatic's `AncientEgyptPM`, whose relative
+        // `desktop/bootstrap.js` etc. requests landed on `/games/desktop/…`
+        // and 404'd). Bundles that ship their own <base> (EGT's
+        // "/games/<Code>/html5/") are left alone — `code` is unchanged, so
+        // those absolute paths still hit the asset route.
         $entryDir = trim(str_replace('\\', '/', dirname((string) $bundle->entry)), '/.');
-        if ($entryDir !== '' && ! preg_match('/<base\s/i', $html)) {
+        if (! preg_match('/<base\s/i', $html)) {
             $base = rtrim(url("/games/{$code}/{$entryDir}"), '/').'/';
             $html = $this->injectHead($html, "<base href=\"{$base}\">");
         }
