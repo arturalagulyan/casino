@@ -2,6 +2,7 @@
 
 namespace App\Enums;
 
+use App\Services\GamePlay\Engine\PaylineEngine;
 use App\Services\GamePlay\Engine\TumbleEngine;
 
 /**
@@ -82,6 +83,24 @@ enum ClientProtocol: string
      */
     case PragmaticTumble = 'pragmatic_tumble';
 
+    /**
+     * The other big branch of the modern Pragmatic "gs2c" family (see
+     * {@see self::PragmaticTumble} for the split rationale) — classic
+     * paylines (5x3, wild substitution, count-indexed-from-the-end paytable)
+     * plus a "money/coin" symbol carrying a weighted-random cash value
+     * summed into the win every spin, and a separate `doMysteryScatter`
+     * action that grants an ungated free-spins round (legacy quirk, ported
+     * as-is). No tumble/cascade — each `doSpin` is one independent board
+     * draw; free spins are just a persisted counter. Same transport as
+     * {@see self::PragmaticTumble} (`POST /games/{code}/gs2c/v3/gameService`),
+     * different math entirely — {@see PaylineEngine},
+     * piloted on AztecKing. Per-title extras this doesn't cover (WolfGold's
+     * "hold and spin" money-collect bonus round, mystery-symbol stacking
+     * during free spins, pick-a-prize wheels) are the same class of gap as
+     * every other provider's bespoke bonus mechanics.
+     */
+    case PragmaticPayline = 'pragmatic_payline';
+
     public function label(): string
     {
         return match ($this) {
@@ -92,6 +111,7 @@ enum ClientProtocol: string
             self::Playtech => 'Playtech (legacy HTTP)',
             self::Pragmatic => 'Pragmatic Play (legacy HTTP)',
             self::PragmaticTumble => 'Pragmatic Play gs2c (modern HTTP)',
+            self::PragmaticPayline => 'Pragmatic Play gs2c payline (modern HTTP)',
         };
     }
 

@@ -422,6 +422,33 @@ class GameConfig
         ];
     }
 
+    // ---- classic-payline family (PaylineEngine) --------------------
+
+    /**
+     * Extra config for the modern Pragmatic "gs2c" classic-payline family —
+     * the money/coin symbol + its weighted value pool, the mystery-scatter
+     * symbol range, and the scatter-count -> free-spins/multiplier tables
+     * (index 0 = 5 scatters, descending). Doesn't fit the line-slot columns.
+     *
+     * @return array{money_symbol:?int, money_values:list<int>, mystery_symbol_min:int, mystery_symbol_max:int, fs_by_scatter_count:list<int>, fsmul_by_scatter_count:list<int>, needaddfs:int, addfs:int, raw:list<string>}
+     */
+    public function paylineConfig(): array
+    {
+        $c = $this->template->payline_config ?? [];
+
+        return [
+            'money_symbol' => isset($c['money_symbol']) ? (int) $c['money_symbol'] : null,
+            'money_values' => array_map('intval', $c['money_values'] ?? [0]),
+            'mystery_symbol_min' => (int) ($c['mystery_symbol_min'] ?? 3),
+            'mystery_symbol_max' => (int) ($c['mystery_symbol_max'] ?? 11),
+            'fs_by_scatter_count' => array_map('intval', $c['fs_by_scatter_count'] ?? [0, 0, 0, 0, 0]),
+            'fsmul_by_scatter_count' => array_map('intval', $c['fsmul_by_scatter_count'] ?? [1, 1, 1, 1, 1]),
+            'needaddfs' => (int) ($c['needaddfs'] ?? 3),
+            'addfs' => (int) ($c['addfs'] ?? 5),
+            'raw' => array_map('strval', $c['raw'] ?? []),
+        ];
+    }
+
     // ---- RTP feedback loop (legacy GetSpinSettings) ----------------
 
     /** Spins between RTP self-corrections (legacy RtpControlCount, default 200). */

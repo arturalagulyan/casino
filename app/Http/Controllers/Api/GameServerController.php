@@ -9,6 +9,7 @@ use App\Services\GamePlay\GameConfig;
 use App\Services\GamePlay\GameContext;
 use App\Services\GamePlay\GameRegistry;
 use App\Services\GamePlay\Protocol\PlaytechProtocol;
+use App\Services\GamePlay\Protocol\PragmaticPaylineProtocol;
 use App\Services\GamePlay\Protocol\PragmaticProtocol;
 use App\Services\GamePlay\Protocol\PragmaticTumbleProtocol;
 use App\Services\GamePlay\Protocol\SlotEventProtocol;
@@ -77,6 +78,13 @@ class GameServerController extends Controller
             // `key=value&…` shape, entirely different math/state machine.
             if ($protocol === ClientProtocol::PragmaticTumble) {
                 return response(app(PragmaticTumbleProtocol::class)->dispatch($context, $request->all()))
+                    ->header('Content-Type', 'text/plain');
+            }
+
+            // Classic-payline modern Pragmatic games — same transport, wholly
+            // different math/state machine (no tumble).
+            if ($protocol === ClientProtocol::PragmaticPayline) {
+                return response(app(PragmaticPaylineProtocol::class)->dispatch($context, $request->all()))
                     ->header('Content-Type', 'text/plain');
             }
 

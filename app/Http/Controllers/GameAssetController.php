@@ -114,7 +114,7 @@ class GameAssetController extends Controller
         // not `location.host`), which breaks on this deploy's non-default
         // port. Swap in `location.origin` (scheme+host+port together) so it
         // resolves against wherever the page actually loaded from.
-        if ($config->clientProtocol() === ClientProtocol::PragmaticTumble) {
+        if (in_array($config->clientProtocol(), [ClientProtocol::PragmaticTumble, ClientProtocol::PragmaticPayline], true)) {
             $html = str_replace("https://'+location.hostname+'", "'+location.origin+'", $html);
 
             // Same session-recovery problem as the classic Pragmatic bundles
