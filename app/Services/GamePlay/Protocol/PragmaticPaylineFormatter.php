@@ -129,11 +129,13 @@ class PragmaticPaylineFormatter
      * The real gs2c client independently parses this same `doInit` blob to
      * build its own `Vars.ReelSets` object — for titles whose legacy
      * `init.php` stored reels as separate `reel0`, `reel1`, … keys (see
-     * {@see PaylineGameParser::reelStrips()}), the raw
-     * config replayed verbatim never contains a `reel_set0`/`reel_set1`
-     * field, leaving `Vars.ReelSets` null client-side and crashing on the
-     * very first spin response. Synthesize the field whenever it's missing
-     * from the raw config, from our own already-parsed reel strips.
+     * {@see PaylineGameParser::reelStrips()}), the raw config replayed
+     * verbatim never contains a `reel_set0`/`reel_set1` field. Worse, the
+     * client's `VSProtocolParser.ParseReelSets` gates on a *separate*
+     * `reel_set_size` count field before it even looks at `reel_setN` —
+     * absent for this same shape — so `Vars.ReelSets` stays null
+     * regardless, crashing on the very first spin response. Synthesize
+     * both whenever missing, from our own already-parsed reel strips.
      *
      * @param  list<string>  $raw
      * @return list<string>
@@ -141,6 +143,7 @@ class PragmaticPaylineFormatter
     private function missingReelSetFields(GameConfig $cfg, array $raw): array
     {
         $out = [];
+        $sets = 0;
         foreach ([0 => false, 1 => true] as $set => $bonus) {
             $present = false;
             foreach ($raw as $line) {
@@ -149,6 +152,7 @@ class PragmaticPaylineFormatter
                     break;
                 }
             }
+            $sets++;
 
             if (! $present) {
                 $reels = $cfg->reelStrips($bonus);
@@ -159,6 +163,12 @@ class PragmaticPaylineFormatter
                     ));
                 }
             }
+        }
+
+        if ($out !== [] && ! in_array('reel_set_size=', array_map(
+            fn (string $line) => explode('=', $line, 2)[0].'=', $raw,
+        ), true)) {
+            $out[] = "reel_set_size={$sets}";
         }
 
         return $out;
