@@ -130,12 +130,16 @@ class PragmaticPaylineFormatter
      * build its own `Vars.ReelSets` object — for titles whose legacy
      * `init.php` stored reels as separate `reel0`, `reel1`, … keys (see
      * {@see PaylineGameParser::reelStrips()}), the raw config replayed
-     * verbatim never contains a `reel_set0`/`reel_set1` field. Worse, the
-     * client's `VSProtocolParser.ParseReelSets` gates on a *separate*
-     * `reel_set_size` count field before it even looks at `reel_setN` —
-     * absent for this same shape — so `Vars.ReelSets` stays null
-     * regardless, crashing on the very first spin response. Synthesize
-     * both whenever missing, from our own already-parsed reel strips.
+     * verbatim never contains a `reel_set0`/`reel_set1` field. The client's
+     * `VSProtocolParser.ParseReelSets` also gates on a *separate*
+     * `reel_set_size` count field before it even looks at `reel_setN`, and
+     * `VsInitData.ReelSymbols` is a *computed* property that — once
+     * `ReelSets` is non-null — ignores the `reel0`/`reel1` fields entirely
+     * and instead indexes `ReelSets[ReelSetIndexCurrent]`, which parses
+     * from a *third*, bare `reel_set=` field (defaulting to -1, i.e.
+     * `ReelSets[-1]` = `undefined`, when absent). All three are missing
+     * together for this shape and must be synthesized together, or the
+     * client crashes on `doInit` itself instead of on the first spin.
      *
      * @param  list<string>  $raw
      * @return list<string>
@@ -165,10 +169,18 @@ class PragmaticPaylineFormatter
             }
         }
 
-        if ($out !== [] && ! in_array('reel_set_size=', array_map(
-            fn (string $line) => explode('=', $line, 2)[0].'=', $raw,
-        ), true)) {
+        if ($out === []) {
+            return $out;
+        }
+
+        $existingKeys = array_map(fn (string $line) => explode('=', $line, 2)[0].'=', $raw);
+
+        if (! in_array('reel_set_size=', $existingKeys, true)) {
             $out[] = "reel_set_size={$sets}";
+        }
+
+        if (! in_array('reel_set=', $existingKeys, true)) {
+            $out[] = 'reel_set=0';
         }
 
         return $out;
