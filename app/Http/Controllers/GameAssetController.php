@@ -131,7 +131,8 @@ class GameAssetController extends Controller
                 // string "null" (`"currency":"'+Curr+'"` in html5Game.html) —
                 // seed it so the client has a real currency code to show.
                 ."<script>try{sessionStorage.setItem('Curr','{$currency}');}catch(e){}</script>"
-                ."<script>(function(){var s=location.search;if(!/[?&]sessionId=/i.test(s)){history.replaceState(null,'',location.pathname+s+(s?'&':'?')+'{$extra}');}})();</script>");
+                ."<script>(function(){var s=location.search;if(!/[?&]sessionId=/i.test(s)){history.replaceState(null,'',location.pathname+s+(s?'&':'?')+'{$extra}');}})();</script>"
+                .$this->jackpotTickerSnippet($game, $user));
 
             return response($html)->header('Content-Type', 'text/html');
         }
@@ -163,7 +164,9 @@ class GameAssetController extends Controller
             // included) to always be sent as referer for that to work.
             $currency = ($user->currency ?? $game->shop->currency)->value;
             $extra = "cur={$currency}&sessionId={$session->token}";
-            $html = $this->injectHead($html, '<meta name="referrer" content="unsafe-url">'."<script>(function(){var s=location.search;if(!/[?&]cur=/i.test(s)){history.replaceState(null,'',location.pathname+s+(s?'&':'?')+'{$extra}');}})();</script>");
+            $html = $this->injectHead($html, '<meta name="referrer" content="unsafe-url">'
+                ."<script>(function(){var s=location.search;if(!/[?&]cur=/i.test(s)){history.replaceState(null,'',location.pathname+s+(s?'&':'?')+'{$extra}');}})();</script>"
+                .$this->jackpotTickerSnippet($game, $user));
 
             return response($html)->header('Content-Type', 'text/html');
         }
