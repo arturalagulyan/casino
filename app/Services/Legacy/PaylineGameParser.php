@@ -39,18 +39,31 @@ class PaylineGameParser
         return (int) ($this->config['sh'] ?? 3);
     }
 
-    /** @return array<int,list<int>> 0-indexed reel => symbol strip */
+    /**
+     * 0-indexed reel => symbol strip. Two legacy shapes exist for this
+     * family: one `reel_set{$set}` field holding all reels `~`-joined (same
+     * convention as the tumble family), or — roughly a quarter of these
+     * titles — separate `reel0`, `reel1`, … keys with no distinct bonus set
+     * at all (falls back to the base reels for `$set` > 0 in that case).
+     *
+     * @return array<int,list<int>>
+     */
     public function reelStrips(int $set): array
     {
         $value = $this->config["reel_set{$set}"] ?? null;
-        if ($value === null) {
-            return [];
+        if ($value !== null) {
+            return array_map(
+                fn (string $reel) => array_map('intval', explode(',', $reel)),
+                explode('~', $value),
+            );
         }
 
-        return array_map(
-            fn (string $reel) => array_map('intval', explode(',', $reel)),
-            explode('~', $value),
-        );
+        $reels = [];
+        for ($i = 0; array_key_exists("reel{$i}", $this->config); $i++) {
+            $reels[$i] = array_map('intval', explode(',', $this->config["reel{$i}"]));
+        }
+
+        return $reels;
     }
 
     public function reelCount(): int
