@@ -5,6 +5,7 @@ namespace App\Services\GamePlay\Protocol;
 use App\Services\GamePlay\Engine\PaylineEngine;
 use App\Services\GamePlay\GameConfig;
 use App\Services\GamePlay\GameContext;
+use App\Services\Legacy\PaylineGameParser;
 
 /**
  * Builds the `key=value&…` plain-text bodies for the modern Pragmatic Play
@@ -31,8 +32,9 @@ class PragmaticPaylineFormatter
         $bal = $this->credits($ctx);
         $bets = $ctx->betOptions();
         $defc = $bets[0] ?? 1.0;
+        $raw = $cfg->paylineConfig()['raw'];
 
-        $params = array_merge($cfg->paylineConfig()['raw'], [
+        $params = array_merge($raw, $this->missingReelSetFields($cfg, $raw), [
             'stime='.(int) floor(microtime(true) * 1000),
             'balance='.number_format($bal, 2, '.', ''),
             'balance_cash='.number_format($bal, 2, '.', ''),
@@ -122,6 +124,45 @@ class PragmaticPaylineFormatter
     }
 
     // ---- helpers -----------------------------------------------------
+
+    /**
+     * The real gs2c client independently parses this same `doInit` blob to
+     * build its own `Vars.ReelSets` object — for titles whose legacy
+     * `init.php` stored reels as separate `reel0`, `reel1`, … keys (see
+     * {@see PaylineGameParser::reelStrips()}), the raw
+     * config replayed verbatim never contains a `reel_set0`/`reel_set1`
+     * field, leaving `Vars.ReelSets` null client-side and crashing on the
+     * very first spin response. Synthesize the field whenever it's missing
+     * from the raw config, from our own already-parsed reel strips.
+     *
+     * @param  list<string>  $raw
+     * @return list<string>
+     */
+    private function missingReelSetFields(GameConfig $cfg, array $raw): array
+    {
+        $out = [];
+        foreach ([0 => false, 1 => true] as $set => $bonus) {
+            $present = false;
+            foreach ($raw as $line) {
+                if (str_starts_with($line, "reel_set{$set}=")) {
+                    $present = true;
+                    break;
+                }
+            }
+
+            if (! $present) {
+                $reels = $cfg->reelStrips($bonus);
+                if ($reels !== []) {
+                    $out[] = "reel_set{$set}=".implode('~', array_map(
+                        fn (array $strip) => implode(',', $strip),
+                        $reels,
+                    ));
+                }
+            }
+        }
+
+        return $out;
+    }
 
     private function defaultMsr(GameConfig $cfg): int
     {
