@@ -198,14 +198,29 @@ class PragmaticFormatter
         return implode(',', $out);
     }
 
+    /**
+     * The client (`VSProtocolParser.ParsePaytable`) indexes the semicolon-
+     * separated list by *position* and treats that position as the real
+     * symbol id (`PaytableSymbolPayout_Ways.GetProcessedText` reads
+     * `payoutData[this.symbolIndex]` straight off it) — it is NOT keyed in
+     * iteration order. `AncientEgyptPM`'s symbol ids are non-contiguous
+     * ({1,3,4,…,11} — no 0, no 2), so a plain sequential list under-runs and
+     * `payoutData[11]` comes back `undefined`, crashing `GetProcessedText`
+     * on `symbolPayoutData.length`. Build a 0..max(id) array instead, zero-
+     * filling the gaps, so position == id for every real symbol.
+     */
     private function paytableCsv(GameConfig $cfg): string
     {
-        $rows = [];
-        foreach ($cfg->symbols() as $sym) {
+        $symbols = $cfg->symbols();
+        $max = $symbols !== [] ? max($symbols) : 0;
+        $zero = implode(',', array_fill(0, 5, 0));
+        $rows = array_fill(0, $max + 1, $zero);
+
+        foreach ($symbols as $sym) {
             $row = $cfg->paytable()[$sym] ?? [];
             // Legacy order: count5..count1 (descending), 5 values, dropping count6.
             $ordered = [$row[4] ?? 0, $row[3] ?? 0, $row[2] ?? 0, $row[1] ?? 0, $row[0] ?? 0];
-            $rows[] = implode(',', array_map(fn ($v) => (int) $v, $ordered));
+            $rows[$sym] = implode(',', array_map(fn ($v) => (int) $v, $ordered));
         }
 
         return implode(';', $rows);
