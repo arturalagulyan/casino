@@ -123,7 +123,15 @@ class GameAssetController extends Controller
             // back to recovering it from the Referer header — force the full
             // launch URL (session id included) to always be sent as referer.
             $extra = "sessionId={$session->token}";
-            $html = $this->injectHead($html, '<meta name="referrer" content="unsafe-url">'."<script>(function(){var s=location.search;if(!/[?&]sessionId=/i.test(s)){history.replaceState(null,'',location.pathname+s+(s?'&':'?')+'{$extra}');}})();</script>");
+            $currency = ($user->currency ?? $game->shop->currency)->value;
+            $html = $this->injectHead($html, '<meta name="referrer" content="unsafe-url">'
+                // The bundle reads `sessionStorage.getItem('Curr')` before its
+                // own bootstrap script runs, baking the (unset) result
+                // straight into every balance/bet display as the literal
+                // string "null" (`"currency":"'+Curr+'"` in html5Game.html) —
+                // seed it so the client has a real currency code to show.
+                ."<script>try{sessionStorage.setItem('Curr','{$currency}');}catch(e){}</script>"
+                ."<script>(function(){var s=location.search;if(!/[?&]sessionId=/i.test(s)){history.replaceState(null,'',location.pathname+s+(s?'&':'?')+'{$extra}');}})();</script>");
 
             return response($html)->header('Content-Type', 'text/html');
         }
