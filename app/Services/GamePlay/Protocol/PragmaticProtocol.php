@@ -55,9 +55,9 @@ class PragmaticProtocol
     {
         $cfg = $ctx->config();
         $free = (int) $ctx->stateGet('free_spins_left', 0) > 0;
-        $board = $this->engine->spinReels($cfg, $free);
+        $board = $this->engine->spinReels($cfg, $free, false, $offsets);
 
-        return $this->formatter->init($ctx, $board);
+        return $this->formatter->init($ctx, $board, $offsets);
     }
 
     // ---- spin -----------------------------------------------------

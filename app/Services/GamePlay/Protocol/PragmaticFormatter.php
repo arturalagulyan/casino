@@ -22,6 +22,15 @@ use App\Services\GamePlay\SpinResult;
  * simpler red/black `slotGamble` is supported). Same class of gap as
  * Amatic's reel-stop animation / EGT's per-code bonus overrides — per-title
  * bespoke mechanics, not solvable generically.
+ *
+ * `pos` (raw reel-strip stop offsets, key `GameProtocolDictionary.reelsPosition`
+ * in the client's `build.js`) is not cosmetic — omitting it was a real bug,
+ * not just missing detail: `VideoSlotsConnection.InitReels` treats a missing
+ * `pos` as "this deployment doesn't send real positions" and switches the
+ * client into a `HiddenMathematics` fallback mode that reads `SymbolsAbove`/
+ * `SymbolsBelow` (`sa`/`sb`) instead — fields `doInit` never had a reason to
+ * send, which crashed `VS_Reel.SetScreenSymbols` reading them as null.
+ * Sending `pos` keeps the client on its normal (non-fallback) init path.
  */
 class PragmaticFormatter
 {
@@ -33,8 +42,18 @@ class PragmaticFormatter
         return round($denom > 0 ? $ctx->balance() / $denom : $ctx->balance(), 2);
     }
 
-    /** The `doInit` reply: static game config + the current (or last) board. */
-    public function init(GameContext $ctx, array $board): string
+    /**
+     * The `doInit` reply: static game config + the current (or last) board.
+     *
+     * `pos` (raw reel-strip stop offsets) is required, not cosmetic: the
+     * client only reads `HiddenMathematics` fallback fields (`SymbolsAbove`/
+     * `SymbolsBelow`, which crashed — see class docblock) when `pos`
+     * (`GameProtocolDictionary.reelsPosition`) is absent. Sending it puts the
+     * client on its normal init path, which needs nothing else from us here.
+     *
+     * @param  array<int,int>  $offsets
+     */
+    public function init(GameContext $ctx, array $board, array $offsets): string
     {
         $cfg = $ctx->config();
         $bal = $this->credits($ctx);
@@ -66,6 +85,7 @@ class PragmaticFormatter
             'reel_set0' => $this->reelSetString($cfg, false),
             'reel_set1' => $this->reelSetString($cfg, true),
             's' => $this->flattenBoard($cfg, $board),
+            'pos' => implode(',', $offsets),
         ];
 
         return $this->buildQuery($params);
@@ -104,6 +124,7 @@ class PragmaticFormatter
             'l' => $cfg->lineCount(),
             's' => $this->flattenBoard($cfg, $result->reels),
             'w' => round($result->win, 2),
+            'pos' => implode(',', $offsets),
         ];
 
         if ($isFree) {
