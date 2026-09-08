@@ -1,9 +1,11 @@
 <?php
 
+use App\Http\Middleware\EnsurePlayer;
 use App\Http\Middleware\ResolveApiKey;
 use Illuminate\Foundation\Application;
 use Illuminate\Foundation\Configuration\Exceptions;
 use Illuminate\Foundation\Configuration\Middleware;
+use Illuminate\Support\Facades\Route;
 
 return Application::configure(basePath: dirname(__DIR__))
     ->withRouting(
@@ -12,10 +14,15 @@ return Application::configure(basePath: dirname(__DIR__))
         apiPrefix: 'api',
         commands: __DIR__.'/../routes/console.php',
         health: '/up',
+        then: function (): void {
+            // First-party player casino — served at the site root, `web` guard.
+            Route::middleware('web')->group(__DIR__.'/../routes/frontend.php');
+        },
     )
     ->withMiddleware(function (Middleware $middleware): void {
         $middleware->alias([
             'api.key' => ResolveApiKey::class,
+            'player' => EnsurePlayer::class,
         ]);
 
         // Legacy game bundles POST here cross-site from an <iframe> with a

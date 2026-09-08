@@ -1,0 +1,105 @@
+@import 'tailwindcss';
+
+@source '../views/frontend/**/*.blade.php';
+@source '../../vendor/laravel/framework/src/Illuminate/Pagination/resources/views/*.blade.php';
+
+@theme {
+    --font-sans: 'Inter', ui-sans-serif, system-ui, sans-serif, 'Apple Color Emoji', 'Segoe UI Emoji';
+    --font-display: 'Cinzel', ui-serif, Georgia, serif;
+
+    --color-ink-950: #08080b;
+    --color-ink-900: #0d0d12;
+    --color-ink-850: #14141b;
+    --color-ink-800: #1b1b24;
+    --color-ink-700: #2a2a37;
+
+    --color-gold-300: #e8cd7e;
+    --color-gold-400: #d9ac4a;
+    --color-gold-500: #d4af37;
+    --color-gold-600: #b4902b;
+
+    --color-win: #34d399;
+    --color-loss: #fb7185;
+}
+
+@layer base {
+    html {
+        color-scheme: dark;
+    }
+
+    body {
+        background:
+            radial-gradient(1100px 600px at 12% -10%, rgba(212, 175, 55, 0.10), transparent 60%),
+            radial-gradient(900px 500px at 100% 0%, rgba(80, 60, 160, 0.12), transparent 55%),
+            var(--color-ink-950);
+        color: #e7e7ea;
+        min-height: 100vh;
+    }
+
+    ::selection {
+        background: var(--color-gold-500);
+        color: #000;
+    }
+}
+
+@layer components {
+    .wordmark {
+        font-family: var(--font-display);
+        font-weight: 700;
+        letter-spacing: 0.14em;
+        background: linear-gradient(180deg, var(--color-gold-300), var(--color-gold-600));
+        -webkit-background-clip: text;
+        background-clip: text;
+        color: transparent;
+    }
+
+    .btn-gold {
+        @apply inline-flex items-center justify-center gap-2 rounded-lg px-4 py-2 text-sm font-semibold text-black transition;
+        background: linear-gradient(180deg, var(--color-gold-300), var(--color-gold-500));
+        box-shadow: 0 6px 20px -6px rgba(212, 175, 55, 0.5);
+    }
+    .btn-gold:hover {
+        filter: brightness(1.06);
+    }
+
+    .btn-ghost {
+        @apply inline-flex items-center justify-center gap-2 rounded-lg border border-ink-700 bg-ink-850/60 px-4 py-2 text-sm font-medium text-zinc-200 transition hover:border-gold-500/60 hover:text-white;
+    }
+
+    .field {
+        @apply w-full rounded-lg border border-ink-700 bg-ink-900/80 px-3.5 py-2.5 text-sm text-zinc-100 outline-none transition placeholder:text-zinc-500;
+    }
+    .field:focus {
+        border-color: var(--color-gold-500);
+        box-shadow: 0 0 0 3px rgba(212, 175, 55, 0.15);
+    }
+
+    .cat-chip {
+        @apply inline-flex shrink-0 items-center gap-1.5 rounded-full border border-ink-700 bg-ink-850/70 px-3.5 py-1.5 text-xs font-medium text-zinc-300 transition hover:border-gold-500/60 hover:text-white;
+    }
+    .cat-chip[data-active='true'] {
+        border-color: var(--color-gold-500);
+        background: linear-gradient(180deg, rgba(212, 175, 55, 0.22), rgba(212, 175, 55, 0.06));
+        color: #fff;
+    }
+
+    .balance-chip {
+        @apply inline-flex items-center gap-2 rounded-full border border-gold-500/40 bg-ink-850/80 px-3.5 py-1.5 text-sm font-semibold text-gold-300 tabular-nums;
+    }
+
+    .game-card {
+        @apply relative flex flex-col overflow-hidden rounded-xl border border-ink-700 bg-ink-850 transition;
+    }
+    .game-card:hover {
+        border-color: rgba(212, 175, 55, 0.55);
+        transform: translateY(-3px);
+        box-shadow: 0 18px 40px -18px rgba(0, 0, 0, 0.8);
+    }
+
+    .ribbon {
+        @apply absolute left-2 top-2 z-10 rounded-md px-1.5 py-0.5 text-[10px] font-bold uppercase tracking-wider text-black;
+    }
+    .ribbon-new { background: var(--color-win); }
+    .ribbon-hot { background: linear-gradient(180deg, #fbbf24, #f97316); }
+    .ribbon-exclusive { background: linear-gradient(180deg, var(--color-gold-300), var(--color-gold-500)); }
+}

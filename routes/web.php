@@ -5,11 +5,10 @@ use App\Http\Controllers\DemoPlayController;
 use App\Http\Controllers\GameAssetController;
 use Illuminate\Support\Facades\Route;
 
-Route::get('/', function () {
-    return view('welcome');
-});
-
 /*
+ * The site root (`/`) and the rest of the player-facing casino are defined in
+ * routes/frontend.php (registered from bootstrap/app.php).
+ *
  * Game front-end delivery.
  *   /games/{code}?token=…  → boot a play session, serve the game shell
  *   /games/{code}/{path}   → static asset from the uploaded bundle

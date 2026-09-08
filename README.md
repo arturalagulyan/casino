@@ -102,6 +102,47 @@ docker compose -f compose.prod.yaml up -d
 docker compose -f compose.prod.yaml exec -T app php artisan migrate --force
 ```
 
+### Player frontend (house casino)
+
+The first-party player casino served at the **site root** (`/`; `/admin` is
+unaffected). Its front-end assets (`resources/css/frontend.css`,
+`resources/js/frontend.js`) are already in `vite.config.js` and get built into
+the image by `npm run build` during the Docker build — **no extra build step**.
+
+The only deploy-time work is provisioning the "house" shop the frontend runs
+on. Do it **once**, after the first deploy that includes the frontend:
+
+```bash
+cd /var/www/casino
+docker compose -f compose.prod.yaml exec -T app \
+  php artisan frontend:setup --from=<source-shop-slug> --bank=0
+```
+
+This creates the **Web Casino** house shop, its API key, a game bank, and
+clones every *visible* game (bet ladders, RTP, categories…) from `--from` into
+it. It is **idempotent** — re-run it after importing more games to pick them up
+(add `--fresh` to drop and re-clone the house catalogue). If `--from` is
+omitted it clones from the shop with the most visible games.
+
+Optional branding overrides in the server `.env` (defaults shown):
+
+```
+FRONTEND_SHOP_SLUG=web-casino
+FRONTEND_SHOP_NAME="Web Casino"
+FRONTEND_BRAND="Royal Spin"
+```
+
+`.env` changes take effect on the next deploy (which runs `config:cache`), or
+run `php artisan config:cache` in the `app` container manually.
+
+**Players:** there is no self-service registration. Staff create player
+accounts in `/admin` with role **User** and shop **Web Casino**. Login accepts
+username or email.
+
+**Note:** games only render where `storage/app/game-bundles/` is populated on
+the server — the launch/token flow is otherwise identical to the seamless
+wallet path.
+
 ### Useful commands on the server
 
 ```bash

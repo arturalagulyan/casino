@@ -71,7 +71,8 @@ class UserForm
                             ->relationship('shop', 'name')
                             ->searchable()
                             ->preload()
-                            ->helperText('Home shop. Leave empty for staff above shop level.'),
+                            ->helperText('Home shop. Leave empty for staff above shop level. Players can sign in to the '
+                                .config('frontend.shop_name').' frontend only when this is set to that shop and their role is User.'),
                         Select::make('parent_id')
                             ->label('Parent (upline)')
                             ->relationship('parent', 'username')
