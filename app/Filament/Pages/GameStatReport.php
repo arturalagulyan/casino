@@ -5,6 +5,7 @@ namespace App\Filament\Pages;
 use App\Enums\Currency;
 use App\Models\Game;
 use App\Models\Shop;
+use App\Support\CurrentShop;
 use App\Support\Hierarchy;
 use App\Support\Money;
 use BackedEnum;
@@ -73,7 +74,12 @@ class GameStatReport extends Page implements HasTable
             ])
             ->filters([
                 SelectFilter::make('shop')
-                    ->options(fn () => Shop::query()->visibleTo(auth()->user())->orderBy('name')->pluck('name', 'id')->all()),
+                    ->options(fn () => Shop::query()
+                        ->visibleTo(auth()->user())
+                        ->when(CurrentShop::id(), fn ($q, $id) => $q->whereKey($id))
+                        ->orderBy('name')
+                        ->pluck('name', 'id')
+                        ->all()),
                 SelectFilter::make('currency')->options(Currency::options()),
                 Filter::make('period')
                     ->schema([
@@ -96,7 +102,7 @@ class GameStatReport extends Page implements HasTable
         $until = Carbon::parse(($filters['period']['until'] ?? null) ?: now())->endOfDay();
         $currency = $filters['currency']['value'] ?? null;
         $shop = $filters['shop']['value'] ?? null;
-        $shopIds = Hierarchy::visibleShopIds(auth()->user());
+        $shopIds = CurrentShop::narrow(Hierarchy::visibleShopIds(auth()->user()));
 
         $agg = DB::table('game_rounds')
             ->selectRaw('game_id, game_code, shop_id, currency, SUM(bet) AS bet, SUM(win) AS win, COUNT(*) AS spins')

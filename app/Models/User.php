@@ -200,6 +200,24 @@ class User extends Authenticatable implements FilamentUser, HasName
         });
     }
 
+    /**
+     * Real players: role `user` whether it sits in `users.role_id` (the usual
+     * case) or only in the `role_user` pivot. `whereHas('roles', …)` alone
+     * misses the primary-role case — see HasAccessControl::allRoles().
+     */
+    public function scopePlayers(Builder $query): Builder
+    {
+        $userRoleId = Role::query()->where('slug', 'user')->value('id');
+
+        return $query->where(function (Builder $q) use ($userRoleId): void {
+            $q->whereHas('roles', fn ($r) => $r->where('slug', 'user'));
+
+            if ($userRoleId) {
+                $q->orWhere('users.role_id', $userRoleId);
+            }
+        });
+    }
+
     /** Limit a query to the users this viewer's hierarchy level can see. */
     public function scopeVisibleTo(Builder $query, ?self $viewer): Builder
     {

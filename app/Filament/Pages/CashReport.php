@@ -4,6 +4,7 @@ namespace App\Filament\Pages;
 
 use App\Enums\Currency;
 use App\Models\Shop;
+use App\Support\CurrentShop;
 use App\Support\Hierarchy;
 use App\Support\Money;
 use BackedEnum;
@@ -93,7 +94,7 @@ class CashReport extends Page implements HasTable
     {
         [$from, $until] = $this->period($filters);
         $currency = $filters['currency']['value'] ?? null;
-        $shopIds = Hierarchy::visibleShopIds(auth()->user());
+        $shopIds = CurrentShop::narrow(Hierarchy::visibleShopIds(auth()->user()));
 
         $agg = DB::table('game_rounds')
             ->selectRaw('shop_id, currency, SUM(bet) AS bet, SUM(win) AS win, COUNT(*) AS spins')

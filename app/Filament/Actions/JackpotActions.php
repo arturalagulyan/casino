@@ -5,6 +5,7 @@ namespace App\Filament\Actions;
 use App\Models\Jackpot;
 use App\Models\User;
 use App\Services\Ledger;
+use App\Support\CurrentShop;
 use App\Support\Money;
 use Filament\Actions\Action;
 use Filament\Actions\BulkAction;
@@ -30,13 +31,25 @@ class JackpotActions
                 Select::make('winner_id')
                     ->label('Winner')
                     ->searchable()
-                    ->getSearchResultsUsing(fn (string $search, Jackpot $record) => User::query()
-                        ->when($record->shop_id, fn ($q) => $q->where('shop_id', $record->shop_id))
-                        ->whereHas('roles', fn ($q) => $q->where('slug', 'user'))
-                        ->where('username', 'like', "%{$search}%")
-                        ->orderBy('username')
-                        ->limit(50)
-                        ->pluck('username', 'id'))
+                    ->getSearchResultsUsing(function (string $search, Jackpot $record) {
+                        $shopId = $record->shop_id ?? CurrentShop::id();
+
+                        return User::query()
+                            ->players()
+                            ->when($shopId, fn ($q) => $q->where(fn ($w) => $w
+                                ->where('users.shop_id', $shopId)
+                                ->orWhereHas('shops', fn ($sq) => $sq->whereKey($shopId))
+                            ))
+                            ->where(fn ($q) => $q
+                                ->where('username', 'like', "%{$search}%")
+                                ->orWhere('email', 'like', "%{$search}%")
+                                ->orWhere('first_name', 'like', "%{$search}%")
+                                ->orWhere('last_name', 'like', "%{$search}%")
+                            )
+                            ->orderBy('username')
+                            ->limit(50)
+                            ->pluck('username', 'id');
+                    })
                     ->getOptionLabelUsing(fn ($value) => User::find($value)?->username)
                     ->default(fn (Jackpot $record) => $record->last_winner_id)
                     ->required(),
