@@ -93,11 +93,12 @@ abstract class AbstractSlotServer implements GameServer
             $result->bet = 0.0;   // the round is free — nothing wagered
         }
 
-        // Never pay more than the shop's single-win cap.
-        $result->win = min($result->win, $context->maxWin($stake));
+        // Never pay more than the shop's single-win cap, nor more than the
+        // settlement pool can afford (an empty bank pays nothing — legacy).
+        $result->win = min($result->win, $context->maxWin($stake), $context->bankAvailable());
 
         if ($result->win > 0) {
-            $context->awardWin($result->win);
+            $result->win = $context->awardWin($result->win);
         }
 
         $payload = json_encode(['command' => 'bet', 'in' => $request, 'out' => $result->toArray()]);

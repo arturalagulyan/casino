@@ -41,8 +41,10 @@ class SlotEngine
         // Win ceiling = what the bank can afford, capped by the shop's single-win
         // cap (which the RTP loop shrinks when the game is ahead); win floor = a
         // random paytable coef, dropped when the game owes money (legacy).
+        // budget is the settlement pool (bankAvailable) — PHP_FLOAT_MAX for demo,
+        // a real figure for live play, so an empty pool forces a losing board.
         $ceiling = min(
-            $decision->budget > 0 ? $decision->budget * $cfg->winDistribution()['budget_frac'] : PHP_FLOAT_MAX,
+            $decision->budget * $cfg->winDistribution()['budget_frac'],
             $stake * max(0.25, $decision->maxWinMultiplier),   // capMultiplier — shrinks hard when RTP runs ahead
         );
         if ($decision->winScale < 1.0) {

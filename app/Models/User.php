@@ -66,6 +66,8 @@ use Illuminate\Support\Carbon;
  * @property Carbon|null $updated_at
  * @property Carbon|null $deleted_at
  * @property-read UserBank|null $bank
+ * @property-read Collection<int, UserBank> $banks
+ * @property-read int|null $banks_count
  * @property-read Collection<int, User> $children
  * @property-read int|null $children_count
  * @property-read Collection<int, GameSession> $gameSessions
@@ -258,6 +260,27 @@ class User extends Authenticatable implements FilamentUser, HasName
     public function bank(): HasOne
     {
         return $this->hasOne(UserBank::class);
+    }
+
+    public function banks(): HasMany
+    {
+        return $this->hasMany(UserBank::class);
+    }
+
+    /**
+     * The player's individual-RTP / manipulation pool for a given currency
+     * (defaults to their own). Null when an admin has never set one up.
+     */
+    public function userBankFor(Currency|string|null $currency = null): ?UserBank
+    {
+        $currency = match (true) {
+            $currency instanceof Currency => $currency->value,
+            is_string($currency) => $currency,
+            default => ($this->currency ?? Currency::default())->value,
+        };
+
+        /** @var UserBank|null */
+        return $this->banks()->where('currency', $currency)->first();
     }
 
     public function parent(): BelongsTo

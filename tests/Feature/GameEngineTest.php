@@ -148,9 +148,10 @@ class GameEngineTest extends TestCase
 
     public function test_win_is_capped_by_shop_max_win(): void
     {
-        // tiny bank + tiny max-win: a win can never exceed 5× the stake here
+        // flush bank + tiny max-win: a win can never exceed 5× the stake here
+        // (the bank is deliberately large so max_win, not the pool, is the cap)
         [$shop, $game, $player] = $this->game(['max_win_multiplier' => 5]);
-        $shop->bank('EUR')->update(['slots' => 30]);
+        $shop->bank('EUR')->update(['slots' => 5_000_000]);
 
         $ctx = $this->context($player, $game);
         $server = app(GameRegistry::class)->for($game);
@@ -159,6 +160,47 @@ class GameEngineTest extends TestCase
             $out = $server->handle($ctx, ['command' => 'bet', 'bet' => 10, 'lines' => 10]);
             $this->assertLessThanOrEqual(100 * 5, $out['win']);
         }
+    }
+
+    public function test_an_empty_bank_pool_pays_nothing_big_and_never_goes_negative(): void
+    {
+        [$shop, $game, $player] = $this->game();
+        $shop->bank('EUR')->update(['slots' => 0]);
+
+        $ctx = $this->context($player, $game);
+        $server = app(GameRegistry::class)->for($game);
+
+        $walletStart = (float) $player->wallet->fresh()->balance;
+        $totalWin = 0.0;
+
+        for ($i = 0; $i < 60; $i++) {
+            $out = $server->handle($ctx, ['command' => 'bet', 'bet' => 10, 'lines' => 10]);
+            $totalWin += (float) $out['win'];
+            $this->assertGreaterThanOrEqual(0.0, (float) $shop->bank('EUR')->fresh()->slots);
+        }
+
+        // A lone player on a fresh pool can only win back what their own losing
+        // stakes have fed in — never a jackpot-sized hit, always under turnover.
+        $this->assertLessThan(60 * 100, $totalWin);
+        $this->assertLessThan($walletStart, (float) $player->wallet->fresh()->balance);
+    }
+
+    public function test_a_negative_bank_pool_freezes_all_wins(): void
+    {
+        [$shop, $game, $player] = $this->game();
+        $shop->bank('EUR')->update(['slots' => -5000]);   // deep in the red
+        $player->wallet->update(['balance' => 200000]);
+
+        $ctx = $this->context($player, $game);
+        $server = app(GameRegistry::class)->for($game);
+
+        for ($i = 0; $i < 30; $i++) {
+            $out = $server->handle($ctx, ['command' => 'bet', 'bet' => 10, 'lines' => 10]);
+            $this->assertSame(0.0, round((float) $out['win'], 4), "spin {$i} paid from a bank in the red");
+        }
+
+        // 30 losing stakes (~90 each ≈ 2700) still can't lift −5000 back to zero.
+        $this->assertLessThan(0, (float) $shop->bank('EUR')->fresh()->slots);
     }
 
     public function test_http_endpoint_plays_a_round(): void

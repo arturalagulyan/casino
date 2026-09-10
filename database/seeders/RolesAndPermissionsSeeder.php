@@ -38,6 +38,7 @@ class RolesAndPermissionsSeeder extends Seeder
         ],
         'api' => ['api.manage', 'api.add', 'api.edit', 'api.delete'],
         'stats' => ['stats.pay', 'stats.game', 'stats.shift'],
+        'manipulation' => ['users.manipulate'],   // per-player win/loss control (user banks)
         'pincodes' => ['pincodes.manage', 'pincodes.add', 'pincodes.edit', 'pincodes.delete'],
         'bonuses' => [
             'happyhours.manage', 'happyhours.add', 'happyhours.edit', 'happyhours.delete',

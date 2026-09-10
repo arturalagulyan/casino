@@ -5,6 +5,7 @@ namespace App\Filament\Resources\Users\Tables;
 use App\Enums\Currency;
 use App\Enums\UserStatus;
 use App\Filament\Actions\AdjustBalanceAction;
+use App\Filament\Actions\ManipulatePlayerAction;
 use App\Filament\Support\TableFilters;
 use App\Support\Money;
 use Filament\Actions\BulkActionGroup;
@@ -26,6 +27,9 @@ class UsersTable
     {
         return $table
             ->defaultSort('created_at', 'desc')
+            ->modifyQueryUsing(fn (Builder $query) => $query->withExists([
+                'banks as manipulation_active' => fn (Builder $q) => $q->where('is_active', true),
+            ]))
             ->columns([
                 TextColumn::make('username')
                     ->weight('bold')
@@ -70,6 +74,11 @@ class UsersTable
                     ->falseIcon('heroicon-o-lock-open')
                     ->trueColor('danger')
                     ->falseColor('gray'),
+                IconColumn::make('manipulation_active')
+                    ->label('Manip.')
+                    ->tooltip(fn ($state) => $state ? 'Win/loss manipulation is ON — this player settles against their own bank' : null)
+                    ->icon(fn ($state) => $state ? 'heroicon-s-adjustments-horizontal' : null)
+                    ->color('danger'),
                 TextColumn::make('last_online_at')
                     ->label('Last seen')
                     ->since()
@@ -90,6 +99,12 @@ class UsersTable
                     ->options(collect(UserStatus::cases())->mapWithKeys(fn ($c) => [$c->value => ucfirst($c->value)])),
                 TableFilters::currency(),
                 TernaryFilter::make('is_blocked')->label('Blocked'),
+                TernaryFilter::make('manipulation_active')
+                    ->label('Manipulation on')
+                    ->queries(
+                        true: fn (Builder $q) => $q->whereHas('banks', fn (Builder $b) => $b->where('is_active', true)),
+                        false: fn (Builder $q) => $q->whereDoesntHave('banks', fn (Builder $b) => $b->where('is_active', true)),
+                    ),
                 TernaryFilter::make('online')
                     ->label('Online now')
                     ->queries(
@@ -109,6 +124,7 @@ class UsersTable
             ])
             ->recordActions([
                 AdjustBalanceAction::make(),
+                ManipulatePlayerAction::make(),
                 ViewAction::make(),
                 EditAction::make(),
             ])

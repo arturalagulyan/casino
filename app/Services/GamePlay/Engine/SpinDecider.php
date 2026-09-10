@@ -44,6 +44,13 @@ class SpinDecider
         $capMultiplier = max(0.5, $context->maxWinMultiplier());
         $winScale = 1.0;
 
+        // Legacy GetBank / SetBank: an empty settlement pool means nobody wins —
+        // not a win, not a bonus, not the near-broke nudge — until losing spins
+        // (this player's, or any player sharing the shop pool) feed it back up.
+        if (! $context->demo && $bankAvailable <= 0.0) {
+            return new SpinDecision('none', 0.0, $capMultiplier, $spinChance, $shopRtp, 0.0);
+        }
+
         // 2) the slow RTP correction — skipped for demo (off the books) and until
         //    the game has a full control window of turnover to judge by.
         $state = $context->engineState();

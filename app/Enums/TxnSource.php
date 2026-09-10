@@ -11,6 +11,7 @@ enum TxnSource: string
     case Bet = 'bet';
     case Win = 'win';
     case GameBank = 'game_bank';           // legacy 'bank'
+    case UserBank = 'user_bank';           // per-player manipulation pool
     case Jackpot = 'jackpot';              // legacy 'jpg'
     case PlayerTransfer = 'player_transfer'; // legacy 'user'
     case ShopTransfer = 'shop_transfer';   // legacy 'shop'

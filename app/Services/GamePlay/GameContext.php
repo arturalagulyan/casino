@@ -14,12 +14,15 @@ use App\Models\GameSession;
 use App\Models\Jackpot;
 use App\Models\Shop;
 use App\Models\User;
+use App\Models\UserBank;
 use App\Models\Wallet;
 use App\Services\Banker;
 use App\Services\Fx;
 use App\Services\Ledger;
 use Illuminate\Database\Eloquent\Collection;
+use Illuminate\Database\Eloquent\Model;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Log;
 use RuntimeException;
 
 /**
@@ -55,6 +58,12 @@ class GameContext
     private array $split = ['bank' => 0.0, 'jackpot' => 0.0, 'profit' => 0.0];
 
     private ?GameConfig $config = null;
+
+    /** The pool this round settles against — resolved once per context. */
+    private GameBank|UserBank|null $settlement = null;
+
+    /** Memoised activeUserBank() lookup — false = not resolved yet. */
+    private UserBank|false|null $userBank = false;
 
     public function __construct(
         User $user,
@@ -96,9 +105,18 @@ class GameContext
         return $this->config()->denomination();
     }
 
-    /** Target payout %, game bank override → per-game override → shop default. */
+    /**
+     * Target payout %. Individual-RTP override on the player's active user bank
+     * → game bank override → per-game override → shop default.
+     */
     public function rtpTarget(): float
     {
+        $userBank = $this->activeUserBank();
+
+        if ($userBank && $userBank->temp_rtp !== null) {
+            return (float) $userBank->temp_rtp;
+        }
+
         return (float) ($this->game->bank()?->temp_rtp
             ?? $this->game->rtp_percent
             ?? $this->shop->rtp_percent
@@ -163,22 +181,103 @@ class GameContext
         return $this->game->bank_type ?? BankType::Slots;
     }
 
-    /** How much the shop bank pool can afford to pay out right now. */
+    /**
+     * The player's own liquidity pool when an admin has switched manipulation
+     * on for them (user_banks.is_active) — otherwise null. Demo never has one.
+     */
+    public function activeUserBank(): ?UserBank
+    {
+        if ($this->userBank !== false) {
+            return $this->userBank;
+        }
+
+        if ($this->demo) {
+            return $this->userBank = null;
+        }
+
+        $bank = $this->user->userBankFor($this->currency);
+
+        return $this->userBank = ($bank && $bank->is_active ? $bank : null);
+    }
+
+    /**
+     * The pool a win is paid FROM: the player's active UserBank when an admin
+     * has manipulation switched on, otherwise the shop GameBank (the pool shared
+     * by every game of this bank type in the shop). Losing stakes always feed
+     * the shop pool regardless — see placeBet(). Resolved once.
+     */
+    public function settlementBank(): GameBank|UserBank
+    {
+        return $this->settlement ??= $this->activeUserBank() ?? $this->ensureBank();
+    }
+
+    public function usingUserBank(): bool
+    {
+        return $this->settlementBank() instanceof UserBank;
+    }
+
+    /**
+     * How much the win pool can afford to pay out right now. Never negative:
+     * an empty pool means no wins until it is fed back up — the shop pool by
+     * players losing, a user bank by an admin (legacy GetBank / SetBank).
+     */
     public function bankAvailable(): float
     {
         if ($this->demo) {
             return PHP_FLOAT_MAX;   // demo pays from nowhere — never bank-starved
         }
 
-        $bank = $this->bank();
+        return max(0.0, (float) $this->settlementBank()->{$this->poolType()->column()});
+    }
 
-        return $bank ? max(0.0, (float) $bank->{$this->poolType()->column()}) : 0.0;
+    /** Move the win pool's balance by $delta (row-locked). */
+    private function moveWinPool(float $delta): void
+    {
+        if ($delta === 0.0) {
+            return;
+        }
+
+        $bank = $this->settlementBank();
+        $column = $this->poolType()->column();
+
+        DB::transaction(function () use ($bank, $column, $delta): void {
+            /** @var GameBank|UserBank $locked */
+            $locked = $bank->newQuery()->whereKey($bank->getKey())->lockForUpdate()->firstOrFail();
+
+            if ($delta >= 0) {
+                $locked->increment($column, $delta);
+            } else {
+                $locked->decrement($column, -$delta);
+            }
+        });
+
+        $fresh = $bank->fresh();
+
+        if ($fresh instanceof Model) {
+            $this->settlement = $fresh;
+        }
+    }
+
+    /** Feed the shop's shared pool (losing stakes / clawed-back shop wins). */
+    private function depositShopBank(float $amount): void
+    {
+        if ($amount <= 0.0) {
+            return;
+        }
+
+        $bank = $this->ensureBank();
+        $column = $this->poolType()->column();
+
+        DB::transaction(function () use ($bank, $column, $amount): void {
+            GameBank::whereKey($bank->getKey())->lockForUpdate()->firstOrFail()
+                ->increment($column, $amount);
+        });
     }
 
     // ---- write --------------------------------------------------------
 
     /**
-     * Take the stake: debit the player, feed the bank + jackpots.
+     * Take the stake: debit the player, feed the shop bank + jackpots.
      * Throws if the player can't cover it.
      */
     public function placeBet(float $stake): void
@@ -200,21 +299,18 @@ class GameContext
             title: $this->game->template->title ?? $this->game->title,
         );
 
-        $bank = $this->ensureBank();
         $toBank = round($stake * $this->rtpTarget() / 100, 4);
 
-        // The pool is fed the FX-converted equivalent; the slice taken out of
-        // *this* player's stake for the round split stays in their currency.
         $toJackpot = 0.0;
         foreach ($this->jackpots() as $jackpot) {
             $this->banker->contributeToJackpot($jackpot, $stake, $this->currency);
             $toJackpot += round($stake * (float) $jackpot->contribution_percent / 100, 4);
         }
 
-        DB::transaction(function () use ($bank, $toBank) {
-            GameBank::whereKey($bank->id)->lockForUpdate()->firstOrFail()
-                ->increment($this->poolType()->column(), $toBank);
-        });
+        // The losing stake ALWAYS feeds the shop's shared pool — a manipulated
+        // player still grows the bank for everyone else. Only the win side is
+        // diverted to their user bank (see settlementBank / awardWin).
+        $this->depositShopBank($toBank);
 
         $this->split = [
             'bank' => $toBank,
@@ -223,38 +319,66 @@ class GameContext
         ];
     }
 
-    /** Pay a win: credit the player, drain the bank pool, sweep any overflow. */
-    public function awardWin(float $win): void
+    /**
+     * Pay a win: credit the player, drain the settlement pool, sweep any
+     * overflow. A win can never take the pool below zero (legacy SetBank
+     * hard-abort) — upstream gating (SpinDecider / SlotEngine ceiling) should
+     * already keep wins within budget, so a clamp here means an engine let one
+     * through it shouldn't have. We clamp anyway and leave a trail.
+     *
+     * @return float the amount actually paid (== $win unless the pool was short)
+     */
+    public function awardWin(float $win): float
     {
         if ($win <= 0) {
-            return;
+            return 0.0;
         }
 
         if ($this->demo) {
             $this->wallet()->increment('balance', $win);
 
-            return;
+            return $win;
+        }
+
+        $available = $this->bankAvailable();
+        $paid = min($win, $available);
+
+        if ($paid + 1e-6 < $win) {
+            Log::warning('Game win clamped to available bank', [
+                'game' => $this->game->id,
+                'user' => $this->user->id,
+                'requested' => $win,
+                'paid' => $paid,
+                'bank_available' => $available,
+                'settled_against' => $this->usingUserBank() ? 'user_bank' : 'game_bank',
+            ]);
+        }
+
+        if ($paid <= 0) {
+            return 0.0;
         }
 
         $this->ledger->adjustPlayer(
-            $this->user, $win, TxnDirection::Credit, $this->user, TxnSource::Win,
+            $this->user, $paid, TxnDirection::Credit, $this->user, TxnSource::Win,
             context: ['game' => $this->game->id],
             title: $this->game->template->title ?? $this->game->title,
         );
 
-        $bank = $this->ensureBank();
+        $settlement = $this->settlementBank();
+        $this->moveWinPool(-$paid);
 
-        DB::transaction(function () use ($bank, $win) {
-            GameBank::whereKey($bank->id)->lockForUpdate()->firstOrFail()
-                ->decrement($this->poolType()->column(), $win);
-        });
+        if ($settlement instanceof GameBank) {
+            $this->banker->sweepOverflow($settlement->refresh(), $this->poolType(), $this->shop->owner);
+        }
 
-        $this->banker->sweepOverflow($bank->refresh(), $this->poolType(), $this->shop->owner);
+        return $paid;
     }
 
     /**
-     * Player loses an already-credited amount straight back to the bank pool —
-     * a gamble/double-up loss. No jackpot feed, no RTP split (it isn't a stake).
+     * Player loses an already-credited amount straight back to the pool it came
+     * from — a gamble/double-up loss. Returns to the win pool (a manipulated
+     * player's user bank, else the shop bank), symmetric with awardWin. No
+     * jackpot feed, no RTP split (it isn't a stake).
      */
     public function clawback(float $amount): void
     {
@@ -274,12 +398,7 @@ class GameContext
             title: $this->game->template->title ?? $this->game->title,
         );
 
-        $bank = $this->ensureBank();
-
-        DB::transaction(function () use ($bank, $amount) {
-            GameBank::whereKey($bank->id)->lockForUpdate()->firstOrFail()
-                ->increment($this->poolType()->column(), $amount);
-        });
+        $this->moveWinPool($amount);
     }
 
     /** Award a jackpot pot to this player (drop triggered by the game server). */
@@ -322,12 +441,22 @@ class GameContext
             ]);
         }
 
-        $bank = $this->bank();
-        $snapshot = $bank ? [
-            'slots' => (float) $bank->slots, 'little' => (float) $bank->little,
-            'table_bank' => (float) $bank->table_bank, 'bonus' => (float) $bank->bonus,
-            'fish' => (float) $bank->fish, 'total' => (float) $bank->total(),
-        ] : null;
+        $shopBank = $this->ensureBank();
+        $snapshot = [
+            'win_bank' => $this->usingUserBank() ? 'user_bank' : 'game_bank',
+            'slots' => (float) $shopBank->slots, 'little' => (float) $shopBank->little,
+            'table_bank' => (float) $shopBank->table_bank, 'bonus' => (float) $shopBank->bonus,
+            'fish' => (float) $shopBank->fish, 'total' => (float) $shopBank->total(),
+        ];
+
+        if ($this->usingUserBank()) {
+            $userBank = $this->settlementBank();
+            $snapshot['user_bank'] = [
+                'slots' => (float) $userBank->slots, 'little' => (float) $userBank->little,
+                'table_bank' => (float) $userBank->table_bank, 'bonus' => (float) $userBank->bonus,
+                'fish' => (float) $userBank->fish,
+            ];
+        }
 
         $round = GameRound::create([
             'shop_id' => $this->shop->id,

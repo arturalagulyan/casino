@@ -12,6 +12,7 @@ use App\Models\JackpotWin;
 use App\Models\Shop;
 use App\Models\Transaction;
 use App\Models\User;
+use App\Models\UserBank;
 use App\Models\Wallet;
 use Illuminate\Support\Facades\DB;
 use RuntimeException;
@@ -193,6 +194,41 @@ class Ledger
         });
     }
 
+    /**
+     * Move money into/out of one pool of a player's manipulation bank (the
+     * admin "manipulate player" screen). Unlike a shop bank pool this MAY be
+     * pushed negative on purpose — a negative pool is how an admin freezes a
+     * player's wins (bankAvailable() floors at 0), so there is no debit guard.
+     */
+    public function adjustUserBankPool(UserBank $bank, BankType $pool, float $amount, TxnDirection $direction, User $actor, array $context = []): Transaction
+    {
+        $this->assertPositive($amount);
+        $column = $pool->column();
+
+        return DB::transaction(function () use ($bank, $column, $pool, $amount, $direction, $actor, $context) {
+            $bank = UserBank::whereKey($bank->getKey())->lockForUpdate()->first();
+            $signed = $direction === TxnDirection::Debit ? -$amount : $amount;
+            $player = $bank->user;
+
+            $txn = $this->write(
+                user: $player ?? $actor,
+                actor: $actor,
+                shop: $bank->shop,
+                direction: $direction,
+                source: TxnSource::UserBank,
+                amount: $amount,
+                balanceBefore: (float) $bank->{$column},
+                currency: $bank->currency ?? Currency::default(),
+                context: $context + ['pool' => $pool->value, 'user_bank' => $bank->id],
+                title: ucfirst($pool->value).' pool · '.($player ? $player->username : "user #{$bank->user_id}"),
+            );
+
+            $bank->increment($column, $signed);
+
+            return $txn;
+        });
+    }
+
     /** Set a jackpot's balance to an absolute figure, logging the delta (admin edit). */
     public function setJackpotBalance(Jackpot $jackpot, float $newBalance, User $actor): ?Transaction
     {
@@ -364,7 +400,7 @@ class Ledger
                 : ['money_out' => $amount, 'credit_in' => $amount];
         } elseif (in_array($source, $bonus, true)) {
             $data[$add ? 'money_in' : 'money_out'] = $amount;
-        } elseif (in_array($source, [TxnSource::GameBank, TxnSource::Jackpot], true)) {
+        } elseif (in_array($source, [TxnSource::GameBank, TxnSource::UserBank, TxnSource::Jackpot], true)) {
             $data[$add ? 'type_in' : 'type_out'] = $amount;
         }
 

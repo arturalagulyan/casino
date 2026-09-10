@@ -2,10 +2,13 @@
 
 namespace App\Filament\Resources\Users\Schemas;
 
+use App\Enums\BankType;
 use App\Enums\Currency;
 use App\Models\User;
+use App\Support\Money;
 use Filament\Infolists\Components\IconEntry;
 use Filament\Infolists\Components\TextEntry;
+use Filament\Schemas\Components\Section;
 use Filament\Schemas\Schema;
 
 class UserInfolist
@@ -104,6 +107,32 @@ class UserInfolist
                 TextEntry::make('deleted_at')
                     ->dateTime()
                     ->visible(fn (User $record): bool => $record->trashed()),
+
+                Section::make('Individual RTP / manipulation')
+                    ->description('When active, this player\'s spins settle against their own bank below instead of the shop game bank. Use the "Manipulate player" action to change it.')
+                    ->columns(3)
+                    ->visible(fn (User $record) => $record->userBankFor() !== null)
+                    ->schema([
+                        IconEntry::make('manipulation_active')
+                            ->label('Active')
+                            ->boolean()
+                            ->state(fn (User $record) => (bool) $record->userBankFor()?->is_active),
+                        TextEntry::make('manipulation_rtp')
+                            ->label('Individual RTP %')
+                            ->placeholder('shop / game default')
+                            ->state(fn (User $record) => $record->userBankFor()?->temp_rtp),
+                        TextEntry::make('manipulation_currency')
+                            ->label('Currency')
+                            ->state(fn (User $record) => $record->userBankFor()?->currency?->value),
+                        ...array_map(
+                            fn (BankType $type) => TextEntry::make('manipulation_pool_'.$type->value)
+                                ->label(ucfirst($type->value).' pool')
+                                ->state(fn (User $record) => $record->userBankFor()
+                                    ? Money::format($record->userBankFor()->amountFor($type), $record->userBankFor()->currency)
+                                    : null),
+                            BankType::cases(),
+                        ),
+                    ]),
             ]);
     }
 }
