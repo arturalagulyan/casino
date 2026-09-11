@@ -34,12 +34,29 @@ use App\Services\GamePlay\SpinResult;
  */
 class PragmaticFormatter
 {
-    /** Credits (not cents) — Pragmatic's own client formats decimals itself. */
+    /**
+     * The wallet balance, verbatim — unlike EGT/Amatic, the real Pragmatic
+     * client has no separate "denomination" concept of its own: every money
+     * field it's sent (balance, bet ladder) is the real stake in the
+     * player's currency, and it displays those numbers as-is.
+     */
     public function credits(GameContext $ctx): float
+    {
+        return round($ctx->balance(), 2);
+    }
+
+    /**
+     * `bet_options` re-priced into the player's currency (see
+     * {@see CurrencyScaler}) — the client shows these numbers directly with
+     * no further conversion of its own.
+     *
+     * @return list<float>
+     */
+    private function scaledBets(GameContext $ctx): array
     {
         $denom = $ctx->config()->denomination();
 
-        return round($denom > 0 ? $ctx->balance() / $denom : $ctx->balance(), 2);
+        return array_map(fn (float $b) => round($b * $denom, 2), $ctx->betOptions());
     }
 
     /**
@@ -57,7 +74,7 @@ class PragmaticFormatter
     {
         $cfg = $ctx->config();
         $bal = $this->credits($ctx);
-        $bets = $ctx->betOptions();
+        $bets = $this->scaledBets($ctx);
 
         $params = [
             'wsc' => '1~bg~50,10,1,0,0~0,0,0,0,0~fs~50,10,1,0,0~10,10,10,0,0',

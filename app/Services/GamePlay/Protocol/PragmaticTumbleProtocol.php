@@ -51,7 +51,6 @@ class PragmaticTumbleProtocol
     private function doSpin(GameContext $ctx, array $req): string
     {
         $cfg = $ctx->config();
-        $denom = $cfg->denomination();
         $lines = $cfg->tumbleConfig()['lines'];
         $betline = (float) ($req['c'] ?? 0);
         $index = (int) ($req['index'] ?? 1);
@@ -69,7 +68,6 @@ class PragmaticTumbleProtocol
             if ($betline <= 0) {
                 return $this->formatter->error('doSpin', 'invalid bet state');
             }
-            $betline *= $denom;
             $stake = round($betline * $lines, 4);
             if ($ctx->balance() < $stake) {
                 return $this->formatter->error('doSpin', 'invalid balance');
@@ -78,7 +76,7 @@ class PragmaticTumbleProtocol
         } else {
             // Continuing a tumble or mid-free-spins — the betline that
             // started this round, not whatever the client happens to send.
-            $betline = (float) ($prevState['LastBet'] ?? $betline * $denom);
+            $betline = (float) ($prevState['LastBet'] ?? $betline);
         }
 
         $state = $this->engine->step($cfg, $prevState, $betline);

@@ -65,7 +65,6 @@ class PragmaticProtocol
     private function doSpin(GameContext $ctx, array $req): string
     {
         $cfg = $ctx->config();
-        $denom = $cfg->denomination();
         $lines = $cfg->lineCount();
         $betline = (float) ($req['c'] ?? 0);
 
@@ -82,7 +81,7 @@ class PragmaticProtocol
             if ($betline <= 0) {
                 return $this->formatter->error('doSpin', 'invalid bet state');
             }
-            $stake = round($betline * $lines * $denom, 4);
+            $stake = round($betline * $lines, 4);
             if ($ctx->balance() < $stake) {
                 return $this->formatter->error('doSpin', 'invalid balance');
             }
@@ -90,8 +89,8 @@ class PragmaticProtocol
             $state = ['last_betline' => $betline, 'free_spins_left' => 0, 'free_spins_total' => 0, 'free_spins_used' => 0];
         }
 
-        $result = $this->engine->spin($ctx, max($stake, $betline * $lines * $denom), $lines, $betline * $denom, $isFree);
-        $result->win = min($result->win, $ctx->maxWin($betline * $lines * $denom));
+        $result = $this->engine->spin($ctx, max($stake, $betline * $lines), $lines, $betline, $isFree);
+        $result->win = min($result->win, $ctx->maxWin($betline * $lines));
 
         if ($result->win > 0) {
             $ctx->awardWin($result->win);

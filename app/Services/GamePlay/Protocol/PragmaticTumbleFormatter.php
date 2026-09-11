@@ -18,11 +18,29 @@ use App\Services\GamePlay\GameContext;
  */
 class PragmaticTumbleFormatter
 {
+    /**
+     * The wallet balance, verbatim — the real Pragmatic client has no
+     * separate "denomination" concept of its own; every money field it's
+     * sent (balance, bet ladder) is the real stake in the player's
+     * currency, displayed as-is.
+     */
     public function credits(GameContext $ctx): float
+    {
+        return round($ctx->balance(), 2);
+    }
+
+    /**
+     * `bet_options` re-priced into the player's currency (see
+     * {@see CurrencyScaler}) — the client shows these numbers directly with
+     * no further conversion of its own.
+     *
+     * @return list<float>
+     */
+    private function scaledBets(GameContext $ctx): array
     {
         $denom = $ctx->config()->denomination();
 
-        return round($denom > 0 ? $ctx->balance() / $denom : $ctx->balance(), 2);
+        return array_map(fn (float $b) => round($b * $denom, 2), $ctx->betOptions());
     }
 
     /**
@@ -34,7 +52,7 @@ class PragmaticTumbleFormatter
     public function init(GameContext $ctx, GameConfig $cfg, array $board): string
     {
         $bal = $this->credits($ctx);
-        $bets = $ctx->betOptions();
+        $bets = $this->scaledBets($ctx);
         $defc = $bets[0] ?? 1.0;
 
         $params = array_merge($cfg->tumbleConfig()['raw'], [
@@ -46,6 +64,7 @@ class PragmaticTumbleFormatter
             'sa='.implode(',', $board['symbolsAfter']),
             'sb='.implode(',', $board['symbolsBelow']),
             'bl=0',
+            'sc='.implode(',', $bets),
             'defc='.$defc,
             'c='.$defc,
             'l='.$cfg->tumbleConfig()['lines'],
