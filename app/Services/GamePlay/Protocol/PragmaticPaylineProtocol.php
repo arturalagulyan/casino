@@ -53,6 +53,7 @@ class PragmaticPaylineProtocol
     private function doSpin(GameContext $ctx, array $req): string
     {
         $cfg = $ctx->config();
+        $denom = $cfg->denomination();
         $lines = $cfg->lineCount();
         $betline = (float) ($req['c'] ?? 0);
         $index = (int) ($req['index'] ?? 1);
@@ -66,13 +67,14 @@ class PragmaticPaylineProtocol
             if ($betline <= 0) {
                 return $this->formatter->error('doSpin', 'invalid bet state');
             }
+            $betline *= $denom;
             $stake = round($betline * $lines, 4);
             if ($ctx->balance() < $stake) {
                 return $this->formatter->error('doSpin', 'invalid balance');
             }
             $ctx->placeBet($stake);
         } else {
-            $betline = (float) ($prevState['LastBet'] ?? $betline);
+            $betline = (float) ($prevState['LastBet'] ?? $betline * $denom);
             $lines = (int) ($prevState['LastLines'] ?? $lines);
         }
 
