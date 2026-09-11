@@ -73,7 +73,7 @@ class AmaticProtocol
 
         if ($isFree) {
             $lines = (int) ($state['last_lines'] ?? $cfg->lineCount());
-            $betLine = (float) ($state['last_bet'] ?? 0);
+            $betLine = (float) ($state['last_bet'] ?? 0);   // already re-priced (see below)
             $betIndex = (int) ($state['last_bet_index'] ?? 0);
             $state['free_left'] = (int) $state['free_left'] - 1;
             $stake = 0.0;
@@ -84,8 +84,11 @@ class AmaticProtocol
             if (! isset($bets[$betIndex])) {
                 return [$this->fmt->error('A/u251', 'invalid bet/lines')];
             }
-            $betLine = (float) $bets[$betIndex];
-            $stake = round($betLine * $lines * $denom, 4);
+            // Re-price the selected credit value into the player's currency
+            // (see CurrencyScaler) — kept as the round's bet-per-line from
+            // here on, so it matches what settings() displayed at that index.
+            $betLine = round((float) $bets[$betIndex] * $denom, 8);
+            $stake = round($betLine * $lines, 4);
             if ($ctx->balance() < $stake) {
                 return [$this->fmt->error('A/u251', 'invalid balance')];
             }
@@ -103,8 +106,8 @@ class AmaticProtocol
         }
 
         $mult = $isFree ? max(1, $cfg->freeSpinsMultiplier()) : 1;
-        $result = $this->engine->spin($ctx, max($stake, $betLine * $denom * $lines), $lines, $betLine * $denom, $isFree);
-        $result->win = min(round($result->win * $mult, 4), $ctx->maxWin($betLine * $denom * $lines));
+        $result = $this->engine->spin($ctx, max($stake, $betLine * $lines), $lines, $betLine, $isFree);
+        $result->win = min(round($result->win * $mult, 4), $ctx->maxWin($betLine * $lines));
 
         if ($result->win > 0) {
             $ctx->awardWin($result->win);

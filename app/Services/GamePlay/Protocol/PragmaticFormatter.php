@@ -112,11 +112,14 @@ class PragmaticFormatter
      * The `doSpin` reply: post-spin balance + resolved board + win-line
      * strings. `$offsets` (from {@see SpinResult::$extra}`['reel_offsets']`)
      * supplies the one-above/one-below symbols (`sa`/`sb`) the client uses to
-     * animate the reel scrolling into its final resting position.
+     * animate the reel scrolling into its final resting position. `$betline`
+     * is the per-line bet that was actually staked — `$result->bet` is the
+     * *total* stake (`betline × lines`), which is the wrong number for `c`
+     * (echoes the client's per-line bet selector, not the round's total).
      *
      * @param  array<int,int>  $offsets
      */
-    public function spin(GameContext $ctx, SpinResult $result, array $offsets, bool $isFree, int $totalFreeGames, int $currentFreeGame): string
+    public function spin(GameContext $ctx, SpinResult $result, array $offsets, bool $isFree, int $totalFreeGames, int $currentFreeGame, float $betline): string
     {
         $cfg = $ctx->config();
         $bal = $this->credits($ctx);
@@ -134,7 +137,7 @@ class PragmaticFormatter
             'sa' => $this->adjacentRow($cfg, $offsets, $cfg->rowCount()),
             'sb' => $this->adjacentRow($cfg, $offsets, -1),
             'sh' => $cfg->rowCount(),
-            'c' => round($result->bet, 2),
+            'c' => round($betline, 2),
             'sver' => 5,
             'n_reel_set' => 0,
             'counter' => 1,

@@ -136,7 +136,10 @@ class AmaticFormatter
     public function settings(GameContext $ctx, array $state): string
     {
         $cfg = $ctx->config();
-        $bets = $ctx->betOptions();
+        // `bet_options` re-priced into the player's currency (see
+        // {@see CurrencyScaler}) — the client shows these numbers directly,
+        // and `A/u251`'s betIndex still selects into this same list.
+        $bets = array_map(fn (float $b) => $b * $cfg->denomination(), $ctx->betOptions());
         $balance = $this->hexFmt(round($ctx->balance() * self::CENTS));
 
         $rp = $state['rp'] ?? array_fill(0, $cfg->reelCount(), 0);

@@ -110,6 +110,7 @@ class PragmaticProtocol
             $ctx, $result, $result->extra['reel_offsets'] ?? [], $isFree,
             (int) ($state['free_spins_total'] ?? 0),
             (int) ($state['free_spins_used'] ?? 0),
+            $betline,
         );
 
         $ctx->recordRound(
