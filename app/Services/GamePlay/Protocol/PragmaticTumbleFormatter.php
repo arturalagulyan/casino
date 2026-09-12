@@ -55,7 +55,7 @@ class PragmaticTumbleFormatter
         $bets = $this->scaledBets($ctx);
         $defc = $bets[0] ?? 1.0;
 
-        $params = array_merge($cfg->tumbleConfig()['raw'], [
+        $fresh = [
             'stime='.(int) floor(microtime(true) * 1000),
             'balance='.number_format($bal, 2, '.', ''),
             'balance_cash='.number_format($bal, 2, '.', ''),
@@ -68,9 +68,35 @@ class PragmaticTumbleFormatter
             'defc='.$defc,
             'c='.$defc,
             'l='.$cfg->tumbleConfig()['lines'],
-        ]);
+        ];
+
+        $params = array_merge($this->stripKeys($cfg->tumbleConfig()['raw'], $fresh), $fresh);
 
         return implode('&', $params);
+    }
+
+    /**
+     * Drop any `raw` entry whose key also appears in `$fresh` — `raw` is the
+     * legacy captured config replayed verbatim, which bakes in its own
+     * (denomination-1, stale-board) values for fields we recompute per
+     * request. Left alone, both copies land in the query string and the real
+     * client's `URLSearchParams`-style parser keeps whichever is FIRST — the
+     * stale raw one — silently discarding our scaled bet ladder / fresh board
+     * (surfaced as currency-scaled bets never taking effect for non-base-
+     * currency players).
+     *
+     * @param  list<string>  $raw
+     * @param  list<string>  $fresh
+     * @return list<string>
+     */
+    private function stripKeys(array $raw, array $fresh): array
+    {
+        $keys = array_map(fn (string $line) => explode('=', $line, 2)[0], $fresh);
+
+        return array_values(array_filter(
+            $raw,
+            fn (string $line) => ! in_array(explode('=', $line, 2)[0], $keys, true),
+        ));
     }
 
     /** @param  array<string,mixed>  $state  {@see TumbleEngine::step()}'s return */
