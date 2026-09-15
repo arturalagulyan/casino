@@ -9,6 +9,7 @@ use App\Models\GameSession;
 use App\Models\GameTemplate;
 use App\Models\Jackpot;
 use App\Models\User;
+use App\Services\Fx;
 use App\Services\GamePlay\GameConfig;
 use App\Services\GamePlay\Protocol\GamePlatformLobby;
 use App\Services\Legacy\LegacyGameReader;
@@ -29,7 +30,7 @@ use Symfony\Component\Mime\MimeTypes;
  */
 class GameAssetController extends Controller
 {
-    public function __construct(private GameLaunch $launcher) {}
+    public function __construct(private GameLaunch $launcher, private Fx $fx) {}
 
     public function play(Request $request, string $code): Response
     {
@@ -362,11 +363,19 @@ class GameAssetController extends Controller
      * Jackpots this game should show a live ticker for, plus the data the
      * frontend ticker (public/js/jackpot-ticker.js) needs to render + subscribe.
      *
-     * @return array{userId: int, jackpots: list<array{id: int, name: string, balance: float, currency: string}>}
+     * Balances are converted from each pool's own currency into the player's
+     * wallet currency for display only — the pool itself, its contributions,
+     * and its payouts stay exactly as computed elsewhere (see [[GameContext]]/
+     * Banker); this is purely a presentation-layer FX conversion.
+     *
+     * @return array{userId: int, currency: string, jackpots: list<array{id: int, name: string, balance: float, currency: string}>}
      */
     private function jackpotBootstrap(Game $game, User $user): array
     {
         $game->loadMissing('shop');
+        $user->loadMissing('wallet');
+
+        $currency = $user->wallet->currency;
 
         $jackpots = Jackpot::query()
             ->where('is_active', true)
@@ -375,11 +384,12 @@ class GameAssetController extends Controller
 
         return [
             'userId' => $user->id,
+            'currency' => $currency->value,
             'jackpots' => $jackpots->map(fn (Jackpot $j) => [
                 'id' => $j->id,
                 'name' => $j->name,
-                'balance' => (float) $j->balance,
-                'currency' => $j->poolCurrency()->value,
+                'balance' => $this->fx->convert((float) $j->balance, $j->poolCurrency(), $currency),
+                'currency' => $currency->value,
             ])->values()->all(),
         ];
     }

@@ -158,12 +158,9 @@
             nameEl.textContent = jackpotName;
         }
         if (amountEl) {
-            // We don't know the winner's wallet currency here (it's whatever
-            // their account uses, resolved server-side) — show the raw figure.
-            amountEl.textContent = Number(amount).toLocaleString(undefined, {
-                minimumFractionDigits: 2,
-                maximumFractionDigits: 2,
-            });
+            // jackpot_wins.amount is already paid out in the winner's own wallet
+            // currency, i.e. boot.currency (this connection's userId matched).
+            amountEl.textContent = formatMoney(Number(amount), boot.currency);
         }
 
         overlay.classList.add('cj-open');
@@ -181,6 +178,7 @@
                         channel: 'jackpots',
                         subscribe: boot.jackpots.map(function (j) { return j.id; }),
                         userId: boot.userId,
+                        currency: boot.currency,
                     }));
                 };
 
