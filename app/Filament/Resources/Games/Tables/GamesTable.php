@@ -5,6 +5,7 @@ namespace App\Filament\Resources\Games\Tables;
 use App\Enums\BankType;
 use App\Enums\GameLabel;
 use App\Filament\Actions\PlayDemoAction;
+use App\Filament\Actions\SimulateRtpAction;
 use Filament\Actions\BulkActionGroup;
 use Filament\Actions\DeleteBulkAction;
 use Filament\Actions\EditAction;
@@ -114,6 +115,7 @@ class GamesTable
             ])
             ->recordActions([
                 PlayDemoAction::make(),
+                SimulateRtpAction::make(),
                 ViewAction::make(),
                 EditAction::make(),
             ])

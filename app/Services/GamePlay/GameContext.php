@@ -65,11 +65,31 @@ class GameContext
     /** Memoised activeUserBank() lookup — false = not resolved yet. */
     private UserBank|false|null $userBank = false;
 
+    /** Memoised $game->bank() lookup (rtpTarget() override) — false = not resolved yet. */
+    private GameBank|false|null $gameOwnBank = false;
+
+    /** Memoised wallet()/session() — a context is short-lived (one request/spin loop). */
+    private ?Wallet $walletInstance = null;
+
+    private ?GameSession $sessionInstance = null;
+
     public function __construct(
         User $user,
         Game $game,
         private readonly Ledger $ledger,
         private readonly Banker $banker,
+        /**
+         * Demo wallet balance and session/free-spin state normally persist
+         * immediately (so a staff member watching "Play demo" in the browser
+         * sees it move, and their state survives across requests). {@see
+         * RtpSimulator} plays thousands of throwaway spins in one single PHP
+         * loop per run — there's no separate client re-fetching state between
+         * them and no one reads the wallet afterwards — so false skips the DB
+         * write on every single spin and mutates the cached Wallet/GameSession
+         * attributes in memory only. The difference between this being usable
+         * and timing out. Never affects non-demo (real-money) players.
+         */
+        private readonly bool $persistDemoState = true,
     ) {
         $game->loadMissing('shop', 'template', 'jackpot');
 
@@ -89,10 +109,16 @@ class GameContext
 
     public function wallet(): Wallet
     {
-        /** @var Wallet */
-        return $this->user->wallet()->firstOrCreate([], [
+        if ($this->walletInstance) {
+            return $this->walletInstance;
+        }
+
+        /** @var Wallet $wallet */
+        $wallet = $this->user->wallet()->firstOrCreate([], [
             'currency' => $this->user->currency ?? $this->shop->currency,
         ]);
+
+        return $this->walletInstance = $wallet;
     }
 
     public function balance(): float
@@ -117,10 +143,20 @@ class GameContext
             return (float) $userBank->temp_rtp;
         }
 
-        return (float) ($this->game->bank()?->temp_rtp
+        return (float) ($this->gameOwnBank()?->temp_rtp
             ?? $this->game->rtp_percent
             ?? $this->shop->rtp_percent
             ?? 90);
+    }
+
+    /** Memoised — SpinDecider calls rtpTarget() every single spin. */
+    private function gameOwnBank(): ?GameBank
+    {
+        if ($this->gameOwnBank !== false) {
+            return $this->gameOwnBank;
+        }
+
+        return $this->gameOwnBank = $this->game->bank();
     }
 
     /** Single-win cap, × bet (per-game override → shop). */
@@ -335,7 +371,7 @@ class GameContext
         }
 
         if ($this->demo) {
-            $this->wallet()->increment('balance', $win);
+            $this->adjustDemoWallet($win);
 
             return $win;
         }
@@ -387,7 +423,7 @@ class GameContext
         }
 
         if ($this->demo) {
-            $this->wallet()->decrement('balance', min($amount, $this->balance()));
+            $this->adjustDemoWallet(-min($amount, $this->balance()));
 
             return;
         }
@@ -510,7 +546,21 @@ class GameContext
 
     public function session(): GameSession
     {
-        return GameSession::firstOrCreate(
+        if ($this->sessionInstance) {
+            return $this->sessionInstance;
+        }
+
+        if ($this->demo && ! $this->persistDemoState) {
+            return $this->sessionInstance = new GameSession([
+                'user_id' => $this->user->id,
+                'game_id' => $this->game->id,
+                'token' => (string) str()->uuid(),
+                'is_active' => true,
+                'last_seen_at' => now(),
+            ]);
+        }
+
+        return $this->sessionInstance = GameSession::firstOrCreate(
             ['user_id' => $this->user->id, 'game_id' => $this->game->id],
             ['token' => (string) str()->uuid(), 'is_active' => true, 'last_seen_at' => now()],
         );
@@ -524,15 +574,28 @@ class GameContext
     public function statePut(array $values): void
     {
         $session = $this->session();
-        $session->update([
-            'state' => array_replace($session->state ?? [], $values),
-            'last_seen_at' => now(),
-        ]);
+        $merged = array_replace($session->state ?? [], $values);
+
+        if ($this->demo && ! $this->persistDemoState) {
+            $session->state = $merged;
+
+            return;
+        }
+
+        $session->update(['state' => $merged, 'last_seen_at' => now()]);
     }
 
     public function stateClear(): void
     {
-        $this->session()->update(['state' => null]);
+        $session = $this->session();
+
+        if ($this->demo && ! $this->persistDemoState) {
+            $session->state = null;
+
+            return;
+        }
+
+        $session->update(['state' => null]);
     }
 
     // ---- internals ---------------------------------------------------
@@ -549,13 +612,25 @@ class GameContext
 
     private function debitDemo(float $amount, string $message): void
     {
-        $wallet = $this->wallet();
-
-        if ((float) $wallet->balance < $amount) {
+        if ((float) $this->wallet()->balance < $amount) {
             throw new RuntimeException($message);
         }
 
-        $wallet->decrement('balance', $amount);
+        $this->adjustDemoWallet(-$amount);
+    }
+
+    /** Demo-only wallet move. See $persistDemoState on why this sometimes skips the DB. */
+    private function adjustDemoWallet(float $delta): void
+    {
+        $wallet = $this->wallet();
+
+        if ($this->persistDemoState) {
+            $delta >= 0 ? $wallet->increment('balance', $delta) : $wallet->decrement('balance', -$delta);
+
+            return;
+        }
+
+        $wallet->balance = (float) $wallet->balance + $delta;
     }
 
     private function ensureBank(): GameBank

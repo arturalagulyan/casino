@@ -3,6 +3,7 @@
 namespace App\Filament\Resources\Games\Pages;
 
 use App\Filament\Actions\PlayDemoAction;
+use App\Filament\Actions\SimulateRtpAction;
 use App\Filament\Resources\Games\GameResource;
 use Filament\Actions\EditAction;
 use Filament\Resources\Pages\ViewRecord;
@@ -15,6 +16,7 @@ class ViewGame extends ViewRecord
     {
         return [
             PlayDemoAction::make(),
+            SimulateRtpAction::make(),
             EditAction::make(),
         ];
     }
