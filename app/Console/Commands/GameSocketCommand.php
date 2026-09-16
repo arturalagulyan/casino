@@ -90,12 +90,15 @@ class GameSocketCommand extends Command
 
             // SocketServer returns ready-to-send frames (each protocol owns its
             // own framing — GamePlatform prefixes `:::`, Amatic sends raw hex).
-            foreach ($this->safeHandle($server, (string) $data) as $message) {
+            foreach ($this->safeHandle($server, $conn->id, (string) $data) as $message) {
                 $conn->send($message);
             }
         };
 
-        $worker->onClose = fn (TcpConnection $conn) => $jackpots->unsubscribe($conn);
+        $worker->onClose = function (TcpConnection $conn) use ($server, $jackpots) {
+            $jackpots->unsubscribe($conn);
+            $server->unbind($conn->id);
+        };
 
         // Workerman reads the process verb from the global argv.
         global $argv;
@@ -126,10 +129,10 @@ class GameSocketCommand extends Command
     }
 
     /** @return list<string> */
-    private function safeHandle(SocketServer $server, string $frame): array
+    private function safeHandle(SocketServer $server, int $connectionId, string $frame): array
     {
         try {
-            return $server->handle($frame);
+            return $server->handle($connectionId, $frame);
         } catch (Throwable $e) {
             try {
                 DB::reconnect();

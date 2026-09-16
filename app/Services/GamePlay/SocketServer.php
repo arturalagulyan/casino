@@ -23,9 +23,22 @@ use Illuminate\Support\Facades\DB;
  * `:::`-prefixed JSON objects; the Amatic "amarent" handler emits bare packed
  * hex strings. {@see handle} returns the exact bytes to send — the socket
  * command sends them verbatim.
+ *
+ * A newer Amatic client generation (bundle path `gmsl/mpp/...`, e.g.
+ * AdmiralNelsonNew) speaks the same `A/uNNN` command set but frames it as a
+ * **bare, non-JSON string** with no `sessionId` field at all — session
+ * identity is only carried once, positionally, in the `A/u25` init frame
+ * (see {@see handleRawAmatic}), and every later frame on that connection is
+ * assumed to belong to whichever session `A/u25` bound to it. That requires
+ * per-connection state, unlike the stateless JSON path above — {@see $rawSessions}.
+ * We only need a stable identifier per TCP connection for that, not the whole
+ * Workerman connection object, so callers just pass `$conn->id`.
  */
 class SocketServer
 {
+    /** Connection id → game_sessions.token, for raw (non-JSON) Amatic frames only. */
+    private array $rawSessions = [];
+
     public function __construct(
         private readonly Ledger $ledger,
         private readonly Banker $banker,
@@ -34,7 +47,7 @@ class SocketServer
     ) {}
 
     /** @return list<string> ready-to-send wire frames */
-    public function handle(string $frame): array
+    public function handle(int $connectionId, string $frame): array
     {
         $json = ltrim($frame);
         if (str_starts_with($json, ':::')) {
@@ -43,9 +56,8 @@ class SocketServer
 
         $request = json_decode($json, true);
 
-        // socket.io-style keepalive frames ("2::", "1::") — ignore
         if (! is_array($request)) {
-            return [];
+            return $this->handleRawAmatic($connectionId, $frame);
         }
 
         $isAmatic = isset($request['gameData']);
@@ -75,6 +87,56 @@ class SocketServer
                 fn (array $m) => ':::'.json_encode($m, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE),
                 $this->gamePlatform->dispatch($context, $request),
             );
+        });
+    }
+
+    /** Drop this connection's bound raw-Amatic session (call from the socket's onClose). */
+    public function unbind(int $connectionId): void
+    {
+        unset($this->rawSessions[$connectionId]);
+    }
+
+    /**
+     * The newer Amatic client's frame, e.g. `A/u25,,<token>,Admiral,2_0_0,EN,EUR,…`
+     * for init or bare `A/u251,<lines>,<betIndex>` for everything after — same
+     * `A/uNNN` command names {@see AmaticProtocol} already understands, just
+     * without a JSON envelope. `A/u25` carries our session token positionally
+     * (index 2 — the client's `hash`/`user` fields ahead of it are always
+     * empty since our launch flow seeds only the one field it reads for
+     * freeplay/real-money identification, {@see GameAssetController}); every
+     * other command carries no token at all and relies on the binding `A/u25`
+     * made for this TCP connection.
+     */
+    private function handleRawAmatic(int $connectionId, string $frame): array
+    {
+        $parts = explode(',', $frame);
+        $cmd = $parts[0];
+
+        if (! str_starts_with($cmd, 'A/u')) {
+            return []; // socket.io-style keepalive frames ("2::", "1::") etc — ignore
+        }
+
+        if ($cmd === 'A/u25') {
+            $token = $parts[2] ?? '';
+            $session = $this->resolveSession($token);
+            if (! $session) {
+                return ['{"responseEvent":"error","responseType":"","serverResponse":"invalid login"}'];
+            }
+            $this->rawSessions[$connectionId] = $token;
+        } else {
+            $token = $this->rawSessions[$connectionId] ?? null;
+            $session = $token !== null ? $this->resolveSession($token) : null;
+            if (! $session) {
+                return [];
+            }
+        }
+
+        $session->forceFill(['last_seen_at' => now()])->saveQuietly();
+
+        return DB::transaction(function () use ($session, $frame) {
+            $context = new GameContext($session->user, $session->game, $this->ledger, $this->banker);
+
+            return $this->amatic->dispatch($context, ['gameData' => $frame]);
         });
     }
 

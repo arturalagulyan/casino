@@ -88,7 +88,7 @@ class EgtProtocolTest extends TestCase
         // the legacy `:::` prefix — strip it so the tests can decode the JSON.
         return array_map(
             fn (string $f) => str_starts_with($f, ':::') ? substr($f, 3) : $f,
-            app(SocketServer::class)->handle(':::'.json_encode(
+            app(SocketServer::class)->handle(1, ':::'.json_encode(
                 $payload + ['sessionId' => $session->token, 'messageId' => 'r-r_'.uniqid()],
             )),
         );
@@ -105,7 +105,7 @@ class EgtProtocolTest extends TestCase
     public function test_bad_session_is_rejected(): void
     {
         $this->egtGame();
-        $out = app(SocketServer::class)->handle(':::'.json_encode(['command' => 'login', 'sessionId' => 'nope']));
+        $out = app(SocketServer::class)->handle(1, ':::'.json_encode(['command' => 'login', 'sessionId' => 'nope']));
 
         $this->assertStringContainsString('invalid login', $out[0]);
     }

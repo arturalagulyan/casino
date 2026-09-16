@@ -90,6 +90,18 @@ class GameAssetController extends Controller
         if ($config->clientProtocol()->usesWebSocket()) {
             $token = json_encode($session->token);
             $inject = "<script>try{sessionStorage.setItem('sessionId',{$token});}catch(e){}</script>";
+
+            // The newer Amatic client generation (gmsl/mpp bundles, e.g.
+            // AdmiralNelsonNew) doesn't use `sessionId` at all — it reads its
+            // own session token from `sessionValue2` (its internal name for
+            // the `hash`/`user` URL params it otherwise expects) and sends it
+            // positionally in its first `A/u25` frame, see SocketServer's raw
+            // Amatic handling. Harmless no-op for the older amarent client,
+            // which never reads this key.
+            if ($config->clientProtocol() === ClientProtocol::Amatic) {
+                $inject .= "<script>try{sessionStorage.setItem('sessionValue2',{$token});}catch(e){}</script>";
+            }
+
             $inject .= $this->jackpotTickerSnippet($game, $user);
             $html = $this->injectHead($html, $inject);
 
@@ -196,11 +208,67 @@ class GameAssetController extends Controller
         }
 
         $disk = $bundle->disk();
+        $content = $disk->get($rel);
 
-        return response($disk->get($rel), 200, [
+        if (str_ends_with($rel, '.js')) {
+            $content = $this->patchLegacyGmslQuirks($content, $bundle, dirname($rel));
+        }
+
+        return response($content, 200, [
             'Content-Type' => $this->mimeType($rel) ?? ($disk->mimeType($rel) ?: 'application/octet-stream'),
             'Cache-Control' => 'public, max-age=3600',
         ]);
+    }
+
+    /**
+     * Amatic's "gmsl/mpp" loaders (e.g. amarent) read two legacy
+     * query-string parameters off the *page's* URL that our launch flow has
+     * no reason to know or forward, and their absence silently breaks the
+     * game rather than falling back to a sane default:
+     *
+     * - `config` — `admiralloader_*.js` builds its config script's src as
+     *   `./src/config_"+getParam("config")+"_<hash>.js`. Empty param → 404
+     *   (`config__<hash>.js`) → the global `Config` never gets defined →
+     *   `ReferenceError: Config is not defined` and the game is dead before
+     *   it starts. A bundle only ever ships the one config file it was
+     *   scraped with, so hardcode that id instead of trusting the URL.
+     * - `lang` — the main engine script (`admiral_*.js`) only restricts its
+     *   preload manifest to `lang`'s comma list when that param is present;
+     *   otherwise it preloads *every* locale the manifest declares (~28),
+     *   nearly all of which 404 because a bundle only ever ships the
+     *   handful of locales it was actually translated into — and the loader
+     *   has no fallback, so it hangs on the loading spinner forever.
+     *   Hardcode the comma list to whatever locale data files actually
+     *   shipped in this bundle.
+     *
+     * (Verified against AdmiralNelsonNew: threw `Config is not defined`
+     * without the first fix, then hung indefinitely on a 404'd `vi_1.json`
+     * — a locale never bundled — without the second.)
+     */
+    private function patchLegacyGmslQuirks(string $js, GameBundle $bundle, string $dir): string
+    {
+        if (str_contains($js, 'getParam("config")')) {
+            $configFile = collect($bundle->disk()->files($dir))
+                ->first(fn ($f) => preg_match('/config_(\d+)_/', basename($f)));
+
+            if ($configFile && preg_match('/config_(\d+)_/', basename($configFile), $m)) {
+                $js = str_replace('getParam("config")', '"'.$m[1].'"', $js);
+            }
+        }
+
+        if (str_contains($js, 'a("lang")')) {
+            $langs = collect($bundle->disk()->allFiles($bundle->path))
+                ->map(fn ($f) => basename($f))
+                ->filter(fn ($f) => preg_match('/^[a-z]{2}_\d+\.json$/i', $f))
+                ->map(fn ($f) => strtolower(explode('_', $f)[0]))
+                ->unique();
+
+            if ($langs->isNotEmpty()) {
+                $js = str_replace('a("lang")', '"'.$langs->implode(',').'"', $js);
+            }
+        }
+
+        return $js;
     }
 
     // ---- helpers ----------------------------------------------------

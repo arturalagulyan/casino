@@ -88,7 +88,7 @@ class AmaticProtocolTest extends TestCase
     /** @return list<string> */
     private function send(GameSession $session, string $gameData): array
     {
-        return app(SocketServer::class)->handle(':::'.json_encode([
+        return app(SocketServer::class)->handle(1, ':::'.json_encode([
             'gameData' => $gameData,
             'sessionId' => $session->token,
             'gameName' => $session->game->template->code,
@@ -106,7 +106,7 @@ class AmaticProtocolTest extends TestCase
     {
         $this->amaticGame();
 
-        $out = app(SocketServer::class)->handle(':::'.json_encode([
+        $out = app(SocketServer::class)->handle(1, ':::'.json_encode([
             'gameData' => 'A/u25', 'sessionId' => 'nope', 'gameName' => 'TestAmaticSlot',
         ]));
 
@@ -228,5 +228,78 @@ class AmaticProtocolTest extends TestCase
             (float) $player->wallet->fresh()->balance,
             0.01,
         );
+    }
+
+    // ---- newer "gmsl/mpp" client — bare, non-JSON frames, no per-message sessionId ----
+
+    public function test_raw_init_frame_binds_the_connection_and_returns_settings(): void
+    {
+        [, $game, $player] = $this->amaticGame();
+        $session = $this->openSession($player, $game);
+
+        // "A/u25"+hash+","+user+","+sessionkey+","+gameCode+",2_0_0,EN,EUR,<deviceinfo>"
+        // — hash/user empty, sessionkey (our token) at index 2.
+        $out = app(SocketServer::class)->handle(42, "A/u25,,{$session->token},Admiral,2_0_0,EN,EUR,-3|en-US |1280|720|1");
+
+        $this->assertCount(1, $out);
+        $this->assertStringStartsWith('05', $out[0]);
+        $this->assertStringNotContainsString('responseEvent', $out[0]);
+    }
+
+    public function test_raw_frames_after_init_use_the_connection_binding(): void
+    {
+        [, $game, $player] = $this->amaticGame();
+        $session = $this->openSession($player, $game);
+
+        // A real socket process resolves SocketServer once and keeps using that
+        // same instance for the connection's whole lifetime — its per-connection
+        // binding lives in that instance, not the container, so the test must
+        // reuse one instance too instead of calling app(SocketServer::class) twice.
+        $server = app(SocketServer::class);
+        $server->handle(43, "A/u25,,{$session->token},Admiral,2_0_0,EN,EUR,-3|en-US |1280|720|1");
+
+        // No token anywhere in this frame — must resolve via the connection id.
+        $out = $server->handle(43, 'A/u251,10,1');
+
+        $this->assertMatchesRegularExpression('/^1[0-9a-f]{2}010/', $out[0]);
+        $this->assertSame(1, $player->rounds()->count());
+    }
+
+    public function test_raw_frame_on_an_unbound_connection_is_ignored(): void
+    {
+        $this->amaticGame();
+
+        $out = app(SocketServer::class)->handle(999, 'A/u251,10,1');
+
+        $this->assertSame([], $out);
+    }
+
+    public function test_raw_init_frame_with_a_bad_token_is_rejected(): void
+    {
+        $this->amaticGame();
+
+        $out = app(SocketServer::class)->handle(44, 'A/u25,,nope,Admiral,2_0_0,EN,EUR,-3|en-US |1280|720|1');
+
+        $this->assertStringContainsString('invalid login', $out[0]);
+    }
+
+    public function test_different_connections_stay_isolated(): void
+    {
+        [$shop, $gameA, $playerA] = $this->amaticGame();
+        $sessionA = $this->openSession($playerA, $gameA);
+
+        $playerB = User::factory()->create(['shop_id' => $shop->id, 'currency' => 'EUR']);
+        $playerB->assignRole('user');
+        $playerB->wallet->update(['balance' => 10000]);
+        $sessionB = $this->openSession($playerB, $gameA);
+
+        $server = app(SocketServer::class);
+        $server->handle(1, "A/u25,,{$sessionA->token},Admiral,2_0_0,EN,EUR,-3|en-US |1280|720|1");
+        $server->handle(2, "A/u25,,{$sessionB->token},Admiral,2_0_0,EN,EUR,-3|en-US |1280|720|1");
+
+        $server->handle(1, 'A/u251,10,1');
+
+        $this->assertSame(1, $playerA->rounds()->count());
+        $this->assertSame(0, $playerB->rounds()->count());
     }
 }
