@@ -34,6 +34,7 @@ class AdminPanelProvider extends PanelProvider
             ->favicon(asset('favicon.ico'))
             ->defaultThemeMode(ThemeMode::Dark)
             ->viteTheme('resources/css/filament/admin/theme.css')
+            ->sidebarCollapsibleOnDesktop()
             ->colors([
                 'primary' => [
                     50 => '#fbf7ec', 100 => '#f5ead0', 200 => '#ecd5a0',
