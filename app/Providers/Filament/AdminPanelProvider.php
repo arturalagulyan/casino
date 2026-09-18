@@ -13,6 +13,7 @@ use Filament\Pages\Dashboard;
 use Filament\Panel;
 use Filament\PanelProvider;
 use Filament\Support\Colors\Color;
+use Filament\Tables\Table;
 use Filament\View\PanelsRenderHook;
 use Illuminate\Cookie\Middleware\AddQueuedCookiesToResponse;
 use Illuminate\Cookie\Middleware\EncryptCookies;
@@ -23,6 +24,20 @@ use Illuminate\View\Middleware\ShareErrorsFromSession;
 
 class AdminPanelProvider extends PanelProvider
 {
+    public function boot(): void
+    {
+        // Tables with a lot of filters/columns (Users, Game Rounds, …) would
+        // otherwise render a filters/column-manager dropdown with no height
+        // cap of its own — it just grows past the viewport with nothing to
+        // scroll, so a wheel scroll over it falls through to whatever's
+        // underneath (the table). Capping both gives them their own
+        // scrollbar, same as Filament's other panels/modals.
+        Table::configureUsing(function (Table $table) {
+            $table->filtersFormMaxHeight('60vh');
+            $table->columnManagerMaxHeight('60vh');
+        });
+    }
+
     public function panel(Panel $panel): Panel
     {
         return $panel

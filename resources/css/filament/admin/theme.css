@@ -165,6 +165,12 @@
     max-height: calc(100dvh - 22rem);
     min-height: 16rem;
     overflow-y: auto;
+    /* Once this box's own scroll hits its end, stop — don't hand the
+     * leftover wheel delta to the page behind it. Pairs with the dropdown
+     * rule below: a scrollable panel floating over the table (filters,
+     * column manager, …) should never leak scroll input into the table
+     * underneath it either. */
+    overscroll-behavior: contain;
 }
 
 .fi-ta-table thead {
@@ -176,4 +182,31 @@
 
 .dark .fi-ta-table thead {
     background-color: #0f1613;
+}
+
+/* --- Pin the row-actions column to the right edge ------------------
+ * New staff often don't realize a wide table even HAS row actions —
+ * they're off past several screens of horizontal scroll. Pinning that
+ * column (header cell + every row's cell) means only the data columns
+ * scroll; actions stay one glance away, same idea as the sticky header
+ * above but sideways. Filament gives the actions `<td>`/`<th>` no
+ * dedicated class of their own to hook — `.fi-ta-actions-header-cell` on
+ * the header is real, but the body cell is just a bare `.fi-ta-cell`
+ * that happens to wrap a `.fi-ta-actions` div, hence `:has()`. */
+.fi-ta-table th.fi-ta-actions-header-cell,
+.fi-ta-table td:has(> .fi-ta-actions) {
+    position: sticky;
+    right: 0;
+    background-color: #f9fafb;
+    box-shadow: -8px 0 10px -8px rgba(0, 0, 0, 0.3);
+}
+
+.dark .fi-ta-table th.fi-ta-actions-header-cell,
+.dark .fi-ta-table td:has(> .fi-ta-actions) {
+    background-color: #0f1613;
+}
+
+/* --- Dropdown/filter panels scroll themselves, not whatever's under them */
+.fi-dropdown-panel {
+    overscroll-behavior: contain;
 }
