@@ -3,6 +3,7 @@
 use App\Http\Controllers\Api\GameServerController;
 use App\Http\Controllers\DemoPlayController;
 use App\Http\Controllers\GameAssetController;
+use App\Http\Controllers\RtpSimulationReportController;
 use Illuminate\Support\Facades\Route;
 
 /*
@@ -15,6 +16,14 @@ use Illuminate\Support\Facades\Route;
  */
 // "Play demo" from the admin panel — staff only (see DemoPlayController).
 Route::get('games/demo/{code}', [DemoPlayController::class, 'start'])->name('games.demo');
+
+// "Test RTP" run results — staff only (see RtpSimulationReportController).
+Route::get('admin/rtp-simulations/{token}', [RtpSimulationReportController::class, 'show'])
+    ->where('token', '[0-9a-f-]{36}')
+    ->name('admin.rtp-simulations.show');
+Route::get('admin/rtp-simulations/{token}/download', [RtpSimulationReportController::class, 'download'])
+    ->where('token', '[0-9a-f-]{36}')
+    ->name('admin.rtp-simulations.download');
 
 Route::get('games/{code}', [GameAssetController::class, 'play'])->name('games.play');
 

@@ -46,7 +46,11 @@ class RtpSimulator
     /**
      * @return array{spins: int, lines: int, betline: float, stake_per_spin: float,
      *     currency: string, total_in: float, total_out: float, net: float, rtp: float,
-     *     target_rtp: float, hit_rate: float, biggest_win: float, elapsed_seconds: float}
+     *     target_rtp: float, hit_rate: float, biggest_win: float, elapsed_seconds: float,
+     *     game_name: string, shop_name: string,
+     *     total_game_in: float, total_jackpot_in: float, total_profit: float,
+     *     rows: list<array{spin: int, bet: float, win: float, net: float,
+     *         game_in: float, jackpot_in: float, profit: float, balance_after: float}>}
      */
     public function run(Game $game, int $spins, float $betline, ?int $lines = null): array
     {
@@ -77,8 +81,12 @@ class RtpSimulator
 
         $totalIn = 0.0;
         $totalOut = 0.0;
+        $totalGameIn = 0.0;
+        $totalJackpotIn = 0.0;
+        $totalProfit = 0.0;
         $wins = 0;
         $biggestWin = 0.0;
+        $rows = [];
         $start = microtime(true);
 
         for ($i = 0; $i < $spins; $i++) {
@@ -86,14 +94,29 @@ class RtpSimulator
 
             $bet = (float) ($result['bet'] ?? 0);
             $win = (float) ($result['win'] ?? 0);
+            $split = $context->previewSplit($bet);
 
             $totalIn += $bet;
             $totalOut += $win;
+            $totalGameIn += $split['bank'];
+            $totalJackpotIn += $split['jackpot'];
+            $totalProfit += $split['profit'];
 
             if ($win > 0) {
                 $wins++;
                 $biggestWin = max($biggestWin, $win);
             }
+
+            $rows[] = [
+                'spin' => $i + 1,
+                'bet' => round($bet, 4),
+                'win' => round($win, 4),
+                'net' => round($win - $bet, 4),
+                'game_in' => $split['bank'],
+                'jackpot_in' => $split['jackpot'],
+                'profit' => $split['profit'],
+                'balance_after' => round((float) ($result['balance'] ?? $context->balance()), 4),
+            ];
         }
 
         return [
@@ -102,6 +125,8 @@ class RtpSimulator
             'betline' => $betline,
             'stake_per_spin' => $stakePerSpin,
             'currency' => $context->currency->value,
+            'game_name' => $game->title ?: $game->template->title,
+            'shop_name' => $game->shop->name,
             'total_in' => round($totalIn, 2),
             'total_out' => round($totalOut, 2),
             'net' => round($totalIn - $totalOut, 2),
@@ -109,7 +134,11 @@ class RtpSimulator
             'target_rtp' => round($context->rtpTarget(), 2),
             'hit_rate' => round($wins / $spins * 100, 2),
             'biggest_win' => round($biggestWin, 2),
+            'total_game_in' => round($totalGameIn, 2),
+            'total_jackpot_in' => round($totalJackpotIn, 2),
+            'total_profit' => round($totalProfit, 2),
             'elapsed_seconds' => round(microtime(true) - $start, 2),
+            'rows' => $rows,
         ];
     }
 

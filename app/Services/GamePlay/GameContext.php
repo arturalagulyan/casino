@@ -68,6 +68,9 @@ class GameContext
     /** Memoised $game->bank() lookup (rtpTarget() override) — false = not resolved yet. */
     private GameBank|false|null $gameOwnBank = false;
 
+    /** Memoised jackpots() lookup — see that method. */
+    private ?Collection $jackpotsCache = null;
+
     /** Memoised wallet()/session() — a context is short-lived (one request/spin loop). */
     private ?Wallet $walletInstance = null;
 
@@ -335,24 +338,16 @@ class GameContext
             title: $this->game->template->title ?? $this->game->title,
         );
 
-        $toBank = round($stake * $this->rtpTarget() / 100, 4);
-
-        $toJackpot = 0.0;
         foreach ($this->jackpots() as $jackpot) {
             $this->banker->contributeToJackpot($jackpot, $stake, $this->currency);
-            $toJackpot += round($stake * (float) $jackpot->contribution_percent / 100, 4);
         }
+
+        $this->split = $this->previewSplit($stake);
 
         // The losing stake ALWAYS feeds the shop's shared pool — a manipulated
         // player still grows the bank for everyone else. Only the win side is
         // diverted to their user bank (see settlementBank / awardWin).
-        $this->depositShopBank($toBank);
-
-        $this->split = [
-            'bank' => $toBank,
-            'jackpot' => round($toJackpot, 4),
-            'profit' => round($stake - $toBank - $toJackpot, 4),
-        ];
+        $this->depositShopBank($this->split['bank']);
     }
 
     /**
@@ -600,14 +595,51 @@ class GameContext
 
     // ---- internals ---------------------------------------------------
 
-    /** @return Collection<int, Jackpot> */
+    /**
+     * Memoised — a context is short-lived (one request/spin loop), and
+     * {@see RtpSimulator} calls this once per simulated spin (thousands per
+     * run), so re-querying every time would be wasteful.
+     *
+     * @return Collection<int, Jackpot>
+     */
     public function jackpots(): Collection
     {
-        return Jackpot::query()
+        return $this->jackpotsCache ??= Jackpot::query()
             ->where('is_active', true)
             ->where(fn ($q) => $q->where('shop_id', $this->shop->id)->orWhereNull('shop_id'))
             ->when($this->game->jackpot_id, fn ($q) => $q->orWhere('id', $this->game->jackpot_id))
             ->get();
+    }
+
+    /**
+     * How a stake WOULD split across the shop bank / jackpots / house profit
+     * at this game's current RTP target — the same math {@see placeBet()}
+     * uses to move real money, but a pure calculation with no side effects
+     * (no ledger write, no bank/jackpot deposit). Used to report a
+     * profit/jackpot-in/game-in breakdown for spins that never touch real
+     * pools — {@see RtpSimulator}'s demo/headless runs.
+     *
+     * @return array{bank: float, jackpot: float, profit: float}
+     */
+    public function previewSplit(float $stake): array
+    {
+        if ($stake <= 0) {
+            return ['bank' => 0.0, 'jackpot' => 0.0, 'profit' => 0.0];
+        }
+
+        $toBank = round($stake * $this->rtpTarget() / 100, 4);
+
+        $toJackpot = 0.0;
+        foreach ($this->jackpots() as $jackpot) {
+            $toJackpot += round($stake * (float) $jackpot->contribution_percent / 100, 4);
+        }
+        $toJackpot = round($toJackpot, 4);
+
+        return [
+            'bank' => $toBank,
+            'jackpot' => $toJackpot,
+            'profit' => round($stake - $toBank - $toJackpot, 4),
+        ];
     }
 
     private function debitDemo(float $amount, string $message): void

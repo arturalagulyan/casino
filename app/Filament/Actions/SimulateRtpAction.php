@@ -5,6 +5,7 @@ namespace App\Filament\Actions;
 use App\Enums\Currency;
 use App\Enums\GameEngine;
 use App\Models\Game;
+use App\Services\GamePlay\RtpSimulationReport;
 use App\Services\GamePlay\RtpSimulator;
 use App\Support\Money;
 use Filament\Actions\Action;
@@ -70,6 +71,7 @@ class SimulateRtpAction
                 }
 
                 $currency = Currency::from($result['currency']);
+                $token = app(RtpSimulationReport::class)->store($result);
 
                 Notification::make()
                     ->success()
@@ -79,10 +81,23 @@ class SimulateRtpAction
                         'In '.Money::format($result['total_in'], $currency),
                         'Out '.Money::format($result['total_out'], $currency),
                         'Net '.Money::format($result['net'], $currency),
+                        'Game in '.Money::format($result['total_game_in'], $currency),
+                        'Jackpot in '.Money::format($result['total_jackpot_in'], $currency),
+                        'Profit '.Money::format($result['total_profit'], $currency),
                         'Hit rate '.$result['hit_rate'].'%',
                         'Biggest win '.Money::format($result['biggest_win'], $currency),
                         $result['elapsed_seconds'].'s',
                     ]))
+                    ->actions([
+                        Action::make('viewRtpReport')
+                            ->label('View spin-by-spin report')
+                            ->url(route('admin.rtp-simulations.show', $token))
+                            ->openUrlInNewTab(),
+                        Action::make('downloadRtpCsv')
+                            ->label('Download CSV')
+                            ->url(route('admin.rtp-simulations.download', $token))
+                            ->openUrlInNewTab(),
+                    ])
                     ->persistent()
                     ->send();
             });
