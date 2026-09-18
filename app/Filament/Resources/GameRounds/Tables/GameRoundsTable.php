@@ -40,6 +40,16 @@ class GameRoundsTable
                     ->alignEnd()
                     ->weight('bold')
                     ->color(fn ($record) => (float) $record->win - (float) $record->bet >= 0 ? 'success' : 'danger'),
+                $money('stake_to_bank', 'Game in')->toggleable(),
+                $money('stake_to_jackpot', 'Jackpot in')->toggleable(),
+                TextColumn::make('stake_to_profit')
+                    ->label('Profit')
+                    ->formatStateUsing(fn ($state, $record) => Money::format($state, $record->currency))
+                    ->alignEnd()
+                    ->sortable()
+                    ->weight('bold')
+                    ->color(fn ($state) => (float) $state >= 0 ? 'success' : 'danger')
+                    ->toggleable(),
                 $money('balance_after', 'Balance')->toggleable(),
                 TextColumn::make('shop.name')->badge()->color('gray')->toggleable(),
             ])
