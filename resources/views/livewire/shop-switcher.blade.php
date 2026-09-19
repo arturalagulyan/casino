@@ -19,22 +19,23 @@
                (outside that stacking context entirely) it's the *topbar's*
                z-index that counts, not the panel's, so on some layouts the
                panel paints under the page rather than over it. Filament's own
-               topbar dropdowns dodge this with a `teleport` option — but that
-               turns out to only switch their positioning engine to `fixed`
-               coordinates, it doesn't actually relocate the DOM node (verified
-               by inspecting Filament's own user-menu dropdown here: it's still
-               nested exactly where it's declared). So instead this genuinely
-               moves the panel to be a direct child of <body> on init — the
-               only way to actually leave the topbar's stacking context — and
-               positions it with plain fixed coordinates read off the trigger's
-               on-screen position each time it opens. The move itself uses
-               `x-init="…($el)"` on the panel directly rather than on the
-               wrapper referencing `$refs.panel` — the wrapper's own `x-init`
-               runs before Alpine has walked far enough to register a not-yet-
-               visited child's `x-ref`, so `$refs.panel` needed a `$nextTick`
-               there, and that extra tick was enough to make the very first
-               click after page load a no-op (this element hadn't relocated
-               yet when that click's handlers were wired up).
+               topbar dropdowns dodge this with a `teleport` option that turns
+               out to only switch their positioning engine to `fixed`
+               coordinates, not actually relocate the DOM node — so this
+               genuinely moves the panel to be a child of <body>, the only way
+               to actually leave the topbar's stacking context, and positions
+               it with plain fixed coordinates read off the trigger's on-
+               screen position each time it opens.
+
+               That move has to go through Alpine's own `<template
+               x-teleport>` (which relocates via Alpine's `mutateDom()`
+               wrapper, keeping its own reactivity bookkeeping in sync) and
+               not a plain `document.body.appendChild($el)` in `x-init` —
+               tried that first, and it moves the element fine, but every
+               later reactive update to `open` then throws "Illegal
+               invocation" from deep inside Alpine's effect system, because
+               the DOM move happened outside the mutation tracking Alpine's
+               reactivity depends on.
 
             3. `wire:click` on an item stopped reaching the component once its
                panel moved outside the component's own root div — Livewire
@@ -86,35 +87,36 @@
                 </button>
             </div>
 
-            <div
-                x-ref="panel"
-                x-init="document.body.appendChild($el)"
-                x-show="open"
-                x-cloak
-                x-transition
-                class="fi-dropdown-panel"
-                style="position: fixed; z-index: 40;"
-            >
-                <x-filament::dropdown.list>
-                    <x-filament::dropdown.list.item
-                        icon="heroicon-o-squares-2x2"
-                        :color="$currentShop ? 'gray' : 'primary'"
-                        x-on:click="open = false; $wire.selectShop(null)"
-                    >
-                        All shops
-                    </x-filament::dropdown.list.item>
-
-                    @foreach ($shops as $shop)
+            <template x-teleport="body">
+                <div
+                    x-ref="panel"
+                    x-show="open"
+                    x-cloak
+                    x-transition
+                    class="fi-dropdown-panel"
+                    style="position: fixed; z-index: 40;"
+                >
+                    <x-filament::dropdown.list>
                         <x-filament::dropdown.list.item
-                            icon="heroicon-o-building-storefront"
-                            :color="$currentShop?->id === $shop->id ? 'primary' : 'gray'"
-                            x-on:click="open = false; $wire.selectShop({{ $shop->id }})"
+                            icon="heroicon-o-squares-2x2"
+                            :color="$currentShop ? 'gray' : 'primary'"
+                            x-on:click="open = false; $wire.selectShop(null)"
                         >
-                            {{ $shop->name }}
+                            All shops
                         </x-filament::dropdown.list.item>
-                    @endforeach
-                </x-filament::dropdown.list>
-            </div>
+
+                        @foreach ($shops as $shop)
+                            <x-filament::dropdown.list.item
+                                icon="heroicon-o-building-storefront"
+                                :color="$currentShop?->id === $shop->id ? 'primary' : 'gray'"
+                                x-on:click="open = false; $wire.selectShop({{ $shop->id }})"
+                            >
+                                {{ $shop->name }}
+                            </x-filament::dropdown.list.item>
+                        @endforeach
+                    </x-filament::dropdown.list>
+                </div>
+            </template>
         </div>
     @endif
 </div>

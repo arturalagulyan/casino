@@ -12,6 +12,7 @@ use Filament\Widgets\StatsOverviewWidget;
 use Filament\Widgets\StatsOverviewWidget\Stat;
 use Illuminate\Database\Query\Builder;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\HtmlString;
 use Illuminate\Support\Number;
 
 class CasinoOverview extends StatsOverviewWidget
@@ -69,20 +70,35 @@ class CasinoOverview extends StatsOverviewWidget
             ->descriptionIcon('heroicon-m-user-group')
             ->color('primary');
 
-        $funds = DB::table('wallets')
+        // Balances never sum across currencies (same rule as GGR above) — one
+        // card per currency, flagged, instead of one wide string mashing them
+        // all together.
+        $balances = DB::table('wallets')
             ->join('users', 'users.id', '=', 'wallets.user_id')
             ->when($shopIds !== null, fn (Builder $q) => $q->whereIn('users.shop_id', $shopIds ?: [0]))
             ->selectRaw('wallets.currency AS currency, SUM(wallets.balance) AS total')
             ->groupBy('wallets.currency')
             ->orderByDesc('total')
-            ->get()
-            ->map(fn ($r) => Money::format($r->total, $r->currency))
-            ->implode('  ·  ');
+            ->get();
 
-        $stats[] = Stat::make('Player balances', $funds ?: '—')
-            ->description('held across all wallets')
-            ->descriptionIcon('heroicon-m-wallet')
-            ->color('warning');
+        if ($balances->isEmpty()) {
+            $stats[] = Stat::make('Player balances', '—')
+                ->description('held across all wallets')
+                ->descriptionIcon('heroicon-m-wallet')
+                ->color('warning');
+        }
+
+        foreach ($balances as $row) {
+            $currency = Money::currency($row->currency);
+
+            $stats[] = Stat::make(
+                new HtmlString('Player balances · '.$currency->chip()),
+                Money::format((float) $row->total, $currency),
+            )
+                ->description('held across all wallets')
+                ->descriptionIcon('heroicon-m-wallet')
+                ->color('warning');
+        }
 
         $shops = Shop::query()->where('status', 'active')
             ->when($shopIds !== null, fn ($q) => $q->whereIn('id', $shopIds ?: [0]));
