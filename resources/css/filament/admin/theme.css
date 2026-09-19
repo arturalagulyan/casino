@@ -277,15 +277,15 @@
 @media (max-width: 39.9975rem) {
     .fi-ta-table-stacked-on-mobile > tbody > tr:not(.fi-ta-table-stacked-header-row):not(.fi-ta-group-header-row):not(.fi-ta-summary-row) {
         margin: 0 0.75rem 0.75rem;
-        border-radius: 0.75rem;
-        border: 1px solid rgba(17, 24, 39, 0.1);
+        border-radius: 0.5rem;
+        border: 1.5px solid rgba(17, 24, 39, 0.16);
         background-color: #fff;
         box-shadow: 0 1px 2px rgba(0, 0, 0, 0.04);
         overflow: hidden;
     }
 
     .dark .fi-ta-table-stacked-on-mobile > tbody > tr:not(.fi-ta-table-stacked-header-row):not(.fi-ta-group-header-row):not(.fi-ta-summary-row) {
-        border-color: rgba(212, 175, 55, 0.16);
+        border-color: rgba(212, 175, 55, 0.3);
         background-color: rgba(17, 24, 22, 0.55);
         box-shadow: none;
     }
@@ -294,19 +294,35 @@
         margin-top: 0.75rem;
     }
 
-    /* A hairline between each field so a record with many columns reads
-     * as a list of distinct rows once it's sitting inside a card, not
-     * one run-on paragraph. */
+    /* Label and value share one line (like a settings row) instead of
+     * stacking across two — label on the start edge, value flush to the
+     * end. No divider between fields; the row's own line-height plus a
+     * little vertical padding is enough rhythm inside a bordered card. */
     .fi-ta-table-stacked-on-mobile > tbody > tr > .fi-ta-cell:not(.fi-ta-selection-cell):not(:has(> .fi-ta-actions)) {
-        border-bottom: 1px solid rgba(17, 24, 39, 0.06);
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 1rem;
+        padding-top: 0.5rem;
+        padding-bottom: 0.5rem;
     }
 
-    .dark .fi-ta-table-stacked-on-mobile > tbody > tr > .fi-ta-cell:not(.fi-ta-selection-cell):not(:has(> .fi-ta-actions)) {
-        border-bottom-color: rgba(212, 175, 55, 0.08);
+    .fi-ta-table-stacked-on-mobile > tbody > tr > .fi-ta-cell:not(.fi-ta-selection-cell):not(:has(> .fi-ta-actions)) > .fi-ta-cell-label {
+        padding-top: 0;
+        flex-shrink: 0;
     }
 
-    .fi-ta-table-stacked-on-mobile > tbody > tr > .fi-ta-cell:not(.fi-ta-selection-cell):last-of-type {
-        border-bottom: none;
+    .fi-ta-table-stacked-on-mobile > tbody > tr > .fi-ta-cell:not(.fi-ta-selection-cell):not(:has(> .fi-ta-actions)) > .fi-ta-cell-content {
+        /* `flex-grow: 0` is the important part: most columns default to
+         * start-aligned internally (Filament's `.fi-ta-col` is `justify-
+         * start`), so if this box were allowed to grow and fill the row,
+         * the value would still hug the label rather than the row's end.
+         * Sized to its own content instead, `space-between` on the row
+         * pushes the whole box to the end regardless of the column's own
+         * alignment — shrinking (not growing) only if it doesn't fit. */
+        flex: 0 1 auto;
+        min-width: 0;
+        text-align: right;
     }
 
     /* Actions become the card's footer: visually separated and tinted so
