@@ -20,6 +20,7 @@ use Illuminate\Cookie\Middleware\EncryptCookies;
 use Illuminate\Foundation\Http\Middleware\PreventRequestForgery;
 use Illuminate\Routing\Middleware\SubstituteBindings;
 use Illuminate\Session\Middleware\StartSession;
+use Illuminate\Support\HtmlString;
 use Illuminate\View\Middleware\ShareErrorsFromSession;
 
 class AdminPanelProvider extends PanelProvider
@@ -35,6 +36,13 @@ class AdminPanelProvider extends PanelProvider
         Table::configureUsing(function (Table $table) {
             $table->filtersFormMaxHeight('60vh');
             $table->columnManagerMaxHeight('60vh');
+
+            // Below `sm` there's no room for a real grid — Filament's stacked
+            // mode turns each row into a card (label above value) with
+            // actions wrapping full-width at the bottom, instead of a
+            // horizontally-scrolled table whose sticky actions column (see
+            // theme.css) would otherwise cover the data columns entirely.
+            $table->stackedOnMobile();
         });
     }
 
@@ -81,6 +89,27 @@ class AdminPanelProvider extends PanelProvider
             ->renderHook(
                 PanelsRenderHook::TOPBAR_START,
                 fn () => view('filament.shop-switcher-topbar'),
+            )
+            ->renderHook(
+                PanelsRenderHook::HEAD_END,
+                // Filament's sidebar open/collapsed state is Alpine.$persist-ed
+                // to localStorage, defaulting to *open* the first time a browser
+                // ever visits. Seeding it closed here — before Alpine reads it
+                // on `alpine:init` — makes "collapsed" the default for a fresh
+                // browser, while leaving it alone (the `=== null` check) once
+                // someone has actually toggled it, so their choice still sticks.
+                fn () => new HtmlString(<<<'HTML'
+                    <script>
+                        try {
+                            if (localStorage.getItem('isOpenDesktop') === null) {
+                                localStorage.setItem('isOpenDesktop', 'false');
+                            }
+                            if (localStorage.getItem('isOpen') === null) {
+                                localStorage.setItem('isOpen', 'false');
+                            }
+                        } catch (e) {}
+                    </script>
+                    HTML),
             )
             ->middleware([
                 EncryptCookies::class,

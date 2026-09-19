@@ -173,6 +173,32 @@
     overscroll-behavior: contain;
 }
 
+/* Below `sm`, rows render "stacked on mobile" as full cards (every
+ * column as its own label/value line), which are far taller than a
+ * normal table row — capping the box to a desktop-sized height there
+ * traps a single card in a small nested scroll pane instead of letting
+ * the page itself scroll through the list, forcing a second, confusing
+ * scroll gesture inside a tiny window. There's also no column header to
+ * protect with a sticky top, since the header row is hidden in this
+ * mode. Let the box size to its content and hand scrolling back to the
+ * page. */
+@media (max-width: 39.9975rem) {
+    .fi-ta-content-ctn {
+        max-height: none;
+        min-height: 0;
+        /* The CSS spec computes a `visible` axis as `auto` whenever its
+         * other axis isn't `visible` too — and Filament's own base rule
+         * for this element always sets `overflow-x: auto` (for desktop's
+         * horizontal table scroll), which would silently force this
+         * `overflow-y` back to `auto` (recreating a capped scroll box)
+         * unless the x-axis is freed as well. Nothing needs horizontal
+         * scroll in stacked/card mode anyway. */
+        overflow-x: visible;
+        overflow-y: visible;
+        overscroll-behavior: auto;
+    }
+}
+
 .fi-ta-table thead {
     position: sticky;
     top: 0;
@@ -192,21 +218,114 @@
  * above but sideways. Filament gives the actions `<td>`/`<th>` no
  * dedicated class of their own to hook — `.fi-ta-actions-header-cell` on
  * the header is real, but the body cell is just a bare `.fi-ta-cell`
- * that happens to wrap a `.fi-ta-actions` div, hence `:has()`. */
-.fi-ta-table th.fi-ta-actions-header-cell,
-.fi-ta-table td:has(> .fi-ta-actions) {
-    position: sticky;
-    right: 0;
-    background-color: #f9fafb;
-    box-shadow: -8px 0 10px -8px rgba(0, 0, 0, 0.3);
-}
+ * that happens to wrap a `.fi-ta-actions` div, hence `:has()`.
+ *
+ * Only from `sm` up: below that, tables render "stacked on mobile"
+ * (`stackedOnMobile()` in AdminPanelProvider) as a column of full-width
+ * cards rather than a real grid — sticky/pinning there would fight the
+ * card layout and cover the row's own content instead of a sibling
+ * column. */
+@media (min-width: 40rem) {
+    .fi-ta-table th.fi-ta-actions-header-cell,
+    .fi-ta-table td:has(> .fi-ta-actions) {
+        position: sticky;
+        right: 0;
+        background-color: #f9fafb;
+        box-shadow: -8px 0 10px -8px rgba(0, 0, 0, 0.3);
+    }
 
-.dark .fi-ta-table th.fi-ta-actions-header-cell,
-.dark .fi-ta-table td:has(> .fi-ta-actions) {
-    background-color: #0f1613;
+    .dark .fi-ta-table th.fi-ta-actions-header-cell,
+    .dark .fi-ta-table td:has(> .fi-ta-actions) {
+        background-color: #0f1613;
+    }
 }
 
 /* --- Dropdown/filter panels scroll themselves, not whatever's under them */
 .fi-dropdown-panel {
     overscroll-behavior: contain;
+}
+
+/* --- Reclaim vertical space on phones ------------------------------
+ * `.fi-page-header-main-ctn` ships a flat `py-8 gap-y-8` (32px + 32px)
+ * with no mobile-specific override — fine on desktop, but on a phone
+ * that's 64px of pure padding/gap above the fold before the page's own
+ * heading, actions and table toolbar (which have their own padding on
+ * top of this) even start. Tightening it below `sm` gives noticeably
+ * more of a short screen to the actual table/content. */
+@media (max-width: 39.9975rem) {
+    .fi-page-header-main-ctn {
+        padding-top: 1rem;
+        padding-bottom: 1rem;
+        gap: 1rem;
+    }
+
+    .fi-ta-header-toolbar {
+        padding-top: 0.5rem;
+        padding-bottom: 0.5rem;
+        gap: 0.5rem;
+    }
+}
+
+/* --- Stacked-on-mobile rows as actual cards -------------------------
+ * Filament's own "stacked on mobile" mode (enabled panel-wide in
+ * AdminPanelProvider) turns each row into a plain run of label/value
+ * lines with no visual boundary between one record and the next, and
+ * actions just trail off at the bottom looking like one more field.
+ * Wrapping each row in a bordered, rounded card — with the actions
+ * broken out as a distinct tinted footer — makes each record scannable
+ * on its own and the tap targets obvious. */
+@media (max-width: 39.9975rem) {
+    .fi-ta-table-stacked-on-mobile > tbody > tr:not(.fi-ta-table-stacked-header-row):not(.fi-ta-group-header-row):not(.fi-ta-summary-row) {
+        margin: 0 0.75rem 0.75rem;
+        border-radius: 0.75rem;
+        border: 1px solid rgba(17, 24, 39, 0.1);
+        background-color: #fff;
+        box-shadow: 0 1px 2px rgba(0, 0, 0, 0.04);
+        overflow: hidden;
+    }
+
+    .dark .fi-ta-table-stacked-on-mobile > tbody > tr:not(.fi-ta-table-stacked-header-row):not(.fi-ta-group-header-row):not(.fi-ta-summary-row) {
+        border-color: rgba(212, 175, 55, 0.16);
+        background-color: rgba(17, 24, 22, 0.55);
+        box-shadow: none;
+    }
+
+    .fi-ta-table-stacked-on-mobile > tbody > tr:first-child {
+        margin-top: 0.75rem;
+    }
+
+    /* A hairline between each field so a record with many columns reads
+     * as a list of distinct rows once it's sitting inside a card, not
+     * one run-on paragraph. */
+    .fi-ta-table-stacked-on-mobile > tbody > tr > .fi-ta-cell:not(.fi-ta-selection-cell):not(:has(> .fi-ta-actions)) {
+        border-bottom: 1px solid rgba(17, 24, 39, 0.06);
+    }
+
+    .dark .fi-ta-table-stacked-on-mobile > tbody > tr > .fi-ta-cell:not(.fi-ta-selection-cell):not(:has(> .fi-ta-actions)) {
+        border-bottom-color: rgba(212, 175, 55, 0.08);
+    }
+
+    .fi-ta-table-stacked-on-mobile > tbody > tr > .fi-ta-cell:not(.fi-ta-selection-cell):last-of-type {
+        border-bottom: none;
+    }
+
+    /* Actions become the card's footer: visually separated and tinted so
+     * they read as "what you can do with this record", not another field. */
+    .fi-ta-table-stacked-on-mobile > tbody > tr > .fi-ta-cell:has(> .fi-ta-actions) {
+        border-top: 1px solid rgba(17, 24, 39, 0.08);
+        background-color: rgba(17, 24, 39, 0.02);
+    }
+
+    .dark .fi-ta-table-stacked-on-mobile > tbody > tr > .fi-ta-cell:has(> .fi-ta-actions) {
+        border-top-color: rgba(212, 175, 55, 0.14);
+        background-color: rgba(212, 175, 55, 0.05);
+    }
+
+    /* Nudge the row-selection checkbox in from the card's edge instead of
+     * sitting flush against the border/corner Filament's default (built
+     * for a plain, unbordered row) assumes. */
+    .fi-ta-table-stacked-on-mobile > tbody > tr > .fi-ta-selection-cell {
+        top: 0.85rem;
+        inset-inline-end: 0.85rem;
+    }
 }
