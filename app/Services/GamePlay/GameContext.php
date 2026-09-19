@@ -196,12 +196,41 @@ class GameContext
     /** @param array<string, mixed> $values */
     public function putEngineState(array $values): void
     {
-        if ($this->demo) {
-            return;   // demo play must not nudge the live RTP-feedback loop
+        $merged = array_replace($this->game->engine_state ?? [], $values);
+
+        if ($this->demo && ! $this->persistDemoState) {
+            // A throwaway simulation ({@see RtpSimulator}) — mutate this
+            // loaded instance's own attribute so the loop it's running sees
+            // consistent state across iterations, same as total_bet/total_win
+            // there, but never touch the shared row real players' spins read.
+            $this->game->engine_state = $merged;
+
+            return;
         }
 
-        $this->game->engine_state = array_replace($this->game->engine_state ?? [], $values);
+        if ($this->demo) {
+            return;   // real Play Demo must not nudge the live RTP-feedback loop
+        }
+
+        $this->game->engine_state = $merged;
         $this->game->saveQuietly();
+    }
+
+    /**
+     * Whether SpinDecider's self-correcting RTP loop should run for this
+     * context. Off for a real demo session (`persistDemoState` defaults true)
+     * — a staff member testing a game manually via "Play demo" shouldn't have
+     * the live correction loop skew their test spins, and it must not nudge
+     * `game.engine_state`, which is shared across every real player. A
+     * throwaway simulation ({@see RtpSimulator}, `persistDemoState: false`)
+     * is a different case: it's the *only* context playing this in-memory
+     * $game instance, nothing is shared, and reproducing a live game's real
+     * long-run RTP means reproducing both of its RTP levers, not just
+     * SlotEngine::winFloor()'s one-directional minimum-win floor.
+     */
+    public function isEligibleForRtpControl(): bool
+    {
+        return ! $this->demo || ! $this->persistDemoState;
     }
 
     /** @return list<float> */

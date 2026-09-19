@@ -75,6 +75,33 @@ class RtpSimulator
         $lines = $lines !== null && $lines > 0 ? $lines : $context->config()->lineCount();
         $stakePerSpin = round($lines * $betline * $context->denomination(), 4);
 
+        // In-memory only (never saved — this $game instance is discarded after
+        // the run): pretend the game already has *some* on-target turnover
+        // history, sized to a `rtp_control_window` worth of spins at this
+        // run's own stake. Two separate RTP levers both read that history
+        // straight off $game, and a genuinely fresh game (0/0, true the
+        // moment it's imported) clears neither bar:
+        //  - SlotEngine::winFloor()'s minimum-win-size guarantee, which only
+        //    grants a floor once the book can afford that coefficient (coef *
+        //    this spin's stake) out of its current profit margin — otherwise
+        //    every "win" decision settles for whatever tiny combo the reels
+        //    land first. The seed has to stay modest: a huge fixed margin
+        //    would make *every* coefficient look affordable, including a
+        //    paytable's rare jackpot-tier entries, pinning wins near the cap.
+        //  - SpinDecider's self-correcting loop (see
+        //    GameContext::isEligibleForRtpControl()), which needs
+        //    rounds_count >= the window before it'll even look at whether
+        //    realised RTP is drifting. Without it nothing ever pulls a
+        //    winFloor-driven overshoot back down — that loop is the only
+        //    *downward* lever either mechanism has.
+        // rounds_count is @property-read (Larastan) — setAttribute() instead
+        // of a direct property write is the same mutation without tripping
+        // that check.
+        $seedRounds = max(1, $context->config()->rtpControlWindow());
+        $game->total_bet = $seedRounds * $stakePerSpin;
+        $game->total_win = $game->total_bet * (((float) ($game->rtp_percent ?: 90)) / 100);
+        $game->setAttribute('rounds_count', $seedRounds);
+
         $server = $this->registry->for($game);
 
         set_time_limit(120);
@@ -95,6 +122,25 @@ class RtpSimulator
             $bet = (float) ($result['bet'] ?? 0);
             $win = (float) ($result['win'] ?? 0);
             $split = $context->previewSplit($bet);
+
+            // GameContext::recordRound() would normally keep total_bet/total_win/
+            // rounds_count current after every round, but it short-circuits
+            // entirely for a demo context (this one, always) before reaching
+            // that bookkeeping. Mirror it here so both winFloor()'s
+            // affordability check and SpinDecider's self-correcting loop
+            // evolve with this run's own actual results instead of sitting
+            // frozen at the seed above for all $spins iterations — same
+            // exclusion as there (gamble is a wallet-level side bet, kept out
+            // of slot RTP).
+            if (($result['state'] ?? null) !== 'gamble') {
+                if ($bet > 0) {
+                    $game->total_bet += $bet;
+                }
+                if ($win > 0) {
+                    $game->total_win += $win;
+                }
+            }
+            $game->setAttribute('rounds_count', (int) $game->getAttribute('rounds_count') + 1);
 
             $totalIn += $bet;
             $totalOut += $win;

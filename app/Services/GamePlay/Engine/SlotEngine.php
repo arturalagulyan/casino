@@ -96,7 +96,6 @@ class SlotEngine
         $wantWin = $decision->isWin();
         $wantBonus = $decision->type === 'bonus';
 
-        $best = null;
         $bestBoard = null;
         $bestScore = INF;
 
@@ -107,24 +106,38 @@ class SlotEngine
         $bestOffsets = null;
 
         for ($i = 0; $i < self::MAX_TRIES; $i++) {
-            $board = $this->spinReels($cfg, $free || $wantBonus, $wantBonus, $offsets);
-            $eval = $this->evaluate($board, $cfg, $betline, $lines);
+            // Bonus strips only come in once we're actually inside the free-spin
+            // round ($free — legacy GetReelStrips() swaps them in only when
+            // $slotEvent == 'freespin'). The *triggering* spin that lands the
+            // scatter is still ordinary play on the base strips; some games
+            // (e.g. AmazonsBattleEGT) strip the scatter out of their bonus
+            // reels entirely — to stop it retriggering during free spins —
+            // which made the feature mathematically unreachable when this
+            // used to switch to bonus strips as soon as a 'bonus' outcome was
+            // merely being *decided*, not yet entered.
+            $board = $this->spinReels($cfg, $free, $wantBonus, $offsets);
+            // Cheap pass: this loop only ever reads win/scatters to accept,
+            // reject or score a try — the line/cell breakdown `evaluate()`
+            // can build is wasted work for the up to MAX_TRIES-1 boards this
+            // spin doesn't keep. The one board it does keep gets a full,
+            // detailed re-evaluate below before this returns.
+            $eval = $this->evaluate($board, $cfg, $betline, $lines, detailed: false);
             $trigger = $this->hasFeatureTrigger($cfg, $eval['scatters']);
             $floorNow = $i < self::DROP_FLOOR_AT ? $floor : 0.0;
 
             if ($wantBonus) {
                 if ($trigger && $eval['win'] <= $ceiling) {
-                    return [$board, $eval + ['offsets' => $offsets]];
+                    return [$board, $this->evaluate($board, $cfg, $betline, $lines) + ['offsets' => $offsets]];
                 }
                 $score = ($trigger ? 0 : 1e9) + max(0, $eval['win'] - $ceiling);
             } elseif (! $wantWin) {
                 if ($eval['win'] <= 0 && ! $trigger) {
-                    return [$board, $eval + ['offsets' => $offsets]];
+                    return [$board, $this->evaluate($board, $cfg, $betline, $lines) + ['offsets' => $offsets]];
                 }
                 $score = $eval['win'] + ($trigger ? 1e9 : 0);
             } else {
                 if (! $trigger && $eval['win'] >= max($floorNow, 0.0001) && $eval['win'] <= $ceiling) {
-                    return [$board, $eval + ['offsets' => $offsets]];
+                    return [$board, $this->evaluate($board, $cfg, $betline, $lines) + ['offsets' => $offsets]];
                 }
                 $score = ($trigger ? 1e9 : 0)
                     + ($eval['win'] > $ceiling ? $eval['win'] - $ceiling : 0)
@@ -134,7 +147,6 @@ class SlotEngine
 
             if ($score < $bestScore) {
                 $bestScore = $score;
-                $best = $eval;
                 $bestBoard = $board;
                 $bestOffsets = $offsets;
             }
@@ -142,7 +154,7 @@ class SlotEngine
 
         // Never found a match — fall back to the closest board, forced clean for a loser.
         $bestBoard ??= $this->spinReels($cfg, $free, false, $bestOffsets);
-        $best ??= $this->evaluate($bestBoard, $cfg, $betline, $lines);
+        $best = $this->evaluate($bestBoard, $cfg, $betline, $lines);
 
         if (! $wantWin && ($best['win'] > 0 || $this->hasFeatureTrigger($cfg, $best['scatters']))) {
             $bestBoard = $this->forceLoser($cfg, $bestBoard, $lines);
@@ -156,7 +168,17 @@ class SlotEngine
         return [$bestBoard, $best + ['offsets' => $bestOffsets]];
     }
 
-    /** Legacy GetRandomPay: a random paytable coefficient, or 0 if the game is ahead. */
+    /**
+     * Legacy GetRandomPay: shuffle every positive paytable coefficient, take
+     * one, and grant it as this spin's floor *only* if the book can afford it
+     * (`stat_in < stat_out + coef * AllBet` zeroes it out — legacy returns the
+     * bare coefficient and the caller multiplies by `allbet` separately, but
+     * it's the same figure). There's no per-line scaling here — legacy
+     * multiplies the coefficient by the *whole* round stake, not stake/lines,
+     * so a 5000x jackpot-tier entry only ever clears the bar once the shop is
+     * meaningfully ahead, and otherwise this correctly comes back 0 rather
+     * than a disproportionate fraction of it.
+     */
     private function winFloor(GameContext $context, GameConfig $cfg, float $stake): float
     {
         $coefs = [];
@@ -171,7 +193,7 @@ class SlotEngine
             return 0.0;
         }
 
-        $pick = $coefs[array_rand($coefs)] * $stake / max(1, $cfg->lineCount());
+        $pick = $coefs[array_rand($coefs)] * $stake;
         $game = $context->game;
 
         return (float) $game->total_bet < ((float) $game->total_win + $pick) ? 0.0 : $pick;
@@ -265,9 +287,17 @@ class SlotEngine
      * Left-to-right: wild substitutes (and may multiply a win), a run of
      * >= minMatch pays per the paytable, trigger symbols counted anywhere.
      *
+     * @param  bool  $detailed  {@see rollToOutcome()}'s rejection-sampling loop
+     *     calls this on every try (up to MAX_TRIES per spin) purely to read
+     *     `win`/`scatters` for its accept/reject check, and discards
+     *     everything else for every try but the one it keeps. `false` skips
+     *     building the line-win/cell breakdown nobody reads for those
+     *     boards — same win total and scatter counts either way, just
+     *     without the wasted array allocations. The one board actually
+     *     returned is always re-evaluated with this left `true`.
      * @return array{win: float, lines: array, scatters: array<int,int>, scatter_cells: array<int,array>}
      */
-    public function evaluate(array $board, GameConfig $cfg, float $betline, int $activeLines): array
+    public function evaluate(array $board, GameConfig $cfg, float $betline, int $activeLines, bool $detailed = true): array
     {
         $wild = $cfg->wildSymbol();
         $triggers = $cfg->triggerSymbols();
@@ -309,11 +339,13 @@ class SlotEngine
                 }
                 if ($pay > 0) {
                     $win += $pay;
-                    $lineWins[] = [
-                        'line' => $lineIndex, 'symbol' => $first, 'count' => $count,
-                        'amount' => round($pay, 4),
-                        'cells' => $this->lineCells($rowByReel, $count),
-                    ];
+                    if ($detailed) {
+                        $lineWins[] = [
+                            'line' => $lineIndex, 'symbol' => $first, 'count' => $count,
+                            'amount' => round($pay, 4),
+                            'cells' => $this->lineCells($rowByReel, $count),
+                        ];
+                    }
                 }
             }
         }
@@ -327,7 +359,9 @@ class SlotEngine
                 for ($row = 0; $row < $rows; $row++) {
                     if (($board[$reel][$row] ?? null) === $sym) {
                         $scatters[$sym]++;
-                        $scatterCells[$sym][] = [$reel, $row];
+                        if ($detailed) {
+                            $scatterCells[$sym][] = [$reel, $row];
+                        }
                     }
                 }
             }
@@ -335,7 +369,9 @@ class SlotEngine
             if ($scatters[$sym] >= 3 && $award > 0) {
                 $sp = $award * $betline * $activeLines;
                 $win += $sp;
-                $lineWins[] = ['line' => -1, 'symbol' => $sym, 'count' => $scatters[$sym], 'amount' => round($sp, 4), 'cells' => []];
+                if ($detailed) {
+                    $lineWins[] = ['line' => -1, 'symbol' => $sym, 'count' => $scatters[$sym], 'amount' => round($sp, 4), 'cells' => []];
+                }
             }
         }
 

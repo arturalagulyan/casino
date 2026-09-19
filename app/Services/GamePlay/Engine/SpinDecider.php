@@ -51,12 +51,13 @@ class SpinDecider
             return new SpinDecision('none', 0.0, $capMultiplier, $spinChance, $shopRtp, 0.0);
         }
 
-        // 2) the slow RTP correction — skipped for demo (off the books) and until
+        // 2) the slow RTP correction — skipped for a real demo session (off
+        //    the books; see GameContext::isEligibleForRtpControl()) and until
         //    the game has a full control window of turnover to judge by.
         $state = $context->engineState();
         $count = (int) ($state['rtp_count'] ?? $window);
         $clamp = (int) ($state['rtp_clamp'] ?? 0);
-        $haveHistory = ! $context->demo && (float) $game->total_bet > 0 && (int) $game->rounds_count >= $window;
+        $haveHistory = $context->isEligibleForRtpControl() && (float) $game->total_bet > 0 && (int) $game->rounds_count >= $window;
 
         if ($haveHistory) {
             if ($count > 0) {

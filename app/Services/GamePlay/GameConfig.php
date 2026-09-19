@@ -101,17 +101,17 @@ class GameConfig
 
     public function reelCount(): int
     {
-        return (int) ($this->template->reel_count ?: 5);
+        return $this->once('reelCount', fn () => (int) ($this->template->reel_count ?: 5));
     }
 
     public function rowCount(): int
     {
-        return (int) ($this->template->row_count ?: 3);
+        return $this->once('rowCount', fn () => (int) ($this->template->row_count ?: 3));
     }
 
     public function symbolCount(): int
     {
-        return (int) ($this->template->symbol_count ?: 9);
+        return $this->once('symbolCount', fn () => (int) ($this->template->symbol_count ?: 9));
     }
 
     /**
@@ -145,28 +145,28 @@ class GameConfig
 
     public function wildSymbol(): ?int
     {
-        return $this->template->wild_symbol !== null ? (int) $this->template->wild_symbol : null;
+        return $this->once('wildSymbol', fn () => $this->template->wild_symbol !== null ? (int) $this->template->wild_symbol : null);
     }
 
     public function scatterSymbol(): ?int
     {
-        return $this->template->scatter_symbol !== null ? (int) $this->template->scatter_symbol : null;
+        return $this->once('scatterSymbol', fn () => $this->template->scatter_symbol !== null ? (int) $this->template->scatter_symbol : null);
     }
 
     public function bonusSymbol(): ?int
     {
-        return $this->template->bonus_symbol !== null ? (int) $this->template->bonus_symbol : null;
+        return $this->once('bonusSymbol', fn () => $this->template->bonus_symbol !== null ? (int) $this->template->bonus_symbol : null);
     }
 
     public function wildMultiplier(): int
     {
-        return (int) ($this->game->wild_multiplier ?? $this->template->wild_multiplier ?: 1);
+        return $this->once('wildMultiplier', fn () => (int) ($this->game->wild_multiplier ?? $this->template->wild_multiplier ?: 1));
     }
 
     /** Smallest paying run left-to-right (legacy games mostly 3; EGT "Action Money" pays 2). */
     public function minMatch(): int
     {
-        return max(2, (int) ($this->inherited('min_match') ?: 3));
+        return $this->once('minMatch', fn () => max(2, (int) ($this->inherited('min_match') ?: 3)));
     }
 
     /**
@@ -194,14 +194,21 @@ class GameConfig
 
     // ---- bonus flows (bonus_config JSON) --------------------------
 
-    /** @return array<string, mixed> category defaults ← template ← game override */
+    /**
+     * @return array<string, mixed> category defaults ← template ← game override
+     *
+     * Memoised: {@see SlotEngine::hasFeatureTrigger()} calls
+     * {@see bonusFlowFor()} — and so this — on every rejection-sampling try
+     * while searching for a matching board (up to 1,200 per spin), and none
+     * of the three sources merged here change mid-simulation.
+     */
     public function bonusConfig(): array
     {
-        return array_replace_recursive(
+        return $this->once('bonusConfig', fn () => array_replace_recursive(
             (array) data_get($this->categoryConfig(), 'bonus_config', []),
             (array) ($this->template->bonus_config ?? []),
             (array) ($this->game->getAttribute('bonus_config') ?? []),
-        );
+        ));
     }
 
     /** Client-side config passed to the front-end: category ← template ← game. */
