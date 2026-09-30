@@ -211,6 +211,26 @@ class GameConfig
         ));
     }
 
+    /**
+     * Symbols a "Book"-style game may pick as its free-spin special symbol
+     * (`bonus_config.free_symbol`: a list of symbol ids, or `true` for every
+     * symbol but the wild/scatter). Empty = the game has no such symbol.
+     *
+     * @return list<int>
+     */
+    public function freeSymbolCandidates(): array
+    {
+        $setting = $this->bonusConfig()['free_symbol'] ?? null;
+
+        if (is_array($setting)) {
+            return array_values(array_map('intval', $setting));
+        }
+
+        return $setting
+            ? array_values(array_diff($this->symbols(), array_filter([$this->wildSymbol(), $this->scatterSymbol()], fn ($s) => $s !== null)))
+            : [];
+    }
+
     /** Client-side config passed to the front-end: category ← template ← game. */
     public function layout(): array
     {

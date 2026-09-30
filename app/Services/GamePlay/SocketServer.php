@@ -136,7 +136,8 @@ class SocketServer
         return DB::transaction(function () use ($session, $frame) {
             $context = new GameContext($session->user, $session->game, $this->ledger, $this->banker);
 
-            return $this->amatic->dispatch($context, ['gameData' => $frame]);
+            // `raw` = the newer gmsl client generation, whose frames end differently.
+            return $this->amatic->dispatch($context, ['gameData' => $frame, 'raw' => true]);
         });
     }
 

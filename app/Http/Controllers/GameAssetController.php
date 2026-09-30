@@ -100,6 +100,15 @@ class GameAssetController extends Controller
             // which never reads this key.
             if ($config->clientProtocol() === ClientProtocol::Amatic) {
                 $inject .= "<script>try{sessionStorage.setItem('sessionValue2',{$token});}catch(e){}</script>";
+
+                // Page params Amatic's own launcher would have added (e.g.
+                // `classic=true`, which selects the game variant matching the
+                // legacy maths) — the client reads them off this page's URL.
+                $params = array_filter((array) data_get($config->layout(), 'url_params', []), 'is_scalar');
+                if ($params !== []) {
+                    $query = json_encode(http_build_query($params));
+                    $inject .= "<script>(function(){var s=location.search;history.replaceState(null,'',location.pathname+s+(s?'&':'?')+{$query});})();</script>";
+                }
             }
 
             $inject .= $this->jackpotTickerSnippet($game, $user);
@@ -261,7 +270,10 @@ class GameAssetController extends Controller
                 ->map(fn ($f) => basename($f))
                 ->filter(fn ($f) => preg_match('/^[a-z]{2}_\d+\.json$/i', $f))
                 ->map(fn ($f) => strtolower(explode('_', $f)[0]))
-                ->unique();
+                ->unique()
+                // The client shows the list's first locale — alphabetical
+                // order put Bulgarian first once a bundle shipped every locale.
+                ->sortBy(fn ($l) => $l === 'en' ? '' : $l);
 
             if ($langs->isNotEmpty()) {
                 $js = str_replace('a("lang")', '"'.$langs->implode(',').'"', $js);

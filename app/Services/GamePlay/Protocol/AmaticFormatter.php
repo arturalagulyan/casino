@@ -25,6 +25,12 @@ class AmaticFormatter
     /** Legacy fixes the grid at 10 lines / 5 reels regardless of the bet. */
     private const int LINES = 10;
 
+    /**
+     * Gamble-card history slots on the wire (legacy `<Code>Cards` is 8 × '00').
+     * The client reads exactly this many — fewer shifts every field after it.
+     */
+    private const int CARDS = 8;
+
     // ---- primitive encoders (legacy HexFormat / dechex helpers) ------
 
     /** Legacy `HexFormat($n)` = strlen(dechex($n)) . dechex($n). */
@@ -41,6 +47,20 @@ class AmaticFormatter
         $h = dechex($n);
 
         return strlen($h) <= 1 ? '0'.$h : $h;
+    }
+
+    /**
+     * The free-spin special symbol field. "None" is `0` to the old amarent
+     * client (legacy never picks symbol 0) but `0xFFFFFFFF` to the gmsl client,
+     * which would otherwise treat symbol 0 as the special one.
+     *
+     * @param  array<string, mixed>  $state
+     */
+    private function freeSymbol(array $state, bool $gmsl): string
+    {
+        $symbol = $state['free_symbol'] ?? null;
+
+        return $this->hexFmt($symbol !== null ? (int) $symbol : ($gmsl ? 0xFFFFFFFF : 0));
     }
 
     /** Legacy `FormatReelStrips`: per strip -> strlen(lenHex).lenHex.<sym dechex…>. */
@@ -133,7 +153,7 @@ class AmaticFormatter
      * `A/u25` — the init / settings packet (paytable art is in the bundle; this
      * carries reel strips, bets, balance, current bet/lines and free-spin state).
      */
-    public function settings(GameContext $ctx, array $state): string
+    public function settings(GameContext $ctx, array $state, bool $gmsl = false): string
     {
         $cfg = $ctx->config();
         // `bet_options` re-priced into the player's currency (see
@@ -160,11 +180,17 @@ class AmaticFormatter
 
         $slotState = $freeLeft > 0 ? '6' : '4';
 
+        // Games with a free-spin special symbol (e.g. AztecSecret) end the
+        // packet with that symbol instead of the usual trailer.
+        $trailer = $cfg->freeSymbolCandidates() !== []
+            ? '0a'.str_repeat('10', 10).$this->freeSymbol($state, $gmsl)
+            : '3310101010101010101010101010101010101010101010101010101010101010101010101010101010101010101010101010101010#00101010|0';
+
         return '05'.$this->reelStrips($cfg, false).'5'.$this->reelStrips($cfg, true)
             .'0'.$slotState.'0'.$reelState.'10'.$balance.$stateWin.$curBet.$minBets.$maxBets
             .$linesHex.$freeInfo.'1010101011'.$linesHex.$linesHex.'0a1000'.$reelState
             .'0000000000000000'.$betsLen.$this->betString($bets)
-            .'3310101010101010101010101010101010101010101010101010101010101010101010101010101010101010101010101010101010#00101010|0';
+            .$trailer;
     }
 
     /** `A/u250` — light re-sync (balance + last reel state). */
@@ -187,7 +213,7 @@ class AmaticFormatter
      * @param  array<string, mixed>  $state
      * @return array{frame: string, rp: list<int>, double_answer: string, win_hex: string}
      */
-    public function spin(GameContext $ctx, SpinResult $r, array $state, bool $isFree): array
+    public function spin(GameContext $ctx, SpinResult $r, array $state, bool $isFree, bool $gmsl = false): array
     {
         $cfg = $ctx->config();
         $betLine = (float) ($state['last_bet'] ?? 0) ?: 1.0;
@@ -236,10 +262,18 @@ class AmaticFormatter
             $isFree && $freeLeft <= 0 => '0c',
             $isFree && $scatterCount >= 3 => '0a',
             $isFree => '06',
+            // The gmsl client reads 03 as "no win" and stalls if a win comes
+            // with it; Amatic's own server answers a base-game win with 09
+            // ("win — collect or gamble").
+            $gmsl && $r->win > 0 => '09',
             default => '03',
         };
 
-        $cards = str_repeat('00', 6);
+        $cards = str_repeat('00', self::CARDS);
+        // Games with a free-spin special symbol (e.g. AztecSecret) read one
+        // more field after the cards. Without it their spin parser runs into
+        // the `#` and the reels never stop.
+        $freeSymbol = $cfg->freeSymbolCandidates() !== [] ? $this->freeSymbol($state, $gmsl) : '';
         // legacy `$fixedLinesFormated0` is fixed at dechex(10 + 1) — computed once,
         // never recomputed for the actual line count.
         $linesPlus = $this->hex2(self::LINES + 1);   // '0b'
@@ -248,8 +282,13 @@ class AmaticFormatter
 
         $frame = '1'.$gameState.'010'.$displayBalance.$this->hexFmt(round($stepWin * self::CENTS)).$reelState
             .$this->hex2($betIndex).$this->hex2($lines).$freeInfo.$freeWinState.$this->hexFmt($bonusMpl)
-            .'1010'.$reelState.$linesPlus.$winHex.$cards.'#'.$scatterCount;
-        $frame .= '_'.json_encode($window['reels'], JSON_UNESCAPED_SLASHES);
+            .'1010'.$reelState.$linesPlus.$winHex.$cards.$freeSymbol;
+        // The old amarent client reads `#<scatters>_<reels JSON>`; the gmsl
+        // client decodes three more hex fields after `#` and derives the board
+        // from the strip positions itself (as captured from Amatic's own server).
+        $frame .= $gmsl
+            ? '#101010'
+            : '#'.$scatterCount.'_'.json_encode($window['reels'], JSON_UNESCAPED_SLASHES);
 
         return ['frame' => $frame, 'rp' => $rp, 'double_answer' => $doubleAnswer, 'win_hex' => $winHex];
     }
@@ -282,10 +321,10 @@ class AmaticFormatter
         $winHex = dechex((int) round($win * self::CENTS));
         $answer = (string) ($state['double_answer'] ?? '');
 
-        return '108010'.$balance.strlen($winHex).$winHex.$answer.str_repeat('00', 6);
+        return '108010'.$balance.strlen($winHex).$winHex.$answer.str_repeat('00', self::CARDS);
     }
 
-    /** Six-card gamble history, newest first — one fresh card pushed each round. */
+    /** Gamble-card history, newest first — one fresh card pushed each round. */
     private function cards(array $state, int $action, bool $won): string
     {
         // legacy 54-card deck: red 0,1,4,5,… black 2,3,6,7,… suits mod 4
@@ -296,9 +335,9 @@ class AmaticFormatter
         $card = dechex(min(53, max(0, $pick)));
         $card = strlen($card) <= 1 ? '0'.$card : $card;
 
-        $history = (array) ($state['cards'] ?? array_fill(0, 6, '00'));
+        $history = (array) ($state['cards'] ?? array_fill(0, self::CARDS, '00'));
         array_unshift($history, $card);
-        $history = array_slice($history, 0, 6);
+        $history = array_slice($history, 0, self::CARDS);
 
         return implode('', $history);
     }
@@ -316,7 +355,7 @@ class AmaticFormatter
         $lines = $this->hex2((int) ($state['last_lines'] ?? self::LINES));
 
         return '104010'.$balance.$win.$reelState.$betIndex.$lines
-            .'1010101010101010101010'.$this->hex2(self::LINES + 1).$winHex.str_repeat('00', 6).'#101010';
+            .'1010101010101010101010'.$this->hex2(self::LINES + 1).$winHex.str_repeat('00', self::CARDS).'#101010';
     }
 
     /** `A/u350` — the 5-second balance poll. */

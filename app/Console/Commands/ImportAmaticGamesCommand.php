@@ -13,9 +13,9 @@ use App\Models\GameTemplate;
 use App\Models\Shop;
 use App\Services\GamePlay\BundleEntryResolver;
 use App\Services\GamePlay\BundleManager;
+use App\Services\Legacy\AmaticLegacyData;
 use App\Services\Legacy\EgtGameParser;
 use Illuminate\Console\Command;
-use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\File;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
@@ -56,6 +56,11 @@ class ImportAmaticGamesCommand extends Command
         14 => ['name' => 'Better365', 'max_win_multiplier' => 20],
     ];
 
+    public function __construct(private readonly AmaticLegacyData $legacy)
+    {
+        parent::__construct();
+    }
+
     public function handle(BundleManager $bundles): int
     {
         $backend = (string) config('legacy.games_backend_path');
@@ -68,7 +73,7 @@ class ImportAmaticGamesCommand extends Command
             return self::FAILURE;
         }
 
-        $legacyOk = $this->legacyReachable();
+        $legacyOk = $this->legacy->reachable();
         if (! $legacyOk) {
             $this->warn('Legacy DB unreachable — bet ladders / win-chance tables will fall back to defaults.');
         }
@@ -127,12 +132,12 @@ class ImportAmaticGamesCommand extends Command
             try {
                 $attrs = $parser->templateAttributes();
 
-                $legacyBets = ($legacyOk ? $this->legacyBetOptions($code) : null) ?? $this->bundledData($code)['bets'] ?? null;
+                $legacyBets = $this->legacy->betOptions($code);
                 if ($legacyBets) {
                     $attrs['default_bet_options'] = $legacyBets;
                 }
 
-                $winChances = ($legacyOk ? $this->winChances($code) : null) ?? $this->bundledWinChances($code);
+                $winChances = $this->legacy->winChances($code);
 
                 $title = $resolver->prettyName($code);
                 $poster = $dry ? null : $this->copyPoster($icons, $code);
@@ -216,11 +221,11 @@ class ImportAmaticGamesCommand extends Command
     /** Create/refresh the per-shop game row, tagged Amatic, with legacy tuning. */
     private function upsertGame(GameTemplate $template, Shop $shop, int $legacyShopId, Category $amatic, array $attrs, ?array $winChances): void
     {
-        $legacy = $this->legacyGameRow($template->code, $legacyShopId);
+        $legacy = $this->legacy->gameRow($template->code, $legacyShopId);
 
-        $bets = $this->parseBetList($legacy->bet ?? null) ?? $attrs['default_bet_options'];
+        $bets = $this->legacy->parseBetList($legacy->bet ?? null) ?? $attrs['default_bet_options'];
         $reserve = (int) ($legacy->rezerv ?? 4) ?: 4;
-        $rtp = (int) ($this->legacyShopPercent($legacyShopId) ?? 90);
+        $rtp = (int) ($this->legacy->shopPercent($legacyShopId) ?? 90);
 
         $game = Game::updateOrCreate(
             ['shop_id' => $shop->id, 'template_id' => $template->id],
@@ -239,128 +244,6 @@ class ImportAmaticGamesCommand extends Command
         );
 
         $game->categories()->syncWithoutDetaching([$amatic->id]);
-    }
-
-    // ---- bets (legacy `games.bet`, not a Server.php constant) ---------
-
-    /** @return list<float>|null */
-    private function legacyBetOptions(string $code): ?array
-    {
-        $row = $this->legacyGameRow($code, 13) ?? $this->legacyGameRow($code, 14) ?? $this->legacyGameRow($code, 0);
-
-        return $row ? $this->parseBetList($row->bet ?? null) : null;
-    }
-
-    /** @return list<float>|null */
-    private function parseBetList(?string $csv): ?array
-    {
-        if (! $csv) {
-            return null;
-        }
-
-        $bets = array_values(array_filter(array_map(
-            'floatval',
-            array_filter(array_map('trim', explode(',', $csv)), fn ($v) => $v !== '' && is_numeric($v)),
-        ), fn ($v) => $v > 0));
-
-        return $bets ?: null;
-    }
-
-    /** @var array<string, array>|null */
-    private ?array $bundled = null;
-
-    /**
-     * Win-chance tables + bet ladders exported from the legacy `games` table
-     * (`database/seeders/data/amatic-win-chances.json`) — the fallback when the
-     * legacy DB isn't reachable from this box (e.g. the deploy server), same
-     * pattern as {@see ImportEgtGamesCommand::bundledWinChances()}.
-     *
-     * @return array{spin?: array, bonus?: array, bets?: list<float>}
-     */
-    private function bundledData(string $code): array
-    {
-        if ($this->bundled === null) {
-            $path = database_path('seeders/data/amatic-win-chances.json');
-            $this->bundled = is_file($path)
-                ? (array) json_decode((string) file_get_contents($path), true)
-                : [];
-        }
-
-        return (array) ($this->bundled[$code] ?? []);
-    }
-
-    /** @return array{spin: array, bonus: array}|null */
-    private function bundledWinChances(string $code): ?array
-    {
-        $row = $this->bundledData($code);
-
-        return isset($row['spin'], $row['bonus']) ? ['spin' => $row['spin'], 'bonus' => $row['bonus']] : null;
-    }
-
-    // ---- legacy DB ------------------------------------------------
-
-    private function legacyReachable(): bool
-    {
-        try {
-            DB::connection('legacy')->table('games')->limit(1)->get();
-
-            return true;
-        } catch (\Throwable) {
-            return false;
-        }
-    }
-
-    /** @return array{spin: array, bonus: array}|null */
-    private function winChances(string $code): ?array
-    {
-        $row = $this->legacyGameRow($code, 13) ?? $this->legacyGameRow($code, 14) ?? $this->legacyGameRow($code, 0);
-        if (! $row) {
-            return null;
-        }
-
-        $spin = json_decode((string) ($row->lines_percent_config_spin ?? ''), true);
-        $bonus = json_decode((string) ($row->lines_percent_config_bonus ?? ''), true);
-
-        if (! is_array($spin) || ! is_array($bonus)) {
-            return null;
-        }
-
-        $toInt = fn ($t) => collect($t)->map(fn ($bands) => collect($bands)->map(fn ($v) => (int) $v)->all())->all();
-
-        return ['spin' => $toInt($spin), 'bonus' => $toInt($bonus)];
-    }
-
-    private array $legacyRowCache = [];
-
-    private function legacyGameRow(string $code, int $shopId): ?object
-    {
-        $key = $code.'@'.$shopId;
-        if (! array_key_exists($key, $this->legacyRowCache)) {
-            try {
-                $this->legacyRowCache[$key] = DB::connection('legacy')->table('games')
-                    ->where('name', $code)->where('shop_id', $shopId)->first();
-            } catch (\Throwable) {
-                $this->legacyRowCache[$key] = null;
-            }
-        }
-
-        return $this->legacyRowCache[$key];
-    }
-
-    private array $shopPercentCache = [];
-
-    private function legacyShopPercent(int $shopId): ?int
-    {
-        if (! array_key_exists($shopId, $this->shopPercentCache)) {
-            try {
-                $v = DB::connection('legacy')->table('shops')->where('id', $shopId)->value('percent');
-                $this->shopPercentCache[$shopId] = $v !== null ? (int) $v : null;
-            } catch (\Throwable) {
-                $this->shopPercentCache[$shopId] = null;
-            }
-        }
-
-        return $this->shopPercentCache[$shopId];
     }
 
     // ---- poster -------------------------------------------------

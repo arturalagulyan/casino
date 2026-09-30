@@ -36,12 +36,15 @@ class AmaticProtocol
         $parts = explode(',', (string) ($request['gameData'] ?? ''));
         $cmd = $parts[0];
         $state = (array) $ctx->stateGet('features', []);
+        // The newer "gmsl" client generation sends bare `A/u…` frames
+        // (SocketServer tags them `raw`) and expects Amatic's current frame tails.
+        $gmsl = (bool) ($request['raw'] ?? false);
 
         try {
             return match ($cmd) {
-                'A/u25' => [$this->fmt->settings($ctx, $state)],
+                'A/u25' => [$this->fmt->settings($ctx, $state, $gmsl)],
                 'A/u250' => [$this->fmt->resync($ctx, $state)],
-                'A/u251', 'A/u256' => $this->spin($ctx, $parts, $cmd === 'A/u256'),
+                'A/u251', 'A/u256' => $this->spin($ctx, $parts, $cmd === 'A/u256', $gmsl),
                 'A/u254' => [$this->fmt->collect($ctx, $state)],
                 'A/u257' => $this->gamble($ctx, $parts),
                 'A/u258' => $this->gambleHalf($ctx),
@@ -58,7 +61,7 @@ class AmaticProtocol
     // ---- spin ---------------------------------------------------
 
     /** @param list<string> $parts  [cmd, lines, betIndex] */
-    private function spin(GameContext $ctx, array $parts, bool $freeCmd): array
+    private function spin(GameContext $ctx, array $parts, bool $freeCmd, bool $gmsl = false): array
     {
         $cfg = $ctx->config();
         $denom = $cfg->denomination();
@@ -102,6 +105,7 @@ class AmaticProtocol
                 'total_win' => 0.0,
                 'free_total' => 0,
                 'free_left' => 0,
+                'free_symbol' => null,
             ];
         }
 
@@ -119,6 +123,13 @@ class AmaticProtocol
             $grant = $cfg->freeSpinsFor($scatterCount);
             $state['free_left'] = (int) ($state['free_left'] ?? 0) + $grant;
             $state['free_total'] = (int) ($state['free_total'] ?? 0) + $grant;
+
+            // "Book"-style games pick their special symbol once, on the
+            // triggering spin; a re-trigger keeps it (legacy `rand(1, 8)`).
+            $candidates = $cfg->freeSymbolCandidates();
+            if ($candidates !== [] && ($state['free_symbol'] ?? null) === null) {
+                $state['free_symbol'] = $candidates[array_rand($candidates)];
+            }
         }
 
         if ($isFree) {
@@ -127,7 +138,7 @@ class AmaticProtocol
         $state['total_win'] = $isFree ? $state['bonus_win'] : $result->win;
         $state['gamble_amount'] = $isFree ? 0.0 : $result->win;
 
-        $packet = $this->fmt->spin($ctx, $result, $state, $isFree);
+        $packet = $this->fmt->spin($ctx, $result, $state, $isFree, $gmsl);
         $state['rp'] = $packet['rp'];
         $state['double_answer'] = $packet['double_answer'];
         $state['win_hex'] = $packet['win_hex'];

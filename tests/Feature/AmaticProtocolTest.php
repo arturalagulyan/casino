@@ -302,4 +302,66 @@ class AmaticProtocolTest extends TestCase
         $this->assertSame(1, $playerA->rounds()->count());
         $this->assertSame(0, $playerB->rounds()->count());
     }
+
+    public function test_gmsl_spin_frame_uses_amatics_current_tail(): void
+    {
+        [, $game, $player] = $this->amaticGame();
+        $session = $this->openSession($player, $game);
+        $server = app(SocketServer::class);
+        $server->handle(5, "A/u25,,{$session->token},TestAmaticSlot,2_0_0,,,2|15|4|en-US |1280|720|1");
+
+        $frame = $server->handle(5, 'A/u251,10,0')[0];
+
+        // Layout captured from Amatic's own server: … 8 gamble cards, then `#101010`
+        // (no legacy `#<scatters>_<reels JSON>`), and a result state of 03/09.
+        $this->assertMatchesRegularExpression('/^10[39]0/', $frame);
+        $this->assertStringEndsWith(str_repeat('00', 8).'#101010', $frame);
+        $this->assertStringNotContainsString('_{', $frame);
+    }
+
+    public function test_old_amarent_client_keeps_the_legacy_tail(): void
+    {
+        [, $game, $player] = $this->amaticGame();
+        $session = $this->openSession($player, $game);
+
+        $frame = $this->send($session, 'A/u251,10,0')[0];
+
+        $this->assertMatchesRegularExpression('/#\d+_\{"reel1"/', $frame);
+    }
+
+    public function test_free_spin_special_symbol_field_is_sent_when_configured(): void
+    {
+        [, $game, $player] = $this->amaticGame();
+        $game->template->update(['bonus_config' => ['free_symbol' => [1, 2, 3, 4, 5, 6, 7, 8]]]);
+        $session = $this->openSession($player, $game);
+        $server = app(SocketServer::class);
+
+        $init = $server->handle(6, "A/u25,,{$session->token},TestAmaticSlot,2_0_0,,,2|15|4|en-US |1280|720|1")[0];
+        $spin = $server->handle(6, 'A/u251,10,0')[0];
+
+        // Outside free spins the gmsl client expects 0xFFFFFFFF ("none") — a
+        // plain 0 would make it treat symbol 0 as the special symbol.
+        $this->assertStringEndsWith('0a'.str_repeat('10', 10).'8ffffffff', $init);
+        $this->assertStringEndsWith(str_repeat('00', 8).'8ffffffff#101010', $spin);
+    }
+
+    public function test_free_spins_carry_the_chosen_special_symbol(): void
+    {
+        [, $game, $player] = $this->amaticGame();
+        $game->template->update(['bonus_config' => ['free_symbol' => [3, 4]]]);
+        $session = $this->openSession($player, $game);
+        $server = app(SocketServer::class);
+        $server->handle(7, "A/u25,,{$session->token},TestAmaticSlot,2_0_0,,,2|15|4|en-US |1280|720|1");
+
+        $session->update(['state' => ['features' => [
+            'last_bet' => 2.0, 'last_lines' => 10, 'last_bet_index' => 1,
+            'frozen_balance' => 9980.0, 'bonus_win' => 0.0, 'total_win' => 0.0,
+            'free_total' => 5, 'free_left' => 5, 'free_symbol' => 3,
+        ]]]);
+
+        $frame = $server->handle(7, 'A/u256')[0];
+
+        $this->assertStringEndsWith(str_repeat('00', 8).'13#101010', $frame);
+        $this->assertSame(3, $session->fresh()->state['features']['free_symbol']);
+    }
 }
