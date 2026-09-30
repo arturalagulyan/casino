@@ -168,9 +168,16 @@ JS;
                 continue;
             }
             // e.g. this.kQv=this.k_G="AztecSecret";this.k3V="Aztec Secret";this.kdU="_10";
-            if (preg_match('/this\.\w+=this\.\w+="([A-Za-z0-9]+)";this\.\w+="([^"]*)";this\.\w+="(_\d+)?"/', $js, $id)
-                && strcasecmp($id[1], $key) === 0) {
-                [$gameId, $title, $version] = [$id[1], $id[2] ?: $title, $id[3] ?? ''];
+            //  or this.b31=this.bwH=this.bK7="Admiral";this.b68="_19";  (no title)
+            // The version must be exact: the CDN keeps stale manifests
+            // (Admiral still has _4) that no longer match the images/sounds.
+            preg_match_all('/(?:this\.\w+=){2,}"([A-Za-z0-9]+)";(?:this\.\w+="([^"_][^"]*)";)?this\.\w+="(_\d+)?"/', $js, $ids, PREG_SET_ORDER);
+            foreach ($ids as $id) {
+                if (strcasecmp($id[1], $key) === 0) {
+                    [$gameId, $title, $version] = [$id[1], ($id[2] ?? '') ?: $title, $id[3] ?? ''];
+
+                    break;
+                }
             }
             preg_match_all('#"/(?:core|slot|gamble)/images/(\d{3,4})_\d{3,4}/#', $js, $w);
             $widths = array_merge($widths, $w[1]);

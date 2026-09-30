@@ -51,7 +51,7 @@ class FetchAmaticGameCommand extends Command
         {url : Amatic game URL (…/gmsl/amanet/game.html?game=<key>&config=<id>… or …/gmsl/mpp/amarent/<key>.html?config=<id>)}
         {--code= : Template code / asset key (default: <GameId>New, e.g. AztecSecretNew)}
         {--title= : Display title (default: the engine\'s own title)}
-        {--legacy= : Legacy backend package to take the math from (default: <GameId>AM)}
+        {--legacy= : Legacy backend package to take the math from (default: <GameId>AM, else the one <GameId>*AM package)}
         {--shop=* : Shop id or name to add the game to (repeatable; default: every shop)}
         {--currency= : Pricing currency of the bet ladder (default: the URL\'s currency=, else USD)}
         {--rtp=90 : Per-shop RTP %}
@@ -102,8 +102,15 @@ class FetchAmaticGameCommand extends Command
         }
 
         // 3. template
-        $legacyCode = (string) ($this->option('legacy') ?: $game->gameId.'AM');
-        $attrs = $this->mathFromLegacy($legacyCode);
+        $legacyCode = $this->option('legacy') ? (string) $this->option('legacy') : $this->guessLegacyCode($game->gameId);
+        $attrs = $legacyCode === null ? null : $this->mathFromLegacy($legacyCode);
+        if ($attrs === null) {
+            // Without the legacy math the template has no paytable/reels/lines
+            // and the game can't spin — refuse rather than import a dead game.
+            $this->error("No legacy line-slot package for '{$game->gameId}' — pass --legacy=<Code> (e.g. AdmiralNelsonAM). Bundle mirror kept at {$dir}.");
+
+            return self::FAILURE;
+        }
         $winChances = $this->legacy->winChances($legacyCode);
         $currency = Currency::tryFrom(strtoupper((string) ($this->option('currency') ?: $game->currency ?: 'USD'))) ?? Currency::USD;
         $existing = GameTemplate::query()->where('code', $code)->first();
@@ -175,38 +182,37 @@ class FetchAmaticGameCommand extends Command
      * ladder from the legacy `<GameId>AM` package + legacy `games` row — the
      * CDN client only renders, the math always ran server-side.
      *
-     * @return array<string, mixed>
+     * @return array<string, mixed>|null null when there's no usable package
      */
-    private function mathFromLegacy(string $legacyCode): array
+    private function mathFromLegacy(string $legacyCode): ?array
     {
         $dir = config('legacy.games_backend_path').'/'.$legacyCode;
         $parser = EgtGameParser::fromDir($dir, $legacyCode);
 
         if (! $parser || ! $parser->isLineSlot()) {
-            $this->warn("No legacy line-slot package {$legacyCode} — using engine defaults for paytable/reels/lines (pass --legacy=<Code> to pick one).");
-            $attrs = ['reel_count' => 5, 'row_count' => 3];
-        } else {
-            $attrs = $parser->templateAttributes();
-
-            // "Book"-style games pick a free-spin special symbol
-            // (`SetGameData('<Code>FreeSym', rand(1, 8))`) that the client
-            // expects on the wire — see AmaticFormatter.
-            $server = (string) @file_get_contents($dir.'/Server.php');
-            if (str_contains($server, 'FreeSym')) {
-                $attrs['bonus_config'] = (array) ($attrs['bonus_config'] ?? []);
-                $attrs['bonus_config']['free_symbol'] = preg_match("/FreeSym'\s*,\s*rand\(\s*(\d+)\s*,\s*(\d+)\s*\)/", $server, $m)
-                    ? range((int) $m[1], (int) $m[2])
-                    : true;
-                $this->line('  free-spin special symbol: '.json_encode($attrs['bonus_config']['free_symbol']));
-            }
-            $this->line(sprintf(
-                '  math from %s: %dx%d, %d symbols, %d lines, wild=%s scatter=%s, free spins=%s%s',
-                $legacyCode, $attrs['reel_count'], $attrs['row_count'], $attrs['symbol_count'],
-                is_array($attrs['paylines']) ? count($attrs['paylines']) : 0,
-                $attrs['wild_symbol'] ?? '-', $attrs['scatter_symbol'] ?? '-', $attrs['has_free_spins'] ? 'yes' : 'no',
-                $parser->warnings ? ' ('.implode('; ', $parser->warnings).')' : '',
-            ));
+            return null;
         }
+
+        $attrs = $parser->templateAttributes();
+
+        // "Book"-style games pick a free-spin special symbol
+        // (`SetGameData('<Code>FreeSym', rand(1, 8))`) that the client
+        // expects on the wire — see AmaticFormatter.
+        $server = (string) @file_get_contents($dir.'/Server.php');
+        if (str_contains($server, 'FreeSym')) {
+            $attrs['bonus_config'] = (array) ($attrs['bonus_config'] ?? []);
+            $attrs['bonus_config']['free_symbol'] = preg_match("/FreeSym'\s*,\s*rand\(\s*(\d+)\s*,\s*(\d+)\s*\)/", $server, $m)
+                ? range((int) $m[1], (int) $m[2])
+                : true;
+            $this->line('  free-spin special symbol: '.json_encode($attrs['bonus_config']['free_symbol']));
+        }
+        $this->line(sprintf(
+            '  math from %s: %dx%d, %d symbols, %d lines, wild=%s scatter=%s, free spins=%s%s',
+            $legacyCode, $attrs['reel_count'], $attrs['row_count'], $attrs['symbol_count'],
+            is_array($attrs['paylines']) ? count($attrs['paylines']) : 0,
+            $attrs['wild_symbol'] ?? '-', $attrs['scatter_symbol'] ?? '-', $attrs['has_free_spins'] ? 'yes' : 'no',
+            $parser->warnings ? ' ('.implode('; ', $parser->warnings).')' : '',
+        ));
 
         if ($bets = $this->legacy->betOptions($legacyCode)) {
             $attrs['default_bet_options'] = $bets;
@@ -214,6 +220,34 @@ class FetchAmaticGameCommand extends Command
         $this->line('  bet ladder: '.json_encode($attrs['default_bet_options'] ?? null).($bets ? ' (legacy)' : ' (default)'));
 
         return $attrs;
+    }
+
+    /**
+     * Amatic's CDN ids are often shorter than the legacy package names
+     * (`admiral` → `AdmiralNelsonAM`): try `<GameId>AM`, then a unique
+     * `<GameId>*AM` package.
+     */
+    private function guessLegacyCode(string $gameId): ?string
+    {
+        $root = (string) config('legacy.games_backend_path');
+        if (is_dir($root.'/'.$gameId.'AM')) {
+            return $gameId.'AM';
+        }
+
+        $candidates = array_values(array_filter(
+            array_map('basename', File::directories($root)),
+            fn (string $name) => str_starts_with(strtolower($name), strtolower($gameId)) && str_ends_with($name, 'AM'),
+        ));
+        if (count($candidates) === 1) {
+            $this->line("  legacy package: {$candidates[0]} (matched '{$gameId}')");
+
+            return $candidates[0];
+        }
+        if ($candidates) {
+            $this->warn('Several legacy packages match — pass --legacy=<Code>: '.implode(', ', $candidates));
+        }
+
+        return null;
     }
 
     /** @return list<Shop>|null */

@@ -18,6 +18,8 @@ class AmaticCdnFetcherTest extends TestCase
 {
     private string $out;
 
+    private string $engine = 'this.kQv=this.k_G="Demo";this.k3V="Demo Game";this.kdU="_3";x="/core/images/1280_720/load.json"';
+
     protected function setUp(): void
     {
         parent::setUp();
@@ -43,7 +45,7 @@ class AmaticCdnFetcherTest extends TestCase
             "$cdn/mpp/amarent/images/ico.png" => Http::response('png'),
             "$cdn/mpp/amarent/src/demoloader_1.js" => Http::response('var scripts = [["game","../demo/src/demo_1.js","UTF-8"]]; scripts.unshift(["config","./src/config_"+getParam("config")+"_9.js","x"]);'),
             "$cdn/mpp/amarent/src/config_1861_9.js" => Http::response("function Config(){\n\tthis.value6 = \"wss://amatic.example/games\";\n}"),
-            "$cdn/mpp/demo/src/demo_1.js" => Http::response('this.kQv=this.k_G="Demo";this.k3V="Demo Game";this.kdU="_3";x="/core/images/1280_720/load.json"'),
+            "$cdn/mpp/demo/src/demo_1.js" => fn () => Http::response($this->engine),
             "$cdn/mpp/demo/data/resources_desktop_3_1280.json" => Http::response($manifest),
             "$cdn/mpp/demo/data/*" => Http::response('{}'),
             "$cdn/mpp/demo/images/1280_720/symbols.json" => Http::response(['meta' => ['image' => 'symbols.png']]),
@@ -94,6 +96,21 @@ class AmaticCdnFetcherTest extends TestCase
         $this->assertStringContainsString("'/socket_config.json'", $config);
         $this->assertStringContainsString('this.value6 = serverString', $config);
         $this->assertStringNotContainsString('amatic.example', $config);
+    }
+
+    public function test_it_takes_the_engine_manifest_version_over_stale_ones(): void
+    {
+        // Admiral-style engine header: three chained ids, no title — and the
+        // CDN still serves older manifests (the data/* stub answers every
+        // version) that the engine never asks for.
+        $this->engine = 'this.a=this.b=this.c="Demo";this.d="_3";x="/core/images/1280_720/load.json"';
+
+        $game = (new AmaticCdnFetcher)->fetch('https://cdn.test/gmsl/amanet/game.html?game=demo&config=1861', $this->out);
+
+        $this->assertSame('Demo', $game->gameId);
+        $this->assertFileExists("{$this->out}/gmsl/mpp/demo/data/resources_desktop_3_1280.json");
+        $this->assertFileDoesNotExist("{$this->out}/gmsl/mpp/demo/data/resources_desktop_1_1280.json");
+        $this->assertFileDoesNotExist("{$this->out}/gmsl/mpp/demo/data/resources_desktop_1280.json");
     }
 
     public function test_it_needs_the_config_id(): void
