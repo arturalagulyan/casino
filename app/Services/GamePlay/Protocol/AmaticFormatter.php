@@ -118,8 +118,22 @@ class AmaticFormatter
         return ['reels' => $reels, 'rp' => $rp];
     }
 
-    /** First strip index whose $rows-window equals the shown column (else 0). */
+    /**
+     * Reel position of the shown column — the strip index of its *second* row
+     * (legacy `GetReelStrips`: rows = strip[rp-1], strip[rp], strip[rp+1]).
+     * The gmsl client rebuilds the board from these positions the same way
+     * and re-evaluates the lines on it; off by one row, every paid line
+     * "doesn't exist" on its board and the win animation crashes.
+     */
     private function stripPosition(array $strip, array $column, int $rows): int
+    {
+        $n = count($strip);
+
+        return $n === 0 ? 0 : ($this->windowStart($strip, $column, $rows) + 1) % $n;
+    }
+
+    /** First strip index whose $rows-window equals the shown column (else 0). */
+    private function windowStart(array $strip, array $column, int $rows): int
     {
         $n = count($strip);
         if ($n === 0) {

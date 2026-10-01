@@ -143,6 +143,16 @@ class AmaticProtocolTest extends TestCase
         $this->assertCount(3, $reels['reel1']);
         $this->assertCount(5, $reels['rp']);
 
+        // rp is the *middle* row's strip index (legacy GetReelStrips): the
+        // gmsl client rebuilds row d as strip[rp-1+d] and re-checks the lines
+        // on that board — any other convention shifts it and kills line wins.
+        foreach ($game->template->reel_strips as $i => $strip) {
+            $r = (int) substr($i, -1) - 1;
+            $n = count($strip);
+            $rebuilt = array_map(fn ($d) => (string) $strip[($reels['rp'][$r] - 1 + $d + $n) % $n], [0, 1, 2]);
+            $this->assertSame($reels['reel'.($r + 1)], $rebuilt, "reel {$r}");
+        }
+
         $round = $player->rounds()->latest('id')->first();
         $this->assertNotNull($round);
         $this->assertSame('20.0000', $round->bet);
