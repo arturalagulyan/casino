@@ -1,0 +1,22 @@
+{
+  "title": "Royal Sevens",
+  "mechanic": "lines",
+  "theme": {
+    "accent": "#ffd84a",
+    "frame": ["#fff2a8", "#d4a017", "#7a5200"],
+    "reelBg": ["#2a0008", "#120004"],
+    "lineColors": ["#ffd84a", "#ff5a5a", "#5affb0", "#5ab4ff", "#ff7ae0"],
+    "music": "snd/music.wav",
+    "musicFree": "snd/music_free.wav"
+  },
+  "symbols": {
+    "0": "Cherry", "1": "Lemon", "2": "Orange", "3": "Plum",
+    "4": "Grapes", "5": "Watermelon", "6": "Seven", "7": "Star"
+  },
+  "features": [
+    "5 fixed win lines. Wins pay left to right on adjacent reels.",
+    "Cherries pay from 2 in a row.",
+    "STAR is a scatter — 3 or more anywhere pay a multiple of the total bet.",
+    "After any win, try the GAMBLE: guess the card colour to double your win (up to 5 times)."
+  ]
+}

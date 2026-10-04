@@ -2,10 +2,12 @@
 
 namespace App\Services\GamePlay;
 
+use App\Enums\ClientProtocol;
 use App\Enums\GameEngine;
 use App\Models\Game;
 use App\Models\GameTemplate;
 use App\Services\GamePlay\Contracts\GameServer;
+use App\Services\GamePlay\Engine\CascadeSlotServer;
 use App\Services\GamePlay\Engine\LineSlotServer;
 use RuntimeException;
 
@@ -50,14 +52,26 @@ class GameRegistry
 
         $override = $this->map[$template->code] ?? null;
 
-        return $override && class_exists($override)
-            ? app($override)
-            : app(LineSlotServer::class);
+        if ($override && class_exists($override)) {
+            return app($override);
+        }
+
+        // The platform's own cascade family (RoyalSpin) — a standard-protocol
+        // template that carries a tumble_config. Pragmatic gs2c tumble games
+        // set their own client_protocol and never match.
+        if (($template->client_protocol === null || $template->client_protocol === ClientProtocol::Standard)
+            && ! empty($template->tumble_config)) {
+            return app(CascadeSlotServer::class);
+        }
+
+        return app(LineSlotServer::class);
     }
 
-    /** True when a registered override handles this game, not the generic engine. */
+    /** True when a registered override handles this game, not a generic engine. */
     public function isNative(GameTemplate $template): bool
     {
-        return ! ($this->resolve($template) instanceof LineSlotServer);
+        $server = $this->resolve($template);
+
+        return ! ($server instanceof LineSlotServer || $server instanceof CascadeSlotServer);
     }
 }

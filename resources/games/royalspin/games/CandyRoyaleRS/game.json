@@ -1,0 +1,21 @@
+{
+  "title": "Candy Royale",
+  "mechanic": "cascade",
+  "theme": {
+    "accent": "#ff7ab8",
+    "frame": ["#ffffff", "#ff9ad0", "#a0005a"],
+    "reelBg": ["#ffffffb0", "#ffd6e6b0"],
+    "music": "snd/music.wav",
+    "musicFree": "snd/music_free.wav"
+  },
+  "symbols": {
+    "0": "Jelly Bean", "1": "Blue Drop", "2": "Green Cube", "3": "Purple Swirl", "4": "Orange Star",
+    "5": "Lollipop", "6": "Cupcake", "7": "Royal Heart", "8": "Scatter", "9": "Rainbow Bomb"
+  },
+  "features": [
+    "Symbols pay ANYWHERE: land 8 or more of the same symbol on the 6x5 grid to win.",
+    "TUMBLE: winning symbols burst, the rest fall down and new ones drop in — keep winning until nothing pays.",
+    "SCATTER: 4 or more anywhere pay up to 100x the total bet and award 10 FREE SPINS. 3 or more during free spins award 5 more.",
+    "RAINBOW BOMBS land only in free spins and carry a 2x–100x multiplier. When a tumble sequence ends with a win, all bombs on the grid are added up and multiply the win."
+  ]
+}

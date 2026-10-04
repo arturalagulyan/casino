@@ -449,6 +449,41 @@ class GameConfig
         ];
     }
 
+    // ---- cascade / scatter-pays family (CascadeEngine) -------------
+
+    /**
+     * Config for the platform's own cascade engine ({@see Engine\CascadeEngine},
+     * the RoyalSpin "tumble" games on the standard JSON protocol). Shares the
+     * `tumble_config` column with the Pragmatic gs2c family but reads its own
+     * keys: pay tiers (a symbol pays once `count >= tiers[i]`, paytable row
+     * index = tier), the scatter's count => coefficient table, the free-spin
+     * trigger / retrigger counts and the multiplier-bomb value pool.
+     *
+     * @return array{lines:int, tiers:list<int>, multiplier_symbol:?int, multiplier_values:list<int>, scatter_pays:array<int,float>, trigger:int, retrigger:int, retrigger_spins:int, free_spins:int}
+     */
+    public function cascadeConfig(): array
+    {
+        return $this->once('cascadeConfig', function () {
+            $c = $this->template->tumble_config ?? [];
+            $pays = [];
+            foreach ((array) ($c['scatter_pays'] ?? []) as $count => $coef) {
+                $pays[(int) $count] = (float) $coef;
+            }
+
+            return [
+                'lines' => max(1, (int) ($c['lines'] ?? 20)),
+                'tiers' => array_values(array_map('intval', $c['tiers'] ?? [8, 10, 12])),
+                'multiplier_symbol' => isset($c['multiplier_symbol']) ? (int) $c['multiplier_symbol'] : null,
+                'multiplier_values' => array_values(array_map('intval', $c['multiplier_values'] ?? [2, 3, 5, 10])),
+                'scatter_pays' => $pays,
+                'trigger' => (int) ($c['trigger'] ?? 4),
+                'retrigger' => (int) ($c['retrigger'] ?? 3),
+                'retrigger_spins' => (int) ($c['retrigger_spins'] ?? 5),
+                'free_spins' => (int) ($c['free_spins'] ?? $this->freeSpinsCount()),
+            ];
+        });
+    }
+
     // ---- classic-payline family (PaylineEngine) --------------------
 
     /**

@@ -1,0 +1,23 @@
+{
+  "title": "Crown Jewels",
+  "mechanic": "lines",
+  "theme": {
+    "accent": "#ffd84a",
+    "frame": ["#fff2a8", "#d4a017", "#7a5200"],
+    "reelBg": ["#1a0a40", "#08031a"],
+    "lineColors": ["#ffd84a", "#ff5a7a", "#5affb0", "#5ab4ff", "#ff9a3a", "#c47aff", "#7affff", "#ffffff", "#ff5ae0", "#b0ff5a"],
+    "music": "snd/music.wav",
+    "musicFree": "snd/music_free.wav"
+  },
+  "symbols": {
+    "0": "Sapphire", "1": "Emerald", "2": "Amethyst", "3": "Topaz", "4": "Ruby",
+    "5": "Diamond", "6": "Golden Ring", "7": "Royal Crown", "8": "Treasure Chest"
+  },
+  "features": [
+    "10 fixed win lines. Wins pay left to right on adjacent reels.",
+    "ROYAL CROWN is WILD — it substitutes for every symbol except the Treasure Chest, and doubles every win it completes.",
+    "TREASURE CHEST is a scatter — 3, 4 or 5 anywhere award 10, 15 or 20 FREE SPINS.",
+    "All free-spin wins are multiplied by 2.",
+    "After any win, try the GAMBLE: guess the card colour to double your win (up to 5 times)."
+  ]
+}
