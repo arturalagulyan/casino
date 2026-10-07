@@ -333,3 +333,27 @@ music(join(G('CandyRoyaleRS'), 'music_free.wav'), {
     bpm: 132, root: 67, scale: MAJOR, chords: [[0, 2, 4], [3, 5, 7], [4, 6, 8], [0, 2, 4]], arpWave: 'sine', padWave: 'tri', leadWave: 'sine', swing: 0.1, bright: 0.5,
     mel: phrase([0, 1, 2, 3, 4, 5, 6, 7], [[[0, 0.5, 7], [0.5, 0.5, 9], [1, 0.5, 11], [1.5, 0.5, 14], [2, 2, 11]], [[0, 1, 10], [1, 1, 8], [2, 2, 7]]]),
 });
+
+// ---- Olympus pack + its effects (appended last so the noise seed of every
+// sound above stays put and their files are byte-identical) -----------------
+
+{ // thunder — sharp crack, then a long rolling rumble (multiplier strikes)
+    const b = buffer(2.2);
+    noiseBurst(b, 0, 0.05, { vol: 0.9, lp: 0.9, d: 0.06, s: 0.1, r: 0.1 });
+    noiseBurst(b, 0.04, 1.4, { vol: 0.7, a: 0.05, d: 0.5, s: 0.5, r: 0.6, lp: 0.05 });
+    tone(b, 0, 1.2, 60, { wave: 'sine', vol: 0.5, slide: -25, d: 0.6, s: 0.4, r: 0.5 });
+    echo(b, 0.23, 0.35, 0.35);
+    wav(join(SFX, 'thunder.wav'), b, 0.85);
+}
+
+const P = (pack) => join(ROOT, 'packs', pack, 'snd');
+const DORIAN = [0, 2, 3, 5, 7, 9, 10];
+
+music(join(P('olympus'), 'music.wav'), {
+    bpm: 92, root: 57, scale: DORIAN, chords: [[0, 2, 4], [6, 8, 10], [3, 5, 7], [4, 6, 8], [0, 2, 4], [5, 7, 9], [3, 5, 7], [4, 6, 8]], arpWave: 'tri', padWave: 'saw', leadWave: 'saw', bright: 0.3,
+    mel: phrase([0, 1, 2, 3, 4, 5, 6, 7], [[[0, 1.5, 4], [1.5, 0.5, 5], [2, 2, 7]], [[0, 1, 6], [1, 1, 5], [2, 2, 4]], [[0, 1.5, 2], [1.5, 0.5, 3], [2, 2, 4]], [[0, 3, 1], [3, 1, 0]]]),
+});
+music(join(P('olympus'), 'music_free.wav'), {
+    bpm: 116, root: 57, scale: DORIAN, chords: [[0, 2, 4], [3, 5, 7], [6, 8, 10], [4, 6, 8]], arpWave: 'tri', leadWave: 'saw', bright: 0.36,
+    mel: phrase([0, 1, 2, 3, 4, 5, 6, 7], [[[0, 0.5, 7], [0.5, 0.5, 8], [1, 0.5, 9], [1.5, 0.5, 8], [2, 2, 7]], [[0, 1, 4], [1, 1, 6], [2, 2, 5]]]),
+});

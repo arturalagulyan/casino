@@ -3,6 +3,7 @@
 use App\Http\Controllers\Api\GameServerController;
 use App\Http\Controllers\DemoPlayController;
 use App\Http\Controllers\GameAssetController;
+use App\Http\Controllers\RoyalSpinPackAssetController;
 use App\Http\Controllers\RtpSimulationReportController;
 use Illuminate\Support\Facades\Route;
 
@@ -24,6 +25,11 @@ Route::get('admin/rtp-simulations/{token}', [RtpSimulationReportController::clas
 Route::get('admin/rtp-simulations/{token}/download', [RtpSimulationReportController::class, 'download'])
     ->where('token', '[0-9a-f-]{36}')
     ->name('admin.rtp-simulations.download');
+
+// Game Builder: stock art-pack previews (staff only — see RoyalSpinPackAssetController).
+Route::get('admin/royalspin-packs/{pack}/{path}', RoyalSpinPackAssetController::class)
+    ->where('path', '.*')
+    ->name('admin.royalspin-packs.file');
 
 Route::get('games/{code}', [GameAssetController::class, 'play'])->name('games.play');
 

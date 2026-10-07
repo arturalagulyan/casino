@@ -222,6 +222,10 @@
             }
             for (let i = 0; i < 5; i++) this.parts.push({ kind: 'spark', x: x + rand(-30, 30), y: y + rand(-30, 30), r: rand(8, 16), life: rand(0.3, 0.6), max: 0.6, vx: 0, vy: 0, g: 0 });
         }
+        /** A lightning strike (x1,y1) → (x2,y2) that flickers for ~0.45 s. */
+        bolt(x1, y1, x2, y2, color = '#bff4ff') {
+            this.parts.push({ kind: 'bolt', x: x2, y: y2, vx: 0, vy: 0, g: 0, life: 0.45, max: 0.45, color, path: boltPath(x1, y1, x2, y2), path2: boltPath(x1, y1, x2, y2, 9, 40) });
+        }
         update(dt) {
             const s = dt / 1000;
             if (this.fountain > 0) {
@@ -231,6 +235,7 @@
             for (let i = this.parts.length - 1; i >= 0; i--) {
                 const p = this.parts[i];
                 p.life -= s; p.vy += p.g * s; p.x += p.vx * s; p.y += p.vy * s; if (p.spin !== undefined) p.spin += p.vs * s;
+                if (p.kind === 'bolt' && Math.random() < 0.25) { const [a, b] = [p.path[0], p.path[p.path.length - 1]]; p.path2 = boltPath(a[0], a[1], b[0], b[1], 9, 40); }
                 if (p.life <= 0 || p.y > H + 80) this.parts.splice(i, 1);
             }
         }
@@ -246,7 +251,20 @@
                     g.addColorStop(0, '#fffbe0'); g.addColorStop(0.5, '#ffd84a'); g.addColorStop(1, '#a06a00');
                     c.fillStyle = g; c.beginPath(); c.arc(0, 0, p.r, 0, Math.PI * 2); c.fill();
                     c.strokeStyle = '#7a4a00'; c.lineWidth = 2; c.stroke();
-                    c.fillStyle = '#c08a10'; c.font = 'bold ' + Math.round(p.r * 1.1) + 'px Georgia'; c.textAlign = 'center'; c.textBaseline = 'middle'; c.fillText('$', 0, 1);
+                    // currency-neutral emblem: an inner ring + a small star
+                    c.strokeStyle = '#c08a10'; c.lineWidth = 1.5; c.beginPath(); c.arc(0, 0, p.r * 0.68, 0, Math.PI * 2); c.stroke();
+                    c.fillStyle = '#c08a10'; c.beginPath();
+                    for (let k = 0; k < 10; k++) { const a = -Math.PI / 2 + k * Math.PI / 5, rr = k % 2 ? p.r * 0.2 : p.r * 0.48; c.lineTo(Math.cos(a) * rr, Math.sin(a) * rr); }
+                    c.fill();
+                    c.restore();
+                } else if (p.kind === 'bolt') {
+                    const a = clamp(p.life / p.max, 0, 1);
+                    c.save(); c.lineJoin = 'round'; c.lineCap = 'round'; c.shadowColor = p.color; c.shadowBlur = 24;
+                    for (const [path, wd, al] of [[p.path, 7, 1], [p.path2, 3, 0.6]]) {
+                        c.globalAlpha = a * al; c.strokeStyle = p.color; c.lineWidth = wd;
+                        c.beginPath(); path.forEach(([x, y], k) => (k ? c.lineTo(x, y) : c.moveTo(x, y))); c.stroke();
+                        c.strokeStyle = '#fff'; c.lineWidth = wd * 0.35; c.stroke();
+                    }
                     c.restore();
                 } else if (p.kind === 'dot') {
                     c.globalAlpha = clamp(p.life / p.max, 0, 1); c.fillStyle = p.color;
@@ -269,7 +287,19 @@
         c.arcTo(x, y + h, x, y, r); c.arcTo(x, y, x + w, y, r); c.closePath();
     }
 
-    function drawFrame(c, area, theme, glow) {
+    /**
+     * Skins = the scene layout + frame look. `classic` is the original centred
+     * board; `olympus` is the Greek-temple look: board left of centre in an
+     * ornate gold frame, the god character standing to its right, a side
+     * panel (buy feature / ante / total multiplier) on the left.
+     */
+    const SKINS = {
+        classic: { area: null, frame: 'rounded', character: null },
+        olympus: { area: { x: 292, y: 118, w: 680, h: 456 }, frame: 'temple', character: { x: 930, y: 92, h: 560 } },
+    };
+
+    function drawFrame(c, area, theme, glow, style) {
+        if (style === 'temple') return drawTempleFrame(c, area, theme, glow);
         const pad = 14;
         const fx = area.x - pad, fy = area.y - pad, fw = area.w + pad * 2, fh = area.h + pad * 2;
         const fr = theme.frame || ['#fff2a8', '#d4a017', '#7a5200'];
@@ -289,6 +319,66 @@
         c.fillStyle = g2; c.fill();
     }
 
+    /** Ornate gold frame: thick bevelled border, corner jewels, a crest on top, translucent board. */
+    function drawTempleFrame(c, area, theme, glow) {
+        const fr = theme.frame || ['#fffbe0', '#e0a82e', '#7a4a00'];
+        const pad = 18;
+        const x = area.x - pad, y = area.y - pad, w = area.w + pad * 2, h = area.h + pad * 2;
+        const gold = (x0, y0, x1, y1) => {
+            const g = c.createLinearGradient(x0, y0, x1, y1);
+            g.addColorStop(0, fr[0]); g.addColorStop(0.35, fr[1]); g.addColorStop(0.55, fr[2]); g.addColorStop(0.75, fr[1]); g.addColorStop(1, fr[0]);
+            return g;
+        };
+        // board
+        const bg = theme.reelBg || ['#3a0a4acc', '#1a0428e6'];
+        const g2 = c.createLinearGradient(0, area.y, 0, area.y + area.h);
+        g2.addColorStop(0, bg[0]); g2.addColorStop(1, bg[1]);
+        c.fillStyle = g2; c.fillRect(area.x, area.y, area.w, area.h);
+        // border ring (even-odd: outer rect minus the board)
+        c.save();
+        c.shadowColor = glow || '#000'; c.shadowBlur = glow ? 44 : 26; c.shadowOffsetY = glow ? 0 : 6;
+        c.beginPath(); c.rect(x, y, w, h); c.rect(area.x, area.y, area.w, area.h);
+        c.fillStyle = gold(x, y, x, y + h); c.fill('evenodd');
+        c.restore();
+        c.strokeStyle = '#5a3200'; c.lineWidth = 2;
+        c.strokeRect(x + 1, y + 1, w - 2, h - 2);
+        c.strokeRect(area.x - 1, area.y - 1, area.w + 2, area.h + 2);
+        c.strokeStyle = '#fff8'; c.lineWidth = 1.5;
+        c.strokeRect(x + 6, y + 6, w - 12, h - 12);
+        // corner jewels
+        const jewel = (cx, cy, r) => {
+            c.save();
+            c.fillStyle = gold(cx - r, cy - r, cx + r, cy + r);
+            c.beginPath(); c.moveTo(cx, cy - r * 1.5); c.lineTo(cx + r * 1.5, cy); c.lineTo(cx, cy + r * 1.5); c.lineTo(cx - r * 1.5, cy); c.closePath(); c.fill();
+            c.strokeStyle = '#5a3200'; c.lineWidth = 2; c.stroke();
+            const gg = c.createRadialGradient(cx - r * 0.3, cy - r * 0.3, 1, cx, cy, r);
+            gg.addColorStop(0, '#fff'); gg.addColorStop(0.4, theme.jewel || '#3ab4ff'); gg.addColorStop(1, '#03104a');
+            c.fillStyle = gg; c.beginPath(); c.arc(cx, cy, r * 0.7, 0, Math.PI * 2); c.fill();
+            c.restore();
+        };
+        jewel(x + 9, y + 9, 15); jewel(x + w - 9, y + 9, 15); jewel(x + 9, y + h - 9, 15); jewel(x + w - 9, y + h - 9, 15);
+        // side scrolls
+        for (const sx of [x, x + w]) {
+            for (const sy of [y + h * 0.33, y + h * 0.66]) {
+                c.save(); c.fillStyle = gold(sx - 10, sy - 18, sx + 10, sy + 18);
+                c.beginPath(); c.ellipse(sx, sy, 9, 20, 0, 0, Math.PI * 2); c.fill();
+                c.strokeStyle = '#5a3200'; c.lineWidth = 2; c.stroke(); c.restore();
+            }
+        }
+    }
+
+    /** A jagged lightning bolt polyline from (x1, y1) to (x2, y2). */
+    function boltPath(x1, y1, x2, y2, segs = 12, jag = 26) {
+        const out = [[x1, y1]];
+        const nx = -(y2 - y1), ny = x2 - x1, len = Math.hypot(nx, ny) || 1;
+        for (let i = 1; i < segs; i++) {
+            const t = i / segs, off = rand(-jag, jag) * Math.sin(Math.PI * t);
+            out.push([lerp(x1, x2, t) + (nx / len) * off, lerp(y1, y2, t) + (ny / len) * off]);
+        }
+        out.push([x2, y2]);
+        return out;
+    }
+
     // ================================================================== LINE SCENE
 
     class LineScene {
@@ -296,9 +386,9 @@
             this.g = game;
             const cfg = game.cfg;
             this.reels = cfg.reels; this.rows = cfg.rows;
-            this.area = { x: 165, y: 120, w: 950, h: 450 };
+            this.area = Object.assign({}, game.skin.area || { x: 165, y: 120, w: 950, h: 450 });
             this.cw = this.area.w / this.reels; this.ch = this.area.h / this.rows;
-            this.size = Math.min(this.cw, this.ch) * 0.94;
+            this.size = Math.min(this.cw, this.ch) * (game.skin.area ? 0.9 : 0.94);
             this.pool = cfg.symbols.filter((s) => s !== cfg.scatter);
             this.cols = [];
             for (let r = 0; r < this.reels; r++) {
@@ -415,7 +505,7 @@
         draw(c) {
             const g = this.g, a = this.area;
             const glow = this.cols.some((col) => col.glow > 0.05) ? g.theme.accent : null;
-            drawFrame(c, a, g.theme, glow);
+            drawFrame(c, a, g.theme, glow, g.skin.frame);
             // reel separators
             c.strokeStyle = '#ffffff10'; c.lineWidth = 2;
             for (let r = 1; r < this.reels; r++) { c.beginPath(); c.moveTo(a.x + r * this.cw, a.y + 6); c.lineTo(a.x + r * this.cw, a.y + a.h - 6); c.stroke(); }
@@ -509,10 +599,16 @@
             this.g = game;
             const cfg = game.cfg;
             this.reels = cfg.reels; this.rows = cfg.rows;
-            const cell = Math.min(Math.floor(860 / this.reels), Math.floor(450 / this.rows));
-            this.cw = this.ch = cell;
-            this.area = { x: Math.round((W - cell * this.reels) / 2), y: 122, w: cell * this.reels, h: cell * this.rows };
-            this.size = cell * 0.9;
+            if (game.skin.area) {
+                this.area = Object.assign({}, game.skin.area);
+                this.cw = this.area.w / this.reels; this.ch = this.area.h / this.rows;
+                this.size = Math.min(this.cw, this.ch) * 0.92;
+            } else {
+                const cell = Math.min(Math.floor(860 / this.reels), Math.floor(450 / this.rows));
+                this.cw = this.ch = cell;
+                this.area = { x: Math.round((W - cell * this.reels) / 2), y: 122, w: cell * this.reels, h: cell * this.rows };
+                this.size = cell * 0.9;
+            }
             this.pool = cfg.symbols.filter((s) => s !== cfg.scatter && s !== (cfg.cascade || {}).multiplier_symbol);
             this.grid = [];
             for (let r = 0; r < this.reels; r++) {
@@ -552,6 +648,7 @@
                 col.forEach((c, row) => {
                     const delay = (turbo ? 25 : 70) * r + (this.rows - 1 - row) * (turbo ? 15 : 35);
                     jobs.push(this.g.tw.to(c, { oy: 0 }, turbo ? 220 : 380, Ease.outBack, delay).then(() => {
+                        if (c.bomb) this.g.orbLanded(r, row);
                         if (row === this.rows - 1) this.g.sound.play('drop', { volume: 0.5, rate: rand(0.9, 1.1) });
                         if (c.sym === this.g.cfg.scatter) this.g.sound.play('scatter', { volume: 0.5 });
                     }));
@@ -594,7 +691,7 @@
                         const c = this.cell(next[r][row], this.bombAt(bombs, r, row));
                         c.oy = -(missing + 0.5) * this.ch - row * 6;
                         col.push(c);
-                        jobs.push(this.g.tw.to(c, { oy: 0 }, turbo ? 200 : 360, Ease.outBack, (turbo ? 20 : 50) * r));
+                        jobs.push(this.g.tw.to(c, { oy: 0 }, turbo ? 200 : 360, Ease.outBack, (turbo ? 20 : 50) * r).then(() => { if (c.bomb) this.g.orbLanded(r, row); }));
                     } else {
                         const s = survivors[row - missing];
                         const c = s.c;
@@ -623,7 +720,7 @@
 
         draw(c) {
             const g = this.g, a = this.area;
-            drawFrame(c, a, g.theme, null);
+            drawFrame(c, a, g.theme, null, g.skin.frame);
             c.save();
             roundRect(c, a.x, a.y, a.w, a.h, 8); c.clip();
             // checker tint
@@ -640,15 +737,10 @@
                     roundRect(c, x - this.cw / 2 + 4, y - this.ch / 2 + 4, this.cw - 8, this.ch - 8, 14); c.fill(); c.restore();
                 }
                 const pulse = cell.flash > 0 ? 1 + 0.08 * Math.sin(this.t * 14) : 1;
-                g.drawSymbol(c, cell.sym, x, y, this.size * cell.scale * pulse, cell.alpha, false);
-                if (cell.bomb && cell.alpha > 0.1) {
-                    c.save();
-                    c.font = '900 ' + Math.round(this.ch * 0.34) + 'px Georgia, serif';
-                    c.textAlign = 'center'; c.textBaseline = 'middle';
-                    c.lineWidth = 6; c.strokeStyle = '#3a0050'; c.strokeText('x' + cell.bomb, x, y + 4);
-                    c.fillStyle = '#fff'; c.fillText('x' + cell.bomb, x, y + 4);
-                    c.restore();
-                }
+                const orb = cell.bomb ? g.orbSprite(cell.bomb) : null;
+                if (orb) g.drawSprite(c, orb, x, y, this.size * cell.scale * pulse * (1 + 0.04 * Math.sin(this.t * 4 + r)), cell.alpha);
+                else g.drawSymbol(c, cell.sym, x, y, this.size * cell.scale * pulse, cell.alpha, false);
+                if (cell.bomb && cell.alpha > 0.1) g.multiplierText(c, cell.bomb, x, y + 4, Math.round(Math.min(this.cw, this.ch) * 0.34));
             }));
             c.restore();
             for (const l of this.labels) {
@@ -676,7 +768,15 @@
             this.lastWin = 0;
             this.sprites = {};
             this.images = {};
+            this.ante = store.get('ante', false);
+            this.totalMult = 0;
+            this.orbImages = [];
+            this.orbSprites = [];
         }
+
+        /** A bundle asset path: game.json `assets` wins over the stock file name. */
+        asset(key, def) { return v(((this.meta && this.meta.assets) || {})[key] || def); }
+        symUrl(s) { return v(((this.meta && this.meta.symbolImages) || {})[s] || ('img/sym/' + s + '.svg')); }
 
         // ---------- boot
 
@@ -688,9 +788,12 @@
                 return this.fatal('Game files are missing (game.json).');
             }
             this.theme = this.meta.theme || {};
+            this.skinName = SKINS[this.meta.skin] ? this.meta.skin : 'classic';
+            this.skin = SKINS[this.skinName];
+            if (this.theme.font) this.root.style.setProperty('--font', this.theme.font);
             document.title = this.meta.title || 'RoyalSpin';
             this.root.style.setProperty('--accent', this.theme.accent || '#ffd84a');
-            this.loaderLogo.src = v('img/logo.svg');
+            this.loaderLogo.src = this.asset('logo', 'img/logo.svg');
 
             if (!CG.endpoint || !CG.session) return this.fatal('This game must be launched from the casino.');
 
@@ -713,14 +816,19 @@
 
             // assets
             const syms = this.cfg.symbols;
-            const sounds = ['click', 'spin', 'reel_stop', 'scatter', 'win_small', 'win_medium', 'win_big', 'coins', 'freespins', 'card_flip', 'gamble_win', 'gamble_lose', 'pop', 'drop', 'bomb'];
+            const sounds = ['click', 'spin', 'reel_stop', 'scatter', 'win_small', 'win_medium', 'win_big', 'coins', 'freespins', 'card_flip', 'gamble_win', 'gamble_lose', 'pop', 'drop', 'bomb', 'thunder'];
             const tasks = [];
-            syms.forEach((s) => tasks.push(loadImage(v('img/sym/' + s + '.svg')).then((img) => { this.images[s] = img; })));
-            tasks.push(loadImage(v('img/bg.svg')).then((i) => { this.bgImg = i; }));
-            tasks.push(loadImage(v('img/bg_free.svg')).then((i) => { this.bgFreeImg = i; }).catch(() => {}));
+            syms.forEach((s) => tasks.push(loadImage(this.symUrl(s)).then((img) => { this.images[s] = img; })));
+            tasks.push(loadImage(this.asset('background', 'img/bg.svg')).then((i) => { this.bgImg = i; }));
+            tasks.push(loadImage(this.asset('background_free', 'img/bg_free.svg')).then((i) => { this.bgFreeImg = i; }).catch(() => {}));
+            if (this.meta.assets && this.meta.assets.character) {
+                tasks.push(loadImage(this.asset('character')).then((i) => { this.charImg = i; }).catch(() => {}));
+            }
+            // multiplier orbs, one picture per value band: [{upTo: 5, file}, …, {upTo: null, file}]
+            (this.meta.orbs || []).forEach((o, i) => tasks.push(loadImage(v(o.file)).then((img) => { this.orbImages[i] = { upTo: o.upTo, img }; }).catch(() => {})));
             sounds.forEach((n) => tasks.push(this.sound.load(n, v('snd/' + n + '.wav'))));
-            tasks.push(this.sound.load('music', v(this.theme.music || 'snd/music.wav')));
-            tasks.push(this.sound.load('music_free', v(this.theme.musicFree || 'snd/music_free.wav')));
+            tasks.push(this.sound.load('music', this.asset('music', this.theme.music || 'snd/music.wav')));
+            tasks.push(this.sound.load('music_free', this.asset('music_free', this.theme.musicFree || 'snd/music_free.wav')));
             let done = 0;
             await Promise.all(tasks.map((p) => p.catch(() => {}).then(() => { done++; this.loaderBar.style.width = Math.round((done / tasks.length) * 100) + '%'; })));
             if (Object.keys(this.images).length < syms.length) return this.fatal('Could not load the game graphics.');
@@ -747,6 +855,7 @@
                 const bl = +st.free_spins_betline;
                 const idx = this.bets.indexOf(bl);
                 if (idx >= 0) this.betIndex = idx;
+                this.totalMult = +st.free_spins_multiplier || 0;
                 await this.enterFreeSpins(+st.free_spins_left, true);
             } else {
                 this.message('Good luck!');
@@ -771,17 +880,27 @@
         }
 
         buildStage() {
-            const st = this.stage = el('div', 'rs-stage');
+            const st = this.stage = el('div', 'rs-stage skin-' + this.skinName);
             const bg = el('img', 'rs-bg'); bg.src = this.bgImg.src; st.appendChild(bg);
             if (this.bgFreeImg) { const bf = el('img', 'rs-bg free'); bf.src = this.bgFreeImg.src; st.appendChild(bf); }
+            // the character stands beside the board (behind the canvas, so bolts and wins draw over it)
+            if (this.charImg && this.skin.character) {
+                const ch = this.skin.character;
+                this.charEl = el('img', 'rs-char');
+                this.charEl.src = this.charImg.src;
+                Object.assign(this.charEl.style, { left: ch.x + 'px', top: ch.y + 'px', height: ch.h + 'px' });
+                st.appendChild(this.charEl);
+            }
             this.canvas = el('canvas', 'rs-canvas'); st.appendChild(this.canvas);
             this.ctx = this.canvas.getContext('2d');
-            const logo = el('img', 'rs-logo'); logo.src = v('img/logo.svg'); st.appendChild(logo);
+            const logo = el('img', 'rs-logo'); logo.src = this.asset('logo', 'img/logo.svg'); st.appendChild(logo);
+            if (this.skin.area) logo.style.left = (this.skin.area.x + this.skin.area.w / 2) + 'px';
             this.msgEl = el('div', 'rs-msg'); st.appendChild(this.msgEl);
 
             this.fsLeftEl = el('div', 'rs-fs left', '<label>FREE SPINS</label><b>0</b>');
             this.fsWinEl = el('div', 'rs-fs right', '<label>FEATURE WIN</label><b>0</b>');
             st.append(this.fsLeftEl, this.fsWinEl);
+            this.buildSidePanel(st);
 
             // HUD
             const hud = el('div', 'rs-hud');
@@ -833,6 +952,104 @@
             });
         }
 
+        /** Left-hand panel: feature buy, ante bet, running free-spin multiplier (whichever the game has). */
+        buildSidePanel(st) {
+            const cc = this.cfg.cascade || {};
+            if (!(cc.buy_feature > 0 || cc.ante_bet > 0 || cc.multiplier_accumulate)) return;
+            const side = this.sideEl = el('div', 'rs-side');
+            if (cc.buy_feature > 0) {
+                this.btnBuy = el('button', 'rs-buy', '<small>BUY</small><b>FREE SPINS</b><span></span>');
+                this.btnBuy.onclick = () => { this.sound.unlock(); this.sound.play('click'); this.openBuy(); };
+                side.appendChild(this.btnBuy);
+            }
+            if (cc.ante_bet > 0) {
+                this.anteEl = el('div', 'rs-ante', '<label>BET <b></b></label><small>DOUBLE CHANCE<br>TO WIN FEATURE</small><button class="rs-toggle"><i></i></button>');
+                this.anteEl.querySelector('button').onclick = () => {
+                    if (this.busy || this.fs.active || this.auto > 0) return;
+                    this.sound.play('click');
+                    this.ante = !this.ante; store.set('ante', this.ante);
+                    this.updateHud();
+                };
+                side.appendChild(this.anteEl);
+            }
+            if (cc.multiplier_accumulate) {
+                this.totalEl = el('div', 'rs-total', '<label>TOTAL MULTIPLIER</label><b>x0</b>');
+                side.appendChild(this.totalEl);
+            }
+            st.appendChild(side);
+        }
+
+        /** Character's hand (where bolts start), in stage pixels. */
+        handPoint() {
+            const ch = this.skin.character;
+            return ch ? [ch.x + ch.h * 0.53, ch.y + ch.h * 0.04] : [W / 2, -20];
+        }
+
+        /** A multiplier orb landed on the board: thunder + a bolt from the god's hand. */
+        orbLanded(reel, row) {
+            const [x, y] = this.scene.center(reel, row);
+            const now = performance.now();
+            if (!this.lastThunder || now - this.lastThunder > 250) { this.sound.play('thunder', { volume: 0.55, rate: rand(0.9, 1.1) }); this.lastThunder = now; }
+            this.strike(x, y);
+        }
+
+        strike(x, y) {
+            const [hx, hy] = this.handPoint();
+            this.fx.bolt(hx, hy, x, y);
+            this.fx.burst(x, y, '#bff4ff', 8);
+            if (this.charEl) {
+                this.charEl.classList.remove('zap'); void this.charEl.offsetWidth; this.charEl.classList.add('zap');
+            }
+        }
+
+        orbSprite(value) {
+            for (const o of this.orbSprites) if (o && (o.upTo === null || o.upTo === undefined || value <= o.upTo)) return o.sprite;
+            return null;
+        }
+
+        drawSprite(c, sp, cx, cy, size, alpha) {
+            c.globalAlpha = alpha;
+            c.drawImage(sp, cx - size / 2, cy - size / 2, size, size);
+            c.globalAlpha = 1;
+        }
+
+        /** "x25" in chunky gold — orb values and multiplier pop-ups. */
+        multiplierText(c, value, x, y, size) {
+            c.save();
+            c.font = '900 ' + size + 'px ' + (this.theme.font || 'Georgia, serif');
+            c.textAlign = 'center'; c.textBaseline = 'middle';
+            const g = c.createLinearGradient(0, y - size / 2, 0, y + size / 2);
+            g.addColorStop(0, '#fffbe0'); g.addColorStop(0.45, '#ffd76a'); g.addColorStop(0.55, '#e0a82e'); g.addColorStop(1, '#fff2a8');
+            c.lineJoin = 'round'; c.lineWidth = Math.max(4, size * 0.2); c.strokeStyle = '#3a1400';
+            c.strokeText('x' + value, x, y);
+            c.fillStyle = g; c.fillText('x' + value, x, y);
+            c.restore();
+        }
+
+        /** Confirm + buy the free spins. */
+        async openBuy() {
+            const cc = this.cfg.cascade || {};
+            if (this.busy || this.fs.active || this.overlay || !(cc.buy_feature > 0)) return;
+            const cost = this.buyCost();
+            if (this.balance + 1e-9 < cost) { this.toast('Insufficient balance for the feature buy.', true); return; }
+            const ok = await this.confirm('<h2>BUY FREE SPINS</h2><p>Buy ' + cc.free_spins + ' free spins for</p><p class="big">' + this.money(cost) + '</p>', 'BUY', 'CANCEL');
+            if (ok) this.spin({ buy: true });
+        }
+
+        confirm(html, yes, no) {
+            return new Promise((done) => {
+                const ov = el('div', 'rs-ov');
+                const p = el('div', 'rs-panel', html);
+                const row = el('div', 'rs-row');
+                const b1 = el('button', 'rs-cta', yes), b2 = el('button', 'rs-cta ghost', no);
+                const close = (v2) => { ov.remove(); this.overlay = null; done(v2); };
+                b1.onclick = () => { this.sound.play('click'); close(true); };
+                b2.onclick = () => { this.sound.play('click'); close(false); };
+                row.append(b2, b1); p.appendChild(row); ov.appendChild(p); this.stage.appendChild(ov);
+                this.overlay = ov;
+            });
+        }
+
         iconBtn(svg, fn, extra) {
             const b = el('button', 'rs-ico' + (extra ? ' ' + extra : ''), svg);
             b.onclick = () => { this.sound.unlock(); this.sound.play('click', { volume: 0.6 }); fn(); };
@@ -854,6 +1071,7 @@
                 const base = raster(this.images[s2], size, px);
                 this.sprites[s2] = { base, blur: motionBlur(base) };
             }
+            this.orbSprites = this.orbImages.map((o) => o && { upTo: o.upTo, sprite: raster(o.img, size, px) });
         }
 
         loop() {
@@ -900,7 +1118,12 @@
             catch (e) { return (+n).toFixed(2) + ' ' + this.currency; }
         }
         betValue() { return this.bets[this.betIndex]; }
-        stake() { return Math.round(this.lines * this.betValue() * this.denom * 10000) / 10000; }
+        /** Base stake: lines × bet × denomination (what wins are sized on). */
+        baseStake() { return Math.round(this.lines * this.betValue() * this.denom * 10000) / 10000; }
+        anteOn() { return this.ante && (this.cfg.cascade || {}).ante_bet > 0; }
+        /** What one paid spin costs — the base stake, × the ante factor while the ante bet is on. */
+        stake() { return Math.round(this.baseStake() * (this.anteOn() ? this.cfg.cascade.ante_bet : 1) * 10000) / 10000; }
+        buyCost() { return Math.round(this.baseStake() * ((this.cfg.cascade || {}).buy_feature || 0) * 10000) / 10000; }
         updateHud() {
             this.balEl.textContent = this.money(this.balance);
             this.betEl.textContent = this.money(this.stake());
@@ -915,6 +1138,20 @@
             this.btnSpin.disabled = this.fs.active;
             this.fsLeftEl.querySelector('b').textContent = this.fs.left;
             this.fsWinEl.querySelector('b').textContent = this.money(this.fs.won);
+            if (this.btnBuy) {
+                this.btnBuy.querySelector('span').textContent = this.money(this.buyCost());
+                this.btnBuy.disabled = lock || this.anteOn();
+            }
+            if (this.anteEl) {
+                this.anteEl.querySelector('label b').textContent = this.money(this.stake());
+                this.anteEl.classList.toggle('on', this.anteOn());
+                this.anteEl.querySelector('button').disabled = lock;
+            }
+            if (this.totalEl) {
+                this.totalEl.querySelector('b').textContent = 'x' + this.totalMult;
+                this.totalEl.classList.toggle('show', this.fs.active);
+            }
+            if (this.sideEl) this.sideEl.classList.toggle('in-free', this.fs.active);
         }
         setWin(n) { this.winEl.textContent = this.money(n); }
         message(text) { this.msgEl.textContent = text || ''; }
@@ -948,10 +1185,11 @@
             this.spin();
         }
 
-        async spin() {
+        async spin(opts = {}) {
             if (this.busy) return;
             const free = this.fs.active;
-            const stake = this.stake();
+            const buy = !free && !!opts.buy;
+            const stake = buy ? this.buyCost() : this.stake();
             if (!free && this.balance + 1e-9 < stake) {
                 this.message('Insufficient balance');
                 this.toast('Insufficient balance — lower your bet.', true);
@@ -966,7 +1204,9 @@
             this.sound.play('spin', { volume: 0.6 });
 
             let res;
-            const request = this.api.call('bet', { bet: this.betValue(), lines: this.lines });
+            const extra = { bet: this.betValue(), lines: this.lines };
+            if (buy) extra.buy = true; else if (!free && this.anteOn()) extra.ante = true;
+            const request = this.api.call('bet', extra);
             try {
                 if (this.mechanic === 'lines') {
                     this.scene.startSpin();
@@ -1000,7 +1240,7 @@
         async present(res, free) {
             this.presenting = true; this.skipPresent = false;
             const win = +res.win || 0;
-            const stake = this.stake();
+            const stake = this.baseStake();
 
             if (this.mechanic === 'cascade') {
                 await this.presentCascade(res);
@@ -1110,12 +1350,20 @@
                 (res.scatter_cells || []).forEach(([r, row]) => { const c = this.scene.grid[r][row]; if (c) c.flash = 1.6; });
                 await sleep(this.turbo ? 400 : 1200);
             }
-            // bombs multiply the tumble win
+            // bombs multiply the tumble win (with a running total: they join it first)
             if (res.multiplier > 0) {
-                this.sound.play('bomb', { volume: 0.9 });
+                this.sound.play(this.charEl ? 'thunder' : 'bomb', { volume: 0.9 });
                 this.scene.grid.forEach((col, r) => col.forEach((c, row) => {
-                    if (c.bomb) { c.flash = 1.4; const [x, y] = this.scene.center(r, row); this.fx.burst(x, y, '#ffffff', 16); }
+                    if (!c.bomb) return;
+                    c.flash = 1.4;
+                    const [x, y] = this.scene.center(r, row);
+                    if (this.charEl) this.strike(x, y); else this.fx.burst(x, y, '#ffffff', 16);
                 }));
+                if (res.total_multiplier !== undefined) {
+                    this.totalMult = +res.total_multiplier;
+                    this.updateHud();
+                    if (this.totalEl) { this.totalEl.classList.remove('bump'); void this.totalEl.offsetWidth; this.totalEl.classList.add('bump'); }
+                }
                 this.toast('x' + res.multiplier + ' MULTIPLIER');
                 await sleep(this.turbo ? 500 : 1400);
             }
@@ -1153,9 +1401,10 @@
             const text = '<h2>' + (resumed ? 'Welcome back!' : 'FREE SPINS') + '</h2>' +
                 '<p class="big">' + count + '</p><p>' + (resumed ? 'free spins left — let\'s finish your feature.' : 'free spins awarded!') + '</p>' +
                 (mult > 1 ? '<p>All wins are multiplied by <b style="color:var(--accent)">x' + mult + '</b></p>' : '') +
-                (this.mechanic === 'cascade' ? '<p>Rainbow bombs multiply your tumble wins!</p>' : '');
+                this.freeSpinsNote();
             await this.modal(text, 'START');
             this.fs = { active: true, left: count, total: count, won: 0, mult };
+            if (!resumed) this.totalMult = 0;
             this.stage.classList.add('in-free');
             this.sound.playMusic('music_free');
             this.scene.clearWins && this.scene.clearWins();
@@ -1165,6 +1414,16 @@
             this.spin();
         }
 
+        freeSpinsNote() {
+            const cc = this.cfg.cascade;
+            if (this.mechanic !== 'cascade' || !cc || cc.multiplier_symbol === null) return '';
+            if (this.meta.freeSpinsNote) return '<p>' + this.meta.freeSpinsNote + '</p>';
+            const name = (this.meta.symbols || {})[cc.multiplier_symbol] || 'Multiplier';
+            return cc.multiplier_accumulate
+                ? '<p>Every ' + name + ' joins the <b style="color:var(--accent)">TOTAL MULTIPLIER</b> — it multiplies every win until the feature ends!</p>'
+                : '<p>' + name + 's multiply your tumble wins!</p>';
+        }
+
         async exitFreeSpins() {
             const won = this.fs.won;
             await sleep(600);
@@ -1172,6 +1431,7 @@
             if (won > 0) this.fx.fountain = 1800;
             await this.modal('<h2>FEATURE COMPLETE</h2><p>You won</p><p class="big">' + this.money(won) + '</p><p>in ' + this.fs.total + ' free spins</p>', 'COLLECT');
             this.fx.fountain = 0;
+            this.totalMult = 0;
             this.fs = { active: false, left: 0, total: 0, won: 0, mult: 1 };
             this.stage.classList.remove('in-free');
             this.sound.playMusic('music');
@@ -1342,10 +1602,12 @@
                 if (this.mechanic === 'cascade') {
                     const tiers = cfg.cascade.tiers;
                     if (s === cfg.scatter) {
-                        Object.keys(cfg.cascade.scatter_pays).sort((a, b) => b - a).forEach((n) => { rows += '<tr><td>' + n + (+n === 6 ? '+' : '') + '</td><td>' + this.money(cfg.cascade.scatter_pays[n] * unit) + '</td></tr>'; });
+                        const top = Math.max.apply(null, Object.keys(cfg.cascade.scatter_pays).map(Number));
+                        Object.keys(cfg.cascade.scatter_pays).sort((a, b) => b - a).forEach((n) => { rows += '<tr><td>' + n + (+n === top ? '+' : '') + '</td><td>' + this.money(cfg.cascade.scatter_pays[n] * unit) + '</td></tr>'; });
                         note = cfg.cascade.trigger + '+ award ' + cfg.cascade.free_spins + ' free spins';
                     } else if (s === cfg.cascade.multiplier_symbol) {
-                        note = 'Free spins only. x2 – x100 multiplier.';
+                        const mv = cfg.cascade.multiplier_values || [2];
+                        note = (cfg.cascade.multiplier_in_base ? 'Base game and free spins. ' : 'Free spins only. ') + 'x' + Math.min.apply(null, mv) + ' – x' + Math.max.apply(null, mv) + ' multiplier.';
                     } else {
                         for (let i = tiers.length - 1; i >= 0; i--) {
                             const label = i === tiers.length - 1 ? tiers[i] + '+' : tiers[i] + '-' + (tiers[i + 1] - 1);
@@ -1359,7 +1621,7 @@
                     if (s === cfg.wild) note = 'WILD — substitutes for all symbols except scatter' + (cfg.wild_multiplier > 1 ? ', x' + cfg.wild_multiplier + ' on wins' : '') + '.';
                     if (s === cfg.scatter) note = 'SCATTER — pays anywhere' + (cfg.has_free_spins ? ', 3+ trigger free spins' : '') + '.';
                 }
-                html += '<div class="rs-sym"><img src="' + v('img/sym/' + s + '.svg') + '" alt=""><div><div class="n">' + (names[s] || 'Symbol') + '</div>' +
+                html += '<div class="rs-sym"><img src="' + this.symUrl(s) + '" alt=""><div><div class="n">' + (names[s] || 'Symbol') + '</div>' +
                     (rows ? '<table>' + rows + '</table>' : '') + (note ? '<div class="note">' + note + '</div>' : '') + '</div></div>';
             }
             return html + '</div><p style="color:#999;font-size:13px;margin-top:14px">Values shown for the current bet of ' + this.money(stake) + '.</p>';
@@ -1391,6 +1653,8 @@
                 'Bet range: ' + this.money(this.lines * this.bets[0] * this.denom) + ' – ' + this.money(this.lines * this.bets[this.bets.length - 1] * this.denom) + ' per spin.',
                 this.mechanic === 'lines' ? 'All ' + this.lines + ' lines are always active. Only the highest win per line is paid; line wins are added together.' : 'Wins are paid for symbol counts anywhere on the grid; tumble wins are added together.',
                 'Scatter wins are added to line wins.',
+                ...(((this.cfg.cascade || {}).buy_feature > 0) ? ['The free spins can be bought for ' + this.cfg.cascade.buy_feature + 'x the total bet.'] : []),
+                ...(((this.cfg.cascade || {}).ante_bet > 0) ? ['Ante bet: the bet is multiplied by ' + this.cfg.cascade.ante_bet + ' and the chance to win the free spins is increased. Feature buy is disabled while it is on.'] : []),
                 'Volatility: ' + vol + '.',
                 'Malfunction voids all pays and plays.',
                 'Press SPACE to spin. Press again while spinning to stop the reels quickly.',

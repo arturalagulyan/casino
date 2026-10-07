@@ -43,7 +43,8 @@ class InstallRoyalSpinGamesCommand extends Command
     protected $signature = 'royalspin:install
         {--only= : Comma list of game codes to (re)install}
         {--shop=* : Shop id(s) to add the games to (default: every shop)}
-        {--fresh-bundles : Re-upload bundles even when unchanged}';
+        {--fresh-bundles : Re-upload bundles even when unchanged}
+        {--take-back : Also reinstall games an admin re-designed in the Game Builder}';
 
     protected $description = 'Build + register the first-party RoyalSpin games (templates, bundles, per-shop games)';
 
@@ -77,6 +78,14 @@ class InstallRoyalSpinGamesCommand extends Command
             }
             if (! is_file($dir.'/math.json') || ! is_file($dir.'/game.json')) {
                 $this->warn("  {$code}: missing math.json / game.json — skipped");
+
+                continue;
+            }
+
+            // re-skinned / re-tuned in the admin Game Builder — the builder owns it now
+            $managed = GameTemplate::where('code', $code)->first()?->layout['builder_design'] ?? null;
+            if ($managed && ! $this->option('take-back')) {
+                $this->line("  <fg=yellow>•</> {$code}: managed by Game Builder design #{$managed} — skipped (--take-back to overwrite)");
 
                 continue;
             }

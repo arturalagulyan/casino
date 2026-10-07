@@ -1,0 +1,98 @@
+{
+  "key": "olympus",
+  "title": "Olympus — gods, gems & thunder",
+  "skin": "olympus",
+  "symbols": [
+    {
+      "key": "gem_blue",
+      "name": "Blue Gem",
+      "kind": "low",
+      "file": "img/sym/gem_blue.svg"
+    },
+    {
+      "key": "gem_green",
+      "name": "Green Gem",
+      "kind": "low",
+      "file": "img/sym/gem_green.svg"
+    },
+    {
+      "key": "gem_purple",
+      "name": "Purple Gem",
+      "kind": "low",
+      "file": "img/sym/gem_purple.svg"
+    },
+    {
+      "key": "gem_red",
+      "name": "Red Gem",
+      "kind": "low",
+      "file": "img/sym/gem_red.svg"
+    },
+    {
+      "key": "gem_yellow",
+      "name": "Yellow Gem",
+      "kind": "low",
+      "file": "img/sym/gem_yellow.svg"
+    },
+    {
+      "key": "chalice",
+      "name": "Chalice",
+      "kind": "high",
+      "file": "img/sym/chalice.svg"
+    },
+    {
+      "key": "ring",
+      "name": "Ring",
+      "kind": "high",
+      "file": "img/sym/ring.svg"
+    },
+    {
+      "key": "hourglass",
+      "name": "Hourglass",
+      "kind": "high",
+      "file": "img/sym/hourglass.svg"
+    },
+    {
+      "key": "crown",
+      "name": "Crown",
+      "kind": "high",
+      "file": "img/sym/crown.svg"
+    },
+    {
+      "key": "scatter",
+      "name": "Thunder God",
+      "kind": "scatter",
+      "file": "img/sym/scatter.svg"
+    },
+    {
+      "key": "orb",
+      "name": "Multiplier Orb",
+      "kind": "multiplier",
+      "file": "img/sym/orb.svg"
+    }
+  ],
+  "orbs": [
+    "img/orb/green.svg",
+    "img/orb/blue.svg",
+    "img/orb/purple.svg",
+    "img/orb/red.svg"
+  ],
+  "background": "img/bg.svg",
+  "background_free": "img/bg_free.svg",
+  "character": "img/character.svg",
+  "logo": "img/logo.svg",
+  "music": "snd/music.wav",
+  "music_free": "snd/music_free.wav",
+  "theme": {
+    "accent": "#ffd76a",
+    "frame": [
+      "#fffbe0",
+      "#e0a82e",
+      "#7a4a00"
+    ],
+    "reelBg": [
+      "#3a0a4acc",
+      "#1a0428e6"
+    ],
+    "font": "Georgia,'Times New Roman',serif"
+  }
+}

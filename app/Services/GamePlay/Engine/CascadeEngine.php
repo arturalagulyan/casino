@@ -33,11 +33,22 @@ class CascadeEngine
 
     public function __construct(private readonly SpinDecider $decider) {}
 
-    public function spin(GameContext $context, float $stake, float $betline, bool $free): SpinResult
+    /**
+     * Options: `ante` — the ante bet is on, the feature is `ante_bonus_factor`
+     * times likelier; `buy` — the free spins were bought, this round always
+     * triggers them; `total_multiplier` — the running free-spin multiplier so
+     * far (`multiplier_accumulate`).
+     *
+     * @param  array{ante?:bool, buy?:bool, total_multiplier?:int}  $opts
+     */
+    public function spin(GameContext $context, float $stake, float $betline, bool $free, array $opts = []): SpinResult
     {
         $cfg = $context->config();
         $cc = $cfg->cascadeConfig();
-        $decision = $this->decider->decide($context, $free ? 'bonus' : 'spin', $cc['lines'], $stake);
+        $boost = ! $free && ($opts['ante'] ?? false) ? $cc['ante_bonus_factor'] : 1.0;
+        $decision = $this->decider->decide($context, $free ? 'bonus' : 'spin', $cc['lines'], $stake, $boost);
+        $buy = ! $free && ($opts['buy'] ?? false);
+        $totalMultiplier = (int) ($opts['total_multiplier'] ?? 0);
 
         $ceiling = min(
             $decision->budget * $cfg->winDistribution()['budget_frac'],
@@ -48,14 +59,14 @@ class CascadeEngine
         }
 
         $need = $free ? $cc['retrigger'] : $cc['trigger'];
-        $wantBonus = $decision->type === 'bonus';
+        $wantBonus = $buy || $decision->type === 'bonus';
         $wantWin = $decision->isWin();
 
         $best = null;
         $bestScore = INF;
 
         for ($i = 0; $i < self::MAX_TRIES; $i++) {
-            $round = $this->play($cfg, $cc, $betline, $free, $wantBonus ? $need : 0);
+            $round = $this->play($cfg, $cc, $betline, $free, $wantBonus ? $need : 0, $totalMultiplier);
             $trigger = $round['scatters'] >= $need;
             $win = $round['win'];
 
@@ -85,7 +96,7 @@ class CascadeEngine
             }
         }
 
-        /** @var array{steps: list<array<string,mixed>>, grid: array<int,list<int>>, win: float, cascade_win: float, scatters: int, scatter_cells: list<array{0:int,1:int}>, scatter_win: float, multiplier: int} $best */
+        /** @var array{steps: list<array<string,mixed>>, grid: array<int,list<int>>, win: float, cascade_win: float, scatters: int, scatter_cells: list<array{0:int,1:int}>, scatter_win: float, multiplier: int, total_multiplier: int} $best */
         $lines = [];
         foreach ($best['steps'] as $s => $step) {
             foreach ($step['wins'] as $w) {
@@ -109,6 +120,7 @@ class CascadeEngine
                 'scatter_cells' => $best['scatter_cells'],
                 'scatter_win' => $best['scatter_win'],
                 'multiplier' => $best['multiplier'],
+                'total_multiplier' => $best['total_multiplier'],
                 'decision' => $decision->type,
             ],
         );
@@ -118,14 +130,17 @@ class CascadeEngine
      * Play one complete round on the real strips.
      *
      * @param  int  $forceScatters  land at least this many scatters (a gated bonus round)
-     * @return array{steps: list<array<string,mixed>>, grid: array<int,list<int>>, win: float, cascade_win: float, scatters: int, scatter_cells: list<array{0:int,1:int}>, scatter_win: float, multiplier: int}
+     * @param  int  $totalMultiplier  running free-spin multiplier before this round (multiplier_accumulate)
+     * @return array{steps: list<array<string,mixed>>, grid: array<int,list<int>>, win: float, cascade_win: float, scatters: int, scatter_cells: list<array{0:int,1:int}>, scatter_win: float, multiplier: int, total_multiplier: int}
      */
-    public function play(GameConfig $cfg, array $cc, float $betline, bool $free, int $forceScatters = 0): array
+    public function play(GameConfig $cfg, array $cc, float $betline, bool $free, int $forceScatters = 0, int $totalMultiplier = 0): array
     {
         $strips = $cfg->reelStrips($free);
         $rows = $cfg->rowCount();
         $scatter = $cfg->scatterSymbol();
         $bomb = $cc['multiplier_symbol'];
+        // bombs carry values in free spins, and in the base game too when configured
+        $live = $free || $cc['multiplier_in_base'];
 
         $grid = [];
         foreach ($strips as $reel => $strip) {
@@ -137,7 +152,7 @@ class CascadeEngine
         }
 
         // Bomb values ride along with their cell as it falls.
-        $values = $this->assignBombs($grid, $bomb, $free, $cc['multiplier_values']);
+        $values = $this->assignBombs($grid, $bomb, $live, $cc['multiplier_values']);
 
         $steps = [];
         $cascadeWin = 0.0;
@@ -158,13 +173,23 @@ class CascadeEngine
             }
 
             $cascadeWin += $stepWin;
-            [$grid, $values] = $this->tumble($grid, $values, $wins, $strips, $rows, $bomb, $free, $cc['multiplier_values']);
+            [$grid, $values] = $this->tumble($grid, $values, $wins, $strips, $rows, $bomb, $live, $cc['multiplier_values']);
         }
 
         $multiplier = 0;
-        if ($free && $cascadeWin > 0 && $bomb !== null) {
+        if ($live && $cascadeWin > 0 && $bomb !== null) {
             foreach ($this->bombList($grid, $values, $bomb) as $b) {
                 $multiplier += $b['value'];
+            }
+        }
+        // Olympus-style free spins: this round's bombs join the running total,
+        // and the total (not just this round's bombs) multiplies the win.
+        if ($free && $cc['multiplier_accumulate']) {
+            if ($cascadeWin > 0) {
+                $totalMultiplier += $multiplier;
+                $multiplier = $totalMultiplier;
+            } else {
+                $multiplier = 0;
             }
         }
 
@@ -201,6 +226,7 @@ class CascadeEngine
             'scatter_cells' => $scatterCells,
             'scatter_win' => $scatterWin,
             'multiplier' => $multiplier,
+            'total_multiplier' => $totalMultiplier,
         ];
     }
 

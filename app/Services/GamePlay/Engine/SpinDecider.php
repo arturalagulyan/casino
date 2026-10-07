@@ -27,7 +27,10 @@ use App\Services\GamePlay\GameContext;
  */
 class SpinDecider
 {
-    public function decide(GameContext $context, string $event, int $lineCount, float $stake = 0.0): SpinDecision
+    /**
+     * @param  float  $bonusBoost  >1 makes the feature that many times likelier (an ante bet)
+     */
+    public function decide(GameContext $context, string $event, int $lineCount, float $stake = 0.0, float $bonusBoost = 1.0): SpinDecision
     {
         $config = $context->config();
         $shopRtp = max(1.0, $context->rtpTarget());
@@ -37,6 +40,9 @@ class SpinDecider
         // 1) base odds straight from the win-chance tables
         $spinChance = max(1, $config->winChance('spin', $lineCount, $shopRtp));
         $bonusChance = max(1, $config->winChance('bonus', $lineCount, $shopRtp));
+        if ($bonusBoost > 1.0) {
+            $bonusChance = max(1, (int) round($bonusChance / $bonusBoost));
+        }
 
         $game = $context->game;
         $actualRtp = $context->actualRtp();

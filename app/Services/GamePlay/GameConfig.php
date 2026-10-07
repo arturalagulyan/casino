@@ -459,7 +459,16 @@ class GameConfig
      * index = tier), the scatter's count => coefficient table, the free-spin
      * trigger / retrigger counts and the multiplier-bomb value pool.
      *
-     * @return array{lines:int, tiers:list<int>, multiplier_symbol:?int, multiplier_values:list<int>, scatter_pays:array<int,float>, trigger:int, retrigger:int, retrigger_spins:int, free_spins:int}
+     * "Olympus" family extras (all off by default, so older games are unchanged):
+     *   multiplier_in_base    bombs also land (and multiply) in the base game
+     *   multiplier_accumulate free spins keep a running total multiplier — every
+     *                         winning round adds its bombs to it, and the total
+     *                         multiplies every winning round from then on
+     *   buy_feature           cost of buying the free spins, × the stake (0 = off)
+     *   ante_bet              stake factor of the ante bet (e.g. 1.25; 0 = off)
+     *   ante_bonus_factor     how much more often the feature triggers under ante
+     *
+     * @return array{lines:int, tiers:list<int>, multiplier_symbol:?int, multiplier_values:list<int>, scatter_pays:array<int,float>, trigger:int, retrigger:int, retrigger_spins:int, free_spins:int, multiplier_in_base:bool, multiplier_accumulate:bool, buy_feature:float, ante_bet:float, ante_bonus_factor:float}
      */
     public function cascadeConfig(): array
     {
@@ -480,6 +489,11 @@ class GameConfig
                 'retrigger' => (int) ($c['retrigger'] ?? 3),
                 'retrigger_spins' => (int) ($c['retrigger_spins'] ?? 5),
                 'free_spins' => (int) ($c['free_spins'] ?? $this->freeSpinsCount()),
+                'multiplier_in_base' => (bool) ($c['multiplier_in_base'] ?? false),
+                'multiplier_accumulate' => (bool) ($c['multiplier_accumulate'] ?? false),
+                'buy_feature' => max(0.0, (float) ($c['buy_feature'] ?? 0)),
+                'ante_bet' => max(0.0, (float) ($c['ante_bet'] ?? 0)),
+                'ante_bonus_factor' => max(1.0, (float) ($c['ante_bonus_factor'] ?? 2)),
             ];
         });
     }

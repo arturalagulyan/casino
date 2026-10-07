@@ -20,6 +20,16 @@ abstract class AbstractSlotServer implements GameServer
     /** Produce one spin outcome. The stake is already taken; return the win. */
     abstract protected function spin(GameContext $context, float $stake, int $lines, float $betline): SpinResult;
 
+    /**
+     * What a paid spin costs, × lines × bet × denomination. 1 for a plain spin;
+     * a server may charge more for a side bet (ante) or a feature buy. Wins stay
+     * sized on the plain bet. Throw to reject a request the game doesn't offer.
+     */
+    protected function stakeFactor(GameContext $context, array $request): float
+    {
+        return 1.0;
+    }
+
     public function handle(GameContext $context, array $request): array
     {
         $command = (string) ($request['command'] ?? 'init');
@@ -72,7 +82,7 @@ abstract class AbstractSlotServer implements GameServer
         $betline = $freeSpin
             ? (float) $context->stateGet('free_spins_betline', $request['bet'] ?? 0)
             : (float) ($request['bet'] ?? $request['betline'] ?? 0);
-        $stake = round($lines * $betline * $denom, 4);
+        $stake = round($lines * $betline * $denom * ($freeSpin ? 1.0 : $this->stakeFactor($context, $request)), 4);
 
         if ($betline <= 0 || $stake <= 0) {
             throw new RuntimeException('Invalid bet.');

@@ -150,3 +150,61 @@ button:disabled { opacity: .35; cursor: default; filter: grayscale(.6); }
 .rs-auto .opts button:hover { background: var(--accent); color: #1a0f00; }
 
 .rs-hidden { display: none !important; }
+
+/* ---- confirm dialogs ---- */
+.rs-row { display: flex; gap: 14px; justify-content: center; }
+.rs-cta.ghost { color: #fff; background: linear-gradient(#3a3a46, #15151c); border: 1px solid #ffffff33; }
+
+/* ---- side panel: feature buy / ante bet / total multiplier ---- */
+.rs-side { position: absolute; left: 26px; top: 150px; width: 232px; display: flex; flex-direction: column; gap: 16px; z-index: 8; }
+.rs-buy { position: relative; padding: 14px 10px 12px; border-radius: 18px; text-align: center; color: #fff;
+    background: radial-gradient(circle at 50% 0%, #c050ff, #5a0a9a 60%, #22034a); border: 4px solid var(--accent);
+    box-shadow: 0 0 0 3px #3a1400, 0 8px 24px #000a, inset 0 2px 0 #ffffff55; transition: transform .1s; }
+.rs-buy:hover:not(:disabled) { transform: scale(1.03); }
+.rs-buy small { display: block; font: 800 18px/1 var(--font, Georgia, serif); letter-spacing: .14em; color: var(--accent); }
+.rs-buy b { display: block; margin: 4px 0 6px; font: 900 26px/1.05 var(--font, Georgia, serif); text-shadow: 0 3px 0 #0008; }
+.rs-buy span { display: inline-block; padding: 4px 14px; border-radius: 12px; background: #0008; font: 800 20px/1.2 "Segoe UI", sans-serif; color: var(--accent); }
+.rs-ante { padding: 12px 10px; border-radius: 18px; text-align: center; background: linear-gradient(#1a5a1acc, #06300acc); border: 3px solid var(--accent);
+    box-shadow: 0 0 0 3px #3a1400, 0 8px 24px #000a; }
+.rs-ante label { display: block; font: 800 16px/1.3 var(--font, Georgia, serif); color: #fff; letter-spacing: .06em; }
+.rs-ante label b { color: var(--accent); }
+.rs-ante small { display: block; margin: 6px 0 10px; font: 700 13px/1.25 sans-serif; color: #d8ffd0; letter-spacing: .06em; }
+.rs-toggle { width: 74px; height: 34px; border-radius: 17px; background: #0009; border: 2px solid #ffffff55; position: relative; }
+.rs-toggle i { position: absolute; left: 3px; top: 3px; width: 24px; height: 24px; border-radius: 50%; background: #999; transition: left .2s, background .2s; }
+.rs-ante.on .rs-toggle { background: #2ccf3a88; }
+.rs-ante.on .rs-toggle i { left: 43px; background: #fff; box-shadow: 0 0 10px #fff; }
+.rs-total { display: none; padding: 14px 10px; border-radius: 18px; text-align: center; background: radial-gradient(circle at 50% 30%, #3ab4ff, #0a3a9a 60%, #03104a);
+    border: 4px solid var(--accent); box-shadow: 0 0 0 3px #3a1400, 0 0 30px #3ab4ff88; }
+.rs-total.show { display: block; }
+.rs-total label { display: block; font: 800 14px/1.2 sans-serif; letter-spacing: .14em; color: #e0f6ff; }
+.rs-total b { display: block; font: 900 52px/1.1 var(--font, Georgia, serif); color: var(--accent); -webkit-text-stroke: 2px #3a1400; text-shadow: 0 4px 0 #000a; }
+.rs-total.bump b { animation: rs-pop .5s cubic-bezier(.2, 1.6, .4, 1); }
+.rs-side.in-free .rs-buy, .rs-side.in-free .rs-ante { display: none; }
+.skin-classic .rs-side { left: 10px; width: 180px; top: 130px; }
+.skin-classic .rs-buy b { font-size: 20px; }
+
+/* ---- character beside the board ---- */
+.rs-char { position: absolute; pointer-events: none; filter: drop-shadow(0 10px 18px #0009); animation: rs-float 4s ease-in-out infinite; transform-origin: 50% 100%; }
+.rs-char.zap { animation: rs-float 4s ease-in-out infinite, rs-zap .45s ease-out; }
+@keyframes rs-float { 50% { transform: translateY(-10px); } }
+@keyframes rs-zap { 0% { filter: drop-shadow(0 0 0 #bff4ff) brightness(1); } 30% { filter: drop-shadow(0 0 30px #bff4ff) brightness(1.6); } 100% { filter: drop-shadow(0 10px 18px #0009) brightness(1); } }
+
+/* ---- OLYMPUS skin: temple gold, Pragmatic-style bottom bar ---- */
+.skin-olympus .rs-logo { top: 2px; height: 112px; }
+.skin-olympus .rs-msg { top: 598px; font: 700 22px/30px var(--font, Georgia, serif); color: #fff; letter-spacing: .08em; text-transform: uppercase;
+    text-shadow: 0 0 6px #000, 0 2px 0 #3a1400, 0 0 18px var(--accent); }
+.skin-olympus .rs-hud { height: 100px; background: linear-gradient(#0000, #0009 40%, #000c); }
+.skin-olympus .rs-box { background: none; border: 0; box-shadow: none; min-width: 150px; text-align: left; padding: 4px 8px; }
+.skin-olympus .rs-box label { color: var(--accent); font: 800 13px/1.3 var(--font, Georgia, serif); letter-spacing: .12em; }
+.skin-olympus .rs-box b { font: 800 22px/1.2 "Segoe UI", sans-serif; text-shadow: 0 2px 0 #000; }
+.skin-olympus .rs-ico { background: #0006; border: 2px solid #ffffff88; box-shadow: none; }
+.skin-olympus .rs-spin { width: 98px; height: 98px; background: radial-gradient(circle at 50% 40%, #3a3a3a, #0a0a0a 70%); border: 5px solid #fff;
+    box-shadow: 0 0 0 3px #0008, 0 0 24px #fff6, inset 0 0 18px #000; }
+.skin-olympus .rs-spin svg { fill: #fff; width: 54px; height: 54px; }
+.skin-olympus .rs-spin .rs-count { color: #fff; }
+.skin-olympus .rs-pill { background: #0006; border: 2px solid #ffffff88; color: #fff; }
+.skin-olympus .rs-fs { top: 150px; }
+.skin-olympus .rs-fs.left { left: auto; right: 330px; top: 20px; }
+.skin-olympus .rs-fs.right { right: 40px; top: 20px; }
+.skin-olympus .rs-panel { background: radial-gradient(circle at 50% 0%, #5a1a8af2, #22034af2 70%); border: 4px solid var(--accent); }
+.skin-olympus .rs-panel h2 { font-family: var(--font, Georgia, serif); }
