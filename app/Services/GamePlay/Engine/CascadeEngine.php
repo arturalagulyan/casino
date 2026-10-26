@@ -231,7 +231,8 @@ class CascadeEngine
     }
 
     /**
-     * Scatter-pays: every paying symbol counted anywhere on the grid.
+     * Scatter-pays: every paying symbol counted anywhere on the grid (plus
+     * every wild, when the game has one).
      *
      * @param  array<int,list<int>>  $grid
      * @return list<array{symbol:int, count:int, amount:float, cells:list<array{0:int,1:int}>}>
@@ -239,13 +240,17 @@ class CascadeEngine
     public function evaluate(GameConfig $cfg, array $cc, array $grid, float $betline): array
     {
         $paytable = $cfg->paytable();
-        $skip = array_filter([$cfg->scatterSymbol(), $cc['multiplier_symbol']], fn ($s) => $s !== null);
+        $wild = $cc['wild_symbol'] ?? null;
+        $skip = array_filter([$cfg->scatterSymbol(), $cc['multiplier_symbol'], $wild], fn ($s) => $s !== null);
         $tiers = $cc['tiers'];
 
         $cells = [];
+        $wilds = [];
         foreach ($grid as $reel => $col) {
             foreach ($col as $row => $sym) {
-                if (! in_array($sym, $skip, true)) {
+                if ($sym === $wild) {
+                    $wilds[] = [$reel, $row];
+                } elseif (! in_array($sym, $skip, true)) {
                     $cells[$sym][] = [$reel, $row];
                 }
             }
@@ -253,6 +258,8 @@ class CascadeEngine
 
         $wins = [];
         foreach ($cells as $sym => $at) {
+            // wilds join every symbol present (and leave with each win they made)
+            $at = array_merge($at, $wilds);
             $count = count($at);
             $tier = -1;
             foreach ($tiers as $i => $min) {

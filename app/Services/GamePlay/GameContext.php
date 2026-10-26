@@ -366,6 +366,7 @@ class GameContext
             context: ['game' => $this->game->id],
             title: $this->game->template->title ?? $this->game->title,
         );
+        $this->walletInstance?->refresh();   // the ledger moved the row, not our copy
 
         foreach ($this->jackpots() as $jackpot) {
             $this->banker->contributeToJackpot($jackpot, $stake, $this->currency);
@@ -423,6 +424,7 @@ class GameContext
             context: ['game' => $this->game->id],
             title: $this->game->template->title ?? $this->game->title,
         );
+        $this->walletInstance?->refresh();   // the ledger moved the row, not our copy
 
         $settlement = $this->settlementBank();
         $this->moveWinPool(-$paid);
@@ -457,6 +459,7 @@ class GameContext
             context: ['game' => $this->game->id, 'kind' => 'gamble-loss'],
             title: $this->game->template->title ?? $this->game->title,
         );
+        $this->walletInstance?->refresh();   // the ledger moved the row, not our copy
 
         $this->moveWinPool($amount);
     }

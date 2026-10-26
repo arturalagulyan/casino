@@ -68,7 +68,7 @@ class AmaticCdnFetcherTest extends TestCase
 
     public function test_it_mirrors_the_whole_resource_graph_under_cdn_paths(): void
     {
-        $game = (new AmaticCdnFetcher)->fetch('https://cdn.test/gmsl/amanet/game.html?game=demo&config=1861&currency=EUR', $this->out);
+        $game = app(AmaticCdnFetcher::class)->fetch('https://cdn.test/gmsl/amanet/game.html?game=demo&config=1861&currency=EUR', $this->out);
 
         $this->assertSame('Demo', $game->gameId);
         $this->assertSame('Demo Game', $game->title);
@@ -105,7 +105,7 @@ class AmaticCdnFetcherTest extends TestCase
         // version) that the engine never asks for.
         $this->engine = 'this.a=this.b=this.c="Demo";this.d="_3";x="/core/images/1280_720/load.json"';
 
-        $game = (new AmaticCdnFetcher)->fetch('https://cdn.test/gmsl/amanet/game.html?game=demo&config=1861', $this->out);
+        $game = app(AmaticCdnFetcher::class)->fetch('https://cdn.test/gmsl/amanet/game.html?game=demo&config=1861', $this->out);
 
         $this->assertSame('Demo', $game->gameId);
         $this->assertFileExists("{$this->out}/gmsl/mpp/demo/data/resources_desktop_3_1280.json");
@@ -118,7 +118,7 @@ class AmaticCdnFetcherTest extends TestCase
         $this->expectException(RuntimeException::class);
         $this->expectExceptionMessage('config=');
 
-        (new AmaticCdnFetcher)->fetch('https://cdn.test/gmsl/amanet/game.html?game=demo', $this->out);
+        app(AmaticCdnFetcher::class)->fetch('https://cdn.test/gmsl/amanet/game.html?game=demo', $this->out);
     }
 
     public function test_it_refuses_other_client_generations(): void
@@ -126,6 +126,6 @@ class AmaticCdnFetcherTest extends TestCase
         $this->expectException(RuntimeException::class);
         $this->expectExceptionMessage('mpp-generation');
 
-        (new AmaticCdnFetcher)->fetch('https://cdn.test/gmsl/amanet/game.html?game=other&config=1861', $this->out);
+        app(AmaticCdnFetcher::class)->fetch('https://cdn.test/gmsl/amanet/game.html?game=other&config=1861', $this->out);
     }
 }

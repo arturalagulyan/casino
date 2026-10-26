@@ -8,16 +8,22 @@ use App\Enums\Currency;
 use App\Enums\GameEngine;
 use App\Models\Category;
 use App\Models\Game;
+use App\Models\GameBundle;
 use App\Models\GameTemplate;
 use App\Models\Shop;
+use App\Services\GamePlay\Amatic\AmaticLiveClient;
+use App\Services\GamePlay\Amatic\AmaticMathResolver;
+use App\Services\GamePlay\Amatic\AmaticWildcatMath;
 use App\Services\GamePlay\AmaticCdnFetcher;
 use App\Services\GamePlay\AmaticCdnGame;
 use App\Services\GamePlay\BundleManager;
 use App\Services\Legacy\AmaticLegacyData;
+use App\Services\Legacy\Bridge\LegacyServerBridge;
 use App\Services\Legacy\EgtGameParser;
 use Illuminate\Console\Command;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\File;
+use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
 use RuntimeException;
@@ -56,7 +62,28 @@ class FetchAmaticGameCommand extends Command
         {--currency= : Pricing currency of the bet ladder (default: the URL\'s currency=, else USD)}
         {--rtp=90 : Per-shop RTP %}
         {--max-win=50 : Per-shop max win (× bet)}
+        {--spins=40 : Live free-play spins sampled on Amatic\'s server to verify the maths}
+        {--category=* : Extra category (by title, created if missing) for the games — besides "Amatic"}
+        {--plain-code : Default the template code to the game id itself (e.g. FortuneJoker10, not FortuneJoker10New)}
+        {--reuse-mirror : Use an earlier mirror of the same game instead of downloading it again}
+        {--keep-bundle : Keep the template\'s active bundle (only update maths/games)}
+        {--best-fit : When no rule set reproduces the live spins, import the closest one, UNVERIFIED — its games are created hidden}
+        {--poster= : Poster image URL (e.g. the operator lobby\'s tile image)}
         {--fetch-only : Mirror + zip only, don\'t touch the database}';
+
+    private const string MIRROR_MANIFEST = '.amatic-game.json';
+
+    /** engine id → the id the operator's live server expects (read off the real client's `A/u25` command) */
+    private const array LIVE_IDS = ['LuckyEgypt' => 'LuckyEgyptLinked'];
+
+    /** Amatic table games (CDN key → handler type in AmaticProtocol) — no reels to solve. */
+    private const array TABLE_GAMES = [
+        'rouletteroyal' => 'roulette',
+        'rouletteprestige' => 'roulette',
+        'blackjack' => 'legacy:BlackJackAM',
+        'fruitcardpoker' => 'legacy:FruitPokerAM',
+        'keno' => 'keno',
+    ];
 
     protected $description = 'Download an Amatic gmsl/mpp game from its CDN URL, bundle it and register it as a playable template + games';
 
@@ -65,34 +92,52 @@ class FetchAmaticGameCommand extends Command
         parent::__construct();
     }
 
-    public function handle(AmaticCdnFetcher $fetcher, BundleManager $bundles): int
+    public function handle(AmaticCdnFetcher $fetcher, BundleManager $bundles, AmaticMathResolver $resolver): int
     {
         $url = (string) $this->argument('url');
-        $staging = storage_path('app/game-fetch/_incoming');
 
-        // 1. mirror
-        $this->info('Fetching '.$url);
-        try {
-            $game = $fetcher->fetch($url, $staging, fn (string $m) => $this->line("  <fg=gray>·</> {$m}"));
-        } catch (RuntimeException $e) {
-            $this->error($e->getMessage());
+        // 1. mirror (or reuse an earlier one of the same page)
+        $reused = $this->option('reuse-mirror') ? $this->existingMirror($url) : null;
+        if ($reused !== null) {
+            [$game, $dir] = $reused;
+            $code = (string) ($this->option('code') ?: basename($dir));
+            $this->info("Reusing the mirror at {$dir}");
+        } else {
+            $this->info('Fetching '.$url);
+            // per process, so several imports can run side by side
+            $staging = storage_path('app/game-fetch/_incoming-'.getmypid());
+            try {
+                $game = $fetcher->fetch($url, $staging, fn (string $m) => $this->line("  <fg=gray>·</> {$m}"));
+            } catch (RuntimeException $e) {
+                File::deleteDirectory($staging);
+                $this->error($e->getMessage());
 
-            return self::FAILURE;
+                return self::FAILURE;
+            }
+            $code = (string) ($this->option('code') ?: $game->gameId.($this->option('plain-code') ? '' : 'New'));
+            $dir = storage_path('app/game-fetch/'.$code);
+            File::deleteDirectory($dir);
+            File::moveDirectory($staging, $dir);
+            File::put($dir.'/'.self::MIRROR_MANIFEST, json_encode(get_object_vars($game), JSON_UNESCAPED_SLASHES));
+            $this->reportFetch($game, $dir);
+        }
+        $title = (string) ($this->option('title') ?: $game->title);
+        // the manifest's id may differ in case from the engine class's own (`Wild7boost` vs `Wild7Boost`) —
+        // Amatic's server only knows the engine's spelling
+        if (preg_match('/\w+\(\)\{this\.\w+=this\.\w+="('.preg_quote($game->gameId, '/').')"/i', $this->engineJs($dir, $game), $id) && $id[1] !== $game->gameId) {
+            $this->line("  engine id {$id[1]} (manifest says {$game->gameId})");
+            $game = new AmaticCdnGame(...array_merge(get_object_vars($game), ['gameId' => $id[1]]));
+        }
+        // ids the operator's server knows under another name (seen in the real client's init command)
+        if (isset(self::LIVE_IDS[$game->gameId])) {
+            $this->line('  live id '.self::LIVE_IDS[$game->gameId]);
+            $game = new AmaticCdnGame(...array_merge(get_object_vars($game), ['gameId' => self::LIVE_IDS[$game->gameId]]));
         }
 
-        $code = (string) ($this->option('code') ?: $game->gameId.'New');
-        $title = (string) ($this->option('title') ?: $game->title);
-        $dir = storage_path('app/game-fetch/'.$code);
-        File::deleteDirectory($dir);
-        File::moveDirectory($staging, $dir);
-
-        $this->reportFetch($game, $dir);
-
-        // 2. zip
-        $zip = $this->zip($dir, $code);
-        $this->info(sprintf('Bundle zip: %s (%.1f MB)', $zip, filesize($zip) / 1048576));
-
         if ($this->option('fetch-only')) {
+            $zip = $this->zip($dir, $code);
+            $this->info(sprintf('Bundle zip: %s (%.1f MB)', $zip, filesize($zip) / 1048576));
+
             return self::SUCCESS;
         }
 
@@ -101,23 +146,39 @@ class FetchAmaticGameCommand extends Command
             return self::FAILURE;
         }
 
-        // 3. template
+        // 3. maths, checked against Amatic's own server — refuse rather than
+        // import a game whose pays we couldn't verify
         $legacyCode = $this->option('legacy') ? (string) $this->option('legacy') : $this->guessLegacyCode($game->gameId);
-        $attrs = $legacyCode === null ? null : $this->mathFromLegacy($legacyCode);
-        if ($attrs === null) {
-            // Without the legacy math the template has no paytable/reels/lines
-            // and the game can't spin — refuse rather than import a dead game.
-            $this->error("No legacy line-slot package for '{$game->gameId}' — pass --legacy=<Code> (e.g. AdmiralNelsonAM). Bundle mirror kept at {$dir}.");
+        $tableType = self::TABLE_GAMES[$game->key] ?? null;
+        // WildCat Gaming titles (gmsl/wcg) keep their reels server-side: their own maths family
+        $wildcat = str_contains($game->entry, '/wcg/');
+        $legacyAttrs = $legacyCode === null || $tableType !== null || $wildcat ? null : $this->mathFromLegacy($legacyCode);
+        try {
+            $math = match (true) {
+                $wildcat => $this->wildcatGame($game, $dir),
+                $tableType !== null => $this->tableGame($tableType, $game, $dir),
+                default => $resolver->resolve($game->gameId, $this->engineJs($dir, $game), $legacyAttrs, (int) $this->option('spins'), fn (string $m) => $this->line("  {$m}"), bestFit: (bool) $this->option('best-fit')),
+            };
+        } catch (RuntimeException $e) {
+            $this->error($e->getMessage().". Bundle mirror kept at {$dir}.");
 
             return self::FAILURE;
         }
-        $winChances = $this->legacy->winChances($legacyCode);
+        $attrs = $math['attrs'];
+        $this->line("  maths source: {$math['source']}".($legacyCode ? " (legacy package {$legacyCode})" : ''));
+        foreach ($math['notes'] as $note) {
+            $this->warn("  note: {$note}");
+        }
+        $winChances = $legacyCode !== null ? $this->legacy->winChances($legacyCode) : null;
         $currency = Currency::tryFrom(strtoupper((string) ($this->option('currency') ?: $game->currency ?: 'USD'))) ?? Currency::USD;
         $existing = GameTemplate::query()->where('code', $code)->first();
         // Launcher-only page params (e.g. classic=true) — GameAssetController
         // re-adds them to the page URL, since our launch never goes through
         // Amatic's launcher.
-        $layout = array_merge((array) ($existing->layout ?? []), ['url_params' => $game->urlParams]);
+        $layout = array_merge((array) ($existing->layout ?? []), [
+            'url_params' => $game->urlParams,
+            'amatic' => ['key' => $game->key, 'game_id' => $game->gameId, 'url' => $url, 'maths' => $math['source'], 'notes' => $math['notes']],
+        ]);
 
         $template = GameTemplate::updateOrCreate(
             ['code' => $code],
@@ -129,7 +190,7 @@ class FetchAmaticGameCommand extends Command
                 'client_protocol' => ClientProtocol::Amatic,
                 'pricing_currency' => $currency,
                 'default_denomination' => 1,
-                'poster_path' => $this->copyPoster($legacyCode, $code),
+                'poster_path' => $this->option('poster') ? $this->downloadPoster((string) $this->option('poster'), $code) : null,
                 'win_chances' => $winChances,
                 'layout' => $layout,
                 'is_active' => true,
@@ -137,20 +198,34 @@ class FetchAmaticGameCommand extends Command
         );
         $this->info(($template->wasRecentlyCreated ? 'Created' : 'Updated')." template #{$template->id} {$code} — {$title}");
 
-        // 4. bundle
-        $bundle = $bundles->store(
-            $template,
-            new UploadedFile($zip, basename($zip), 'application/zip', null, true),
-            entry: $game->entry,
-            notes: Str::limit("Amatic CDN mirror (amatic:fetch) of {$game->key}: ".strtok($url, '?'), 250),
-        );
-        $this->info("Bundle v{$bundle->version} active — {$bundle->file_count} files, entry {$bundle->entry}");
+        // 4. bundle (zip → new active version), unless only the maths changed
+        $active = GameBundle::query()->where('game_template_id', $template->id)->where('is_active', true)->first();
+        if ($this->option('keep-bundle') && $active !== null) {
+            $this->info("Bundle v{$active->version} kept");
+        } else {
+            $zip = $this->zip($dir, $code);
+            $bundle = $bundles->store(
+                $template,
+                new UploadedFile($zip, basename($zip), 'application/zip', null, true),
+                entry: $game->entry,
+                notes: Str::limit("Amatic CDN mirror (amatic:fetch) of {$game->key}: ".strtok($url, '?'), 250),
+            );
+            File::delete($zip);
+            $this->info("Bundle v{$bundle->version} active — {$bundle->file_count} files, entry {$bundle->entry}");
+        }
 
         // 5. games
         $amatic = Category::firstOrCreate(
             ['slug' => 'amatic'],
             ['title' => 'Amatic', 'position' => 4, 'config' => ['client_protocol' => 'amatic']],
         );
+        $categoryIds = [$amatic->id];
+        foreach ((array) $this->option('category') as $name) {
+            $categoryIds[] = Category::firstOrCreate(
+                ['slug' => Str::slug((string) $name)],
+                ['title' => (string) $name, 'position' => 10],
+            )->id;
+        }
         foreach ($shops as $shop) {
             $row = Game::updateOrCreate(
                 ['shop_id' => $shop->id, 'template_id' => $template->id],
@@ -164,10 +239,11 @@ class FetchAmaticGameCommand extends Command
                     'denomination' => 1,
                     'pricing_currency' => $currency,
                     'win_chances' => $winChances,
-                    'is_visible' => true,
+                    // unverified maths stays out of the lobby until someone reviews it
+                    'is_visible' => ! str_contains($math['source'], 'unverified'),
                 ],
             );
-            $row->categories()->syncWithoutDetaching([$amatic->id]);
+            $row->categories()->syncWithoutDetaching($categoryIds);
             $this->line("  <fg=green>✓</> game #{$row->id} in shop {$shop->name}");
         }
 
@@ -189,11 +265,22 @@ class FetchAmaticGameCommand extends Command
         $dir = config('legacy.games_backend_path').'/'.$legacyCode;
         $parser = EgtGameParser::fromDir($dir, $legacyCode);
 
-        if (! $parser || ! $parser->isLineSlot()) {
+        if (! $parser || ! ($parser->isLineSlot() || $parser->isWaysSlot())) {
+            if ($parser && ($why = $parser->waysUnsupported())) {
+                $this->warn("  {$legacyCode}: {$why}");
+            }
+
             return null;
         }
 
         $attrs = $parser->templateAttributes();
+        if ($ways = $attrs['bonus_config']['ways'] ?? null) {
+            $this->line(sprintf(
+                '  ways pays: %d paying symbols, doubler=%s, free spins pay on any reel=%s, free spins table=%s',
+                count($ways['symbols']), $ways['doubler'] ?? '-', $ways['free_any_reel'] ? 'yes' : 'no',
+                json_encode($attrs['free_spins_table']),
+            ));
+        }
 
         // "Book"-style games pick a free-spin special symbol
         // (`SetGameData('<Code>FreeSym', rand(1, 8))`) that the client
@@ -223,13 +310,170 @@ class FetchAmaticGameCommand extends Command
     }
 
     /**
+     * A table game: its own handler plays it ({@see AmaticProtocol}); what the
+     * client needs from us is Amatic's own init frame (chips, table limits,
+     * history), captured from the live server.
+     *
+     * @return array{attrs: array<string, mixed>, source: string, notes: list<string>}
+     */
+    private function tableGame(string $type, AmaticCdnGame $game, string $dir): array
+    {
+        $base = [
+            'reel_count' => 1, 'row_count' => 1, 'symbol_count' => 1, 'symbols' => [0], 'min_match' => 1,
+            'paytable' => [[0, 0]], 'reel_strips' => [], 'paylines' => null,
+            'has_free_spins' => false, 'has_gamble' => false,
+            'default_bet_options' => [0.1, 0.5, 1, 2, 5, 10],
+        ];
+        // games whose rules live in a legacy backend package: run that package
+        if (str_starts_with($type, 'legacy:')) {
+            $package = substr($type, 7);
+            app(LegacyServerBridge::class)->prepare($package);   // compiled into storage for the game server
+            $this->line("  table game — runs the legacy backend {$package}");
+
+            return [
+                'attrs' => $base + [
+                    'default_bet_options' => $this->legacy->betOptions($package) ?: $base['default_bet_options'],
+                    'bonus_config' => ['table' => ['type' => 'legacy', 'package' => $package]],
+                ],
+                'source' => 'legacy',
+                'notes' => [],
+            ];
+        }
+        $live = new AmaticLiveClient;
+        $init = $live->init($game->gameId);
+        $live->close();
+        $this->line("  table game ({$type}) — init captured from Amatic's server");
+
+        return [
+            'attrs' => $base + [
+                'bonus_config' => ['table' => array_filter([
+                    'type' => $type,
+                    'init' => $init,
+                    // keno: the client's own pay table, picks × hits → × stake
+                    'paytable' => $type === 'keno' ? $this->kenoTable($this->engineJs($dir, $game)) : null,
+                ], fn ($v) => $v !== null)],
+            ],
+            'source' => 'table',
+            'notes' => [],
+        ];
+    }
+
+    /**
+     * A WildCat Gaming title: paytable from its engine, Amatic's own init
+     * frame captured live, our strips — {@see AmaticWildcatMath}.
+     *
+     * @return array{attrs: array<string, mixed>, source: string, notes: list<string>}
+     */
+    private function wildcatGame(AmaticCdnGame $game, string $dir): array
+    {
+        $live = new AmaticLiveClient;
+        $init = $live->init(AmaticWildcatMath::engineId($game->gameId));   // the live id may differ (operator config)
+        $live->close();
+        $built = app(AmaticWildcatMath::class)->build($game->gameId, $this->engineJs($dir, $game), $init);
+        $table = $built['attrs']['bonus_config']['table'];
+        if ($table['mechanic'] === 'holdwin') {
+            $hw = $table['holdwin'];
+            $this->line(sprintf(
+                '  WildCat Hold & Win game: %dx%d, %d lines, wild=%s collector=%s (reel %d) coins %d-%d (reels %s), cash pots %s, buy %s',
+                count($hw['strips']), $hw['rows'], count($hw['lines']), $hw['wild'], $hw['collector'], $hw['collector_reel'] + 1,
+                $hw['coin_first'], $hw['coin_first'] + $hw['coin_slots'] - 1, implode('/', array_map(fn ($r) => $r + 1, $hw['coin_reels'])),
+                json_encode($hw['jackpots']), json_encode($table['buy']),
+            ));
+
+            return ['attrs' => $built['attrs'], 'source' => 'wildcat', 'notes' => $built['notes']];
+        }
+        if (in_array($table['mechanic'], ['lines', 'puffer', 'wildrush', 'dinopups', 'sweetcandy'], true)) {
+            $l = $table['lines'];
+            $this->line(sprintf(
+                '  WildCat line slot: %dx%d, %d lines, scatter=%s substitutes=%s, bonus spins %s, feature %s, buy %s',
+                count($l['strips']), $l['rows'], count($l['lines']), $l['scatter'], json_encode($l['substitutes']),
+                json_encode($l['free_spins']), $l['feature'] ?? $table['mechanic'], json_encode($table['buy']),
+            ));
+
+            return ['attrs' => $built['attrs'], 'source' => 'wildcat', 'notes' => $built['notes']];
+        }
+        $tc = $built['attrs']['tumble_config'];
+        $this->line(sprintf(
+            '  WildCat tumble game: %dx%d, pays at %s, wild=%s multiplier=%s bonus=%s, bonus spins %s, buy %s',
+            $built['attrs']['reel_count'], $built['attrs']['row_count'], implode('/', $tc['tiers']),
+            $tc['wild_symbol'] ?? '-', $tc['multiplier_symbol'] ?? '-', $built['attrs']['scatter_symbol'] ?? '-',
+            json_encode($built['attrs']['bonus_config']['table']['free_spins']), json_encode($built['attrs']['bonus_config']['table']['buy']),
+        ));
+
+        return ['attrs' => $built['attrs'], 'source' => 'wildcat', 'notes' => $built['notes']];
+    }
+
+    /**
+     * Keno's pay table in its engine: an 11×11 nested array (picks 0–10 ×
+     * hits 0–10).
+     *
+     * @return list<list<int|float>>
+     */
+    private function kenoTable(string $js): array
+    {
+        preg_match_all('/=(\[\[[0-9.Ee,\[\]]+\]\])/', $js, $m);
+        foreach ($m[1] as $raw) {
+            $t = json_decode((string) preg_replace('/(\d)E(\d)/', '$1e$2', $raw), true);
+            if (is_array($t) && count($t) === 11 && array_filter($t, fn ($r) => is_array($r) && count($r) === 11) === $t) {
+                return $t;
+            }
+        }
+        throw new RuntimeException('No keno pay table found in the engine');
+    }
+
+    /**
+     * An earlier mirror of the same game page (its `.amatic-game.json`).
+     *
+     * @return array{0: AmaticCdnGame, 1: string}|null
+     */
+    private function existingMirror(string $url): ?array
+    {
+        $key = preg_match('/[?&]game=([^&]+)/', $url, $m) ? strtolower($m[1])
+            : (preg_match('#/amarent/([a-z0-9_]+)\.html#i', $url, $m) ? strtolower($m[1]) : null);
+        foreach (glob(storage_path('app/game-fetch/*/'.self::MIRROR_MANIFEST)) ?: [] as $manifest) {
+            $data = json_decode((string) file_get_contents($manifest), true);
+            if (is_array($data) && ($data['key'] ?? null) === $key) {
+                return [new AmaticCdnGame(...$data), dirname($manifest)];
+            }
+        }
+
+        return null;
+    }
+
+    /**
+     * The mirrored engine scripts (not the shared loader/config) — where the
+     * client declares its paytable and paylines.
+     */
+    private function engineJs(string $dir, AmaticCdnGame $game): string
+    {
+        $js = '';
+        foreach ($game->files as $rel) {
+            if (preg_match('#/src/[^/]+\.js$#', $rel) && ! str_contains($rel, '/amarent/')) {
+                $js .= "\n".@file_get_contents($dir.'/'.$rel);
+            }
+        }
+
+        return $js;
+    }
+
+    /**
      * Amatic's CDN ids are often shorter than the legacy package names
      * (`admiral` → `AdmiralNelsonAM`): try `<GameId>AM`, then a unique
-     * `<GameId>*AM` package.
+     * `<GameId>*AM` package. Newer Amatic titles that are reskins of a legacy
+     * game (same base reels, verified against Amatic's live init frame) map
+     * to that game's package.
      */
     private function guessLegacyCode(string $gameId): ?string
     {
+        $reskins = [
+            'BlazingCoins100' => 'HotFruits100AM',   // Hot Fruits 100 strips + coin symbols 8–16
+        ];
         $root = (string) config('legacy.games_backend_path');
+        if (isset($reskins[$gameId]) && is_dir($root.'/'.$reskins[$gameId])) {
+            $this->line("  legacy package: {$reskins[$gameId]} (base game of '{$gameId}')");
+
+            return $reskins[$gameId];
+        }
         if (is_dir($root.'/'.$gameId.'AM')) {
             return $gameId.'AM';
         }
@@ -283,7 +527,10 @@ class FetchAmaticGameCommand extends Command
         if ($archive->open($path, ZipArchive::CREATE | ZipArchive::OVERWRITE) !== true) {
             throw new RuntimeException("Could not create {$path}");
         }
-        foreach (File::allFiles($dir) as $file) {
+        foreach (File::allFiles($dir, true) as $file) {
+            if ($file->getFilename() === self::MIRROR_MANIFEST) {
+                continue;
+            }
             $archive->addFile($file->getPathname(), $code.'/'.str_replace('\\', '/', $file->getRelativePathname()));
         }
         $archive->close();
@@ -315,15 +562,22 @@ class FetchAmaticGameCommand extends Command
         }
     }
 
-    private function copyPoster(string $legacyCode, string $code): ?string
+    /** Poster from a URL (the operator's own tile image) → public disk. */
+    private function downloadPoster(string $url, string $code): ?string
     {
-        $src = config('legacy.games_icons_path').'/'.$legacyCode.'.jpg';
-        if (! is_file($src)) {
+        try {
+            $response = Http::withUserAgent('Mozilla/5.0')->timeout(30)->get($url);
+        } catch (\Throwable) {
             return null;
         }
+        if (! $response->successful() || ! str_starts_with((string) $response->header('Content-Type'), 'image/')) {
+            $this->warn("  poster {$url} not available");
 
-        $rel = 'game-posters/'.$code.'.jpg';
-        Storage::disk('public')->put($rel, (string) file_get_contents($src));
+            return null;
+        }
+        $ext = strtolower(pathinfo((string) parse_url($url, PHP_URL_PATH), PATHINFO_EXTENSION)) ?: 'png';
+        $rel = 'game-posters/'.$code.'.'.$ext;
+        Storage::disk('public')->put($rel, $response->body());
 
         return $rel;
     }

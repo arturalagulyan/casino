@@ -63,6 +63,11 @@ class GameAssetController extends Controller
             return $this->playtechShell($template, $game, $session, $user);
         }
 
+        // Play'n GO — its launcher page was never part of the game build; synthesise it.
+        if ((new GameConfig($template, $game))->clientProtocol() === ClientProtocol::PlayNGo) {
+            return $this->playNGoShell($request, $template, $game, $session, $user);
+        }
+
         $rel = $bundle->filePath($bundle->entry) ?? abort(500, 'Bundle entry file missing.');
         $html = $bundle->disk()->get($rel);
 
@@ -258,9 +263,10 @@ class GameAssetController extends Controller
     {
         if (str_contains($js, 'getParam("config")')) {
             $configFile = collect($bundle->disk()->files($dir))
-                ->first(fn ($f) => preg_match('/config_(\d+)_/', basename($f)));
+                // mpp: config_<id>_…; the older mphome clients: settings_<id>_…
+                ->first(fn ($f) => preg_match('/(?:config|settings)_(\d+)_/', basename($f)));
 
-            if ($configFile && preg_match('/config_(\d+)_/', basename($configFile), $m)) {
+            if ($configFile && preg_match('/(?:config|settings)_(\d+)_/', basename($configFile), $m)) {
                 $js = str_replace('getParam("config")', '"'.$m[1].'"', $js);
             }
         }
@@ -394,6 +400,24 @@ class GameAssetController extends Controller
             'base' => rtrim(url("/games/{$template->code}/platform"), '/').'/',
             'sessionsPlayerKey' => 'bs='.$template->code,
             'token' => $session->token,
+            'jackpotTicker' => $this->jackpotTickerSnippet($game, $user),
+        ]);
+    }
+
+    private function playNGoShell(Request $request, GameTemplate $template, Game $game, GameSession $session, User $user): Response
+    {
+        $png = (array) ((new GameConfig($template, $game))->bonusConfig()['playngo'] ?? []);
+        $mobile = $request->query('channel') === 'mobile'
+            || ($request->query('channel') === null && preg_match('/Mobi|Android|iPhone|iPad/i', (string) $request->userAgent()));
+
+        return response()->view('games.playngo-shell', [
+            'title' => $game->title ?? $template->title,
+            'coreWeb' => url("/playngo/{$session->token}").'/',
+            'gameId' => $png['game_id'] ?? 0,
+            'gid' => (string) ($png['gid'] ?? ''),
+            'channel' => $mobile ? 'mobile' : 'desktop',
+            'token' => $session->token,
+            'launcher' => url("/games/{$template->code}/cdn/".ltrim((string) ($png['launcher'] ?? ''), '/')),
             'jackpotTicker' => $this->jackpotTickerSnippet($game, $user),
         ]);
     }

@@ -3,6 +3,7 @@
 use App\Http\Controllers\Api\GameServerController;
 use App\Http\Controllers\DemoPlayController;
 use App\Http\Controllers\GameAssetController;
+use App\Http\Controllers\PlayNGoController;
 use App\Http\Controllers\RoyalSpinPackAssetController;
 use App\Http\Controllers\RtpSimulationReportController;
 use Illuminate\Support\Facades\Route;
@@ -42,6 +43,20 @@ Route::get('games/{code}', [GameAssetController::class, 'play'])->name('games.pl
  */
 Route::post('games/{code}/gs2c/v3/gameService', [GameServerController::class, 'handle'])
     ->name('games.server.gs2c');
+
+/*
+ * Play'n GO: its ContainerLauncher page reads its game and configuration from
+ * a "CoreWeb" base (our shell points it at /playngo/{session}/) and posts every
+ * line-protocol packet to `server` — auth is the game-session token in the
+ * path, CSRF-excluded in bootstrap/app.php.
+ */
+Route::prefix('playngo/{token}')->group(function () {
+    Route::get('games/getgamebygid/{gid}', [PlayNGoController::class, 'game']);
+    Route::get('games/{id}', [PlayNGoController::class, 'game'])->whereNumber('id');
+    Route::get('configuration/prelaunchconfiguration', [PlayNGoController::class, 'prelaunch']);
+    Route::get('configuration/v2', [PlayNGoController::class, 'configuration']);
+    Route::post('server', [PlayNGoController::class, 'server'])->name('games.server.playngo');
+});
 
 Route::get('games/{code}/{path}', [GameAssetController::class, 'asset'])
     ->where('path', '.*')

@@ -3,6 +3,7 @@
 namespace App\Http\Controllers;
 
 use App\Services\GamePlay\RtpSimulationReport;
+use App\Services\GamePlay\RtpSimulator;
 use Illuminate\Http\Request;
 use Illuminate\Routing\Controller;
 use Illuminate\Support\Facades\Redirect;
@@ -10,7 +11,7 @@ use Symfony\Component\HttpFoundation\Response;
 use Symfony\Component\HttpFoundation\StreamedResponse;
 
 /**
- * View/download a {@see \App\Services\GamePlay\RtpSimulator} run — the
+ * View/download a {@see RtpSimulator} run — the
  * "Test RTP" admin action stores its full spin-by-spin result under a token
  * (see {@see RtpSimulationReport}) and links here instead of trying to cram
  * thousands of rows into a notification.
@@ -45,7 +46,7 @@ class RtpSimulationReportController extends Controller
         $filename = 'rtp-simulation-'.str(($result['game_name'] ?? 'game').'-'.$token)->slug().'.csv';
 
         return response()->streamDownload(
-            fn () => print($this->reports->toCsv($result)),
+            fn () => print ($this->reports->toCsv($result)),
             $filename,
             ['Content-Type' => 'text/csv'],
         );

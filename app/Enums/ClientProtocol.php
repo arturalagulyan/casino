@@ -4,6 +4,7 @@ namespace App\Enums;
 
 use App\Services\GamePlay\Engine\PaylineEngine;
 use App\Services\GamePlay\Engine\TumbleEngine;
+use App\Services\GamePlay\Protocol\PlayNGoProtocol;
 
 /**
  * The wire protocol a game's front-end bundle speaks to the server.
@@ -101,6 +102,17 @@ enum ClientProtocol: string
      */
     case PragmaticPayline = 'pragmatic_payline';
 
+    /**
+     * Play'n GO's line protocol (`d=<seq>\r\n<session>\r\n<command lines>`)
+     * over plain HTTP POST to `/playngo/{session}/server` — the client's
+     * `defaultProtocol: http` transport (Play'n GO's own servers also carry it
+     * over a SignalR hub). The page is a synthesised ContainerLauncher shell;
+     * its config endpoints live under `/playngo/{session}/`. Spins are served
+     * from an outcome library of rounds recorded on Play'n GO's practice
+     * server ({@see PlayNGoProtocol}).
+     */
+    case PlayNGo = 'playngo';
+
     public function label(): string
     {
         return match ($this) {
@@ -112,6 +124,7 @@ enum ClientProtocol: string
             self::Pragmatic => 'Pragmatic Play (legacy HTTP)',
             self::PragmaticTumble => 'Pragmatic Play gs2c (modern HTTP)',
             self::PragmaticPayline => 'Pragmatic Play gs2c payline (modern HTTP)',
+            self::PlayNGo => "Play'n GO (line protocol over HTTP)",
         };
     }
 

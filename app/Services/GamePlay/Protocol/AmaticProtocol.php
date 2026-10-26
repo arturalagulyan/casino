@@ -5,6 +5,7 @@ namespace App\Services\GamePlay\Protocol;
 use App\Services\GamePlay\Engine\SlotEngine;
 use App\Services\GamePlay\GameContext;
 use App\Services\GamePlay\SpinResult;
+use App\Services\Legacy\Bridge\LegacyServerBridge;
 
 /**
  * The legacy Amatic "amarent" wire protocol — one handler shared by every `*AM`
@@ -25,6 +26,10 @@ class AmaticProtocol
     public function __construct(
         private readonly SlotEngine $engine,
         private readonly AmaticFormatter $fmt,
+        private readonly AmaticRouletteHandler $roulette,
+        private readonly LegacyServerBridge $legacy,
+        private readonly AmaticKenoHandler $keno,
+        private readonly AmaticWildcatHandler $wildcat,
     ) {}
 
     /**
@@ -33,6 +38,27 @@ class AmaticProtocol
      */
     public function dispatch(GameContext $ctx, array $request): array
     {
+        // the client leaving (exit / tab closing) — Amatic just ends the session
+        if (str_starts_with((string) ($request['gameData'] ?? ''), 'A/u260')) {
+            return [];
+        }
+        // Amatic table games share the socket but not the slot commands
+        $table = $ctx->config()->bonusConfig()['table']['type'] ?? null;
+        if (in_array($table, ['roulette', 'legacy', 'keno', 'wildcat'], true)) {
+            try {
+                return match ($table) {
+                    'legacy' => [$this->legacy->run($ctx, (string) ($ctx->config()->bonusConfig()['table']['package'] ?? ''), (string) ($request['gameData'] ?? ''))],
+                    'keno' => $this->keno->dispatch($ctx, $request),
+                    'wildcat' => $this->wildcat->dispatch($ctx, $request),
+                    default => $this->roulette->dispatch($ctx, $request),
+                };
+            } catch (\Throwable $e) {
+                report($e);
+
+                return [$this->fmt->error((string) strtok((string) ($request['gameData'] ?? ''), ','), $e->getMessage())];
+            }
+        }
+
         $parts = explode(',', (string) ($request['gameData'] ?? ''));
         $cmd = $parts[0];
         $state = (array) $ctx->stateGet('features', []);
@@ -81,7 +107,9 @@ class AmaticProtocol
             $state['free_left'] = (int) $state['free_left'] - 1;
             $stake = 0.0;
         } else {
-            $lines = max(1, (int) ($parts[1] ?? $cfg->lineCount()));
+            // Ways games send their symbol count as "lines" but stake one bet
+            // (legacy `$lines = 1`).
+            $lines = $cfg->isWays() ? 1 : max(1, (int) ($parts[1] ?? $cfg->lineCount()));
             $betIndex = max(0, (int) ($parts[2] ?? 0));
             $bets = $ctx->betOptions();
             if (! isset($bets[$betIndex])) {

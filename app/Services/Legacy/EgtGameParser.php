@@ -67,6 +67,32 @@ class EgtGameParser
     }
 
     /**
+     * True for an Amatic "ways pays" slot (the All Ways / Enchanted Cleopatra
+     * family): no `$linesId` paylines, `$lines = 1`, and a per-symbol win
+     * that multiplies the matching-cell counts of adjacent reels
+     * (`$sMpl = $sMpl * $cntsym[…]`) on a fixed-height grid.
+     */
+    public function isWaysSlot(): bool
+    {
+        return $this->settings !== ''
+            && ! str_contains($this->server, '$linesId[')
+            && str_contains($this->server, '$cntsym[')
+            && preg_match('/\$sMpl\s*=\s*\$sMpl\s*\*\s*\$cntsym/', $this->server) === 1
+            && $this->waysUnsupported() === null
+            && str_contains($this->settings, "Paytable['SYM_");
+    }
+
+    /**
+     * Why a ways package can't be ported yet, or null. The "rombo" variant
+     * (EyeOfRa, GoldenBook, DragonsGift…) gives every reel its own height
+     * (`$rLength`), which the fixed-grid engine and wire format don't model.
+     */
+    public function waysUnsupported(): ?string
+    {
+        return str_contains($this->server, '$rLength') ? 'ways game with per-reel heights ($rLength) is not supported yet' : null;
+    }
+
+    /**
      * The full `game_templates` attribute set (minus identity columns the
      * command owns: code / title / poster_path / layout).
      *
@@ -74,6 +100,10 @@ class EgtGameParser
      */
     public function templateAttributes(): array
     {
+        if ($this->isWaysSlot()) {
+            return $this->waysAttributes();
+        }
+
         $paytable = $this->paytable();
         $strips = $this->reelStrips();
         $reelCount = $this->reelCount($strips);
@@ -127,6 +157,72 @@ class EgtGameParser
             'paylines' => $paylines,
 
             'bonus_config' => $this->bonusConfig($scatter, $hasFreeSpins),
+            'default_bet_options' => $this->gameBets(),
+            'default_denomination' => 1,
+        ];
+    }
+
+    /**
+     * A ways game: the line-slot attributes minus paylines, plus
+     * `bonus_config.ways` ({@see GameConfig::waysConfig()}) and the
+     * per-scatter-count free-spin table.
+     *
+     * @return array<string, mixed>
+     */
+    private function waysAttributes(): array
+    {
+        $paytable = $this->paytable();
+        $strips = $this->reelStrips();
+        $scatter = $this->scatterSymbol();
+        $hasFreeSpins = $this->boolProp('slotBonus') && $scatter !== null;
+        $freeTable = $this->intListProp('slotFreeCount');
+
+        // Paying symbols in the client's win-list order (legacy `SymbolGame`).
+        $symbols = $this->intListProp('SymbolGame')
+            ?? array_values(array_diff(array_keys($paytable), [$scatter]));
+
+        $bonus = $this->bonusConfig($scatter, $hasFreeSpins);
+        $bonus['ways'] = [
+            'symbols' => $symbols,
+            // `if( $reels[…][$p] == '10' ) { $symDouble = $symDouble * 2; }`
+            'doubler' => preg_match("/==\s*'(\d+)'\s*\)\s*\{\s*\\\$symDouble\s*=\s*\\\$symDouble\s*\*\s*2/", $this->server, $m) ? (int) $m[1] : null,
+            // free spins count `$sc` reels holding the symbol anywhere
+            'free_any_reel' => preg_match("/'freespin'\s*\)\s*\{\s*\\\$sc\s*=\s*0;/", $this->server) === 1,
+        ];
+
+        return [
+            'reel_count' => $this->reelCount($strips),
+            // `for( $s = 0; $s <= 2; $s++ )` walks the visible rows
+            'row_count' => preg_match('/\$s\s*<=\s*(\d+)\s*;\s*\$s\+\+/', $this->server, $m) ? (int) $m[1] + 1 : 3,
+            'symbol_count' => count($paytable),
+            'symbols' => array_keys($paytable),
+            'wild_symbol' => $this->wildSymbol(),
+            'scatter_symbol' => $scatter,
+            'bonus_symbol' => null,
+            'wild_multiplier' => 1,
+            'min_match' => $this->minMatch($paytable),
+
+            'has_bonus' => $hasFreeSpins,
+            'bonus_type' => $this->intProp('slotBonusType') ?? 1,
+            'scatter_type' => $this->intProp('slotScatterType') ?? 0,
+            'has_free_spins' => $hasFreeSpins,
+            'free_spins_count' => $freeTable ? max($freeTable) : 10,
+            'free_spins_table' => $freeTable,
+            'free_spins_multiplier' => $this->intProp('slotFreeMpl') ?: 1,
+
+            'has_gamble' => $this->boolProp('slotGamble', true),
+            'gamble_type' => $this->intProp('GambleType') ?: 1,
+            'gamble_win_chance' => 4,
+
+            'split_screen' => $this->boolProp('splitScreen'),
+            'volatility' => Volatility::High,
+            'rtp_control_window' => 200,
+
+            'paytable' => $paytable,
+            'reel_strips' => $strips,
+            'paylines' => null,
+
+            'bonus_config' => $bonus,
             'default_bet_options' => $this->gameBets(),
             'default_denomination' => 1,
         ];
@@ -344,6 +440,20 @@ class EgtGameParser
     private function intProp(string $prop): ?int
     {
         return preg_match("/->{$prop}\s*=\s*(\d+)\s*;/", $this->settings, $m) ? (int) $m[1] : null;
+    }
+
+    /** `$this->prop = [ 0, '1', 2, … ];` → list<int>, or null when absent / not a list. */
+    private function intListProp(string $prop): ?array
+    {
+        if (! preg_match("/->{$prop}\s*=\s*\[([\s\d',\"]*)\]\s*;/", $this->settings, $m)) {
+            return null;
+        }
+        $list = array_values(array_map(
+            fn ($v) => (int) trim($v, " \t\n\r'\""),
+            array_filter(explode(',', $m[1]), fn ($v) => trim($v, " \t\n\r'\"") !== ''),
+        ));
+
+        return $list === [] ? null : $list;
     }
 
     private function boolProp(string $prop, bool $default = false): bool

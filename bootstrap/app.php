@@ -30,6 +30,7 @@ return Application::configure(basePath: dirname(__DIR__))
         $middleware->validateCsrfTokens(except: [
             'game/*/server',
             'games/*/gs2c/v3/gameService',
+            'playngo/*/server',
         ]);
     })
     ->withExceptions(function (Exceptions $exceptions): void {

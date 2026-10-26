@@ -22,8 +22,17 @@ class AmaticFormatter
     /** Legacy `$floatBet` — the wire works in hundredths of a credit. */
     private const int CENTS = 100;
 
-    /** Legacy fixes the grid at 10 lines / 5 reels regardless of the bet. */
+    /** Fallback line count (legacy `$lines` is each game's fixed line count). */
     private const int LINES = 10;
+
+    /** Coin-booster stake factor (×100) sent to "coins" clients — 1.00: we run no coin feature to buy. */
+    private const int COIN_BOOSTER = 100;
+
+    /** Per-reel coin-value slots the "coins" client reads (5 reels × 10). */
+    private const int COIN_SLOTS = 10;
+
+    /** Reel slots on the wire: 3-reel games still send 5 (the last two empty). */
+    private const int WIRE_REELS = 5;
 
     /**
      * Gamble-card history slots on the wire (legacy `<Code>Cards` is 8 × '00').
@@ -63,20 +72,27 @@ class AmaticFormatter
         return $this->hexFmt($symbol !== null ? (int) $symbol : ($gmsl ? 0xFFFFFFFF : 0));
     }
 
-    /** Legacy `FormatReelStrips`: per strip -> strlen(lenHex).lenHex.<sym dechex…>. */
+    /**
+     * Legacy `FormatReelStrips`: per strip -> strlen(lenHex).lenHex.<sym dechex…>.
+     * Newer clients with symbols past 15 read two hex digits per symbol; 3-reel
+     * games pad the 5 slots with empty strips.
+     */
     public function reelStrips(GameConfig $cfg, bool $bonus): string
     {
+        $wide = $cfg->amaticClient()['digits'] === 2;
         $out = '';
+        $n = 0;
         foreach ($cfg->reelStrips($bonus) as $strip) {
             if ($strip === []) {
                 continue;
             }
-            $body = implode('', array_map(fn ($s) => dechex((int) $s), $strip));
+            $body = implode('', array_map(fn ($s) => $wide ? $this->hex2((int) $s) : dechex((int) $s), $strip));
             $len = dechex(count($strip));
             $out .= strlen($len).$len.$body;
+            $n++;
         }
 
-        return $out;
+        return $out.str_repeat('0', max(0, self::WIRE_REELS - $n));
     }
 
     /** Legacy bet list: per bet -> dechex(strlen(dechex(bet*100))).dechex(bet*100). */
@@ -109,9 +125,9 @@ class AmaticFormatter
         $rp = [];
 
         for ($r = 0; $r < $cfg->reelCount(); $r++) {
-            $col = array_map('strval', array_slice($board[$r] ?? [], 0, $rows));
+            $col = array_map('strval', array_slice($board[$r] ?? [], 0, $cfg->reelHeight($r)));
             $reels['reel'.($r + 1)] = $col;
-            $rp[] = $this->stripPosition($strips[$r] ?? [], $board[$r] ?? [], $rows);
+            $rp[] = $this->stripPosition($strips[$r] ?? [], $board[$r] ?? [], min($rows, $cfg->reelHeight($r)));
         }
         $reels['rp'] = $rp;
 
@@ -156,8 +172,128 @@ class AmaticFormatter
         return 0;
     }
 
+    /**
+     * The "lines" field the client reads. Ways games (legacy `$symCount`)
+     * send their paying-symbol count instead: the client lists one win per
+     * symbol where a line game lists one per line.
+     */
+    private function wireLines(GameConfig $cfg): int
+    {
+        return $cfg->isWays()
+            ? count($cfg->waysConfig()['symbols'] ?? [])
+            : ($cfg->lineCount() ?: self::LINES);
+    }
+
+    /** Entries in the win list: lines + the scatter (ways: legacy `$symCountAll`, + scatter only if the game has one). */
+    private function winSlots(GameConfig $cfg): int
+    {
+        return $cfg->isWays()
+            ? $this->wireLines($cfg) + ($cfg->scatterSymbol() !== null ? 1 : 0)
+            : $this->wireLines($cfg) + 1;
+    }
+
+    private function isCoins(GameConfig $cfg): bool
+    {
+        return $cfg->clientLayout() === 'coins';
+    }
+
+    /**
+     * What this game's client reads after the cards of a spin/collect/gamble
+     * frame: the tail captured from Amatic's own server at import, else the
+     * built-in "coins" one, else nothing.
+     */
+    private function spinTail(GameConfig $cfg, ?array $board = null): string
+    {
+        // a board-wild-multiplier game's tail is that multiplier, two hex digits
+        if ($board !== null && $cfg->wildBoardMult() !== null) {
+            return sprintf('%02x', min(255, $cfg->boardWildMultiplier($board)));
+        }
+        // a random-wilds game's tail: its prefix, then per reel the row count and each cell's mark (f = none)
+        if ($board !== null && ($rw = $cfg->randomWilds()) !== null) {
+            return $rw['prefix'].implode('', array_map(fn ($col) => $this->hexFmt(count($col)).implode('', array_map(fn ($m) => $m ?? 'f', $col)),
+                $cfg->randomWildCells($board)));
+        }
+        // a per-reel-wild-multiplier game's tail: its prefix, the reel count and each reel's draw, its suffix
+        if ($board !== null && ($rv = $cfg->wildReelValues()) !== null) {
+            $draw = (array) $cfg->wildReelDraw($board);
+
+            return $rv['prefix'].$this->hexFmt(count($draw)).implode('', array_map('dechex', $draw)).$rv['suffix'];
+        }
+        // a full-wild-reel game's tail is the multiplier drawn (1 = none)
+        if ($board !== null && $cfg->wildReelMult() !== null) {
+            return $this->hexFmt($cfg->wildReelMultiplier($board));
+        }
+        // a cell-multiplier game's tail is, per reel, the row count then one digit per cell
+        if ($board !== null && $cfg->cellMult() !== null) {
+            return implode('', array_map(fn ($col) => $this->hexFmt(count($col)).implode('', array_map('dechex', $col)),
+                $cfg->cellMultipliers($board)));
+        }
+        // a giant-wild game's tail is every cell's block value (0 = not covered), reel by reel
+        if ($board !== null && ($block = $cfg->wildBlock()) !== null) {
+            return implode('', array_map(fn ($v) => $this->hexFmt($v),
+                array_merge(...GameConfig::blockCells($board, $block['symbol'], $block['size']))));
+        }
+        // a wild-copy game's tail: per reel 01, or 00 on the reel a full wild copied onto
+        if ($board !== null && $cfg->wildReelCopy() !== null) {
+            $target = $cfg->wildCopyTarget($board);
+
+            return implode('', array_map(fn ($r) => $r === $target ? '00' : '01', array_keys(array_values($board))));
+        }
+        // a mystery-symbol game's tail is what its mystery symbol turned into
+        if ($board !== null && ($mystery = $cfg->mystery()) !== null) {
+            // reel groups: the reel count, then each reel's symbol (0 off the groups)
+            if (($perReel = $cfg->mysteryReelTargets($board)) !== null) {
+                return $this->hexFmt(count($perReel)).implode('', array_map(fn ($s) => dechex($s ?? 0), $perReel)).$mystery['suffix'];
+            }
+
+            return $this->hexFmt((int) $cfg->mysteryTarget($board));
+        }
+
+        return $cfg->amaticClient()['spin_tail'] ?? $this->coinTail($cfg);
+    }
+
+    /**
+     * The "coins" client's tail after the cards (its `YAP`): the active
+     * booster index (`0f` = off) and 5 × 10 coin values. No coin feature
+     * runs here, so they're placeholders.
+     */
+    private function coinTail(GameConfig $cfg): string
+    {
+        if (! $this->isCoins($cfg)) {
+            return '';
+        }
+        $reel = $this->hexFmt(self::COIN_SLOTS).str_repeat('01', self::COIN_SLOTS);
+
+        return '0f'.str_repeat($reel, $cfg->reelCount());
+    }
+
+    /**
+     * Main reel positions: the played reels, then — for games with an overlay
+     * layer (Extra Gifts/Chillis: a second 5-strip set of mostly blanks) —
+     * each overlay reel parked on an all-blank window, so its feature never shows.
+     */
+    private function positions(GameConfig $cfg, array $rp): string
+    {
+        return $this->reelState($rp).implode('', array_map(fn ($p) => $this->hexFmt((int) $p), $cfg->amaticClient()['overlay_rp']));
+    }
+
+    /** Overlay strips (after the played reels' 5 slots). */
+    private function overlayStrips(GameConfig $cfg): string
+    {
+        $wide = $cfg->amaticClient()['digits'] === 2;
+        $out = '';
+        foreach ($cfg->amaticClient()['overlay_strips'] as $strip) {
+            $len = dechex(count($strip));
+            $out .= strlen($len).$len.implode('', array_map(fn ($s) => $wide ? $this->hex2((int) $s) : dechex((int) $s), $strip));
+        }
+
+        return $out;
+    }
+
     private function reelState(array $rp): string
     {
+        $rp = array_pad(array_values($rp), self::WIRE_REELS, 0);
+
         return implode('', array_map(fn ($p) => $this->hexFmt((int) $p), $rp));
     }
 
@@ -180,11 +316,11 @@ class AmaticFormatter
         $reelState = $this->reelState($rp);
 
         $curBet = $this->hex2((int) ($state['last_bet_index'] ?? 0));
-        $lines = self::LINES;
-        $linesHex = $this->hex2($lines);                       // '0a'
+        $linesHex = $this->hex2($this->wireLines($cfg));       // '0a' (ways: '09' …)
         $betCents = array_map(fn ($b) => (int) round($b * self::CENTS), $bets);
         $minBets = $this->hexFmt($betCents[0]);
-        $maxBets = $this->hexFmt(end($betCents) * $lines);
+        // the bet ladder is per line; a ways game's stake is the bet itself
+        $maxBets = $this->hexFmt(end($betCents) * ($cfg->isWays() ? 1 : $this->wireLines($cfg)));
         $betsLen = $this->hex2(count($bets));
 
         $freeTotal = (int) ($state['free_total'] ?? 0);
@@ -196,12 +332,25 @@ class AmaticFormatter
 
         // Games with a free-spin special symbol (e.g. AztecSecret) end the
         // packet with that symbol instead of the usual trailer.
-        $trailer = $cfg->freeSymbolCandidates() !== []
-            ? '0a'.str_repeat('10', 10).$this->freeSymbol($state, $gmsl)
-            : '3310101010101010101010101010101010101010101010101010101010101010101010101010101010101010101010101010101010#00101010|0';
+        // Ways games end with an empty win list sized like their spin's
+        // (as Amatic's own server sends it).
+        // "Coins" games read an exact-length win list, then the booster cap
+        // (none), booster factor and the coin tail.
+        $client = $cfg->amaticClient();
+        $slots = $client['win_slots'] ?? $this->winSlots($cfg);
+        $trailer = match (true) {
+            $client['init_tail'] !== null && $cfg->freeSymbolCandidates() === [] => $this->hex2($slots).str_repeat('10', $slots).$client['init_tail'].'#00101010|0',
+            $this->isCoins($cfg) => $this->hex2($this->winSlots($cfg)).str_repeat('10', $this->winSlots($cfg))
+                .'10'.$this->hexFmt(self::COIN_BOOSTER).$this->coinTail($cfg).'#00101010|0',
+            $cfg->freeSymbolCandidates() !== [] => '0a'.str_repeat('10', 10).$this->freeSymbol($state, $gmsl),
+            $cfg->isWays() => $this->hex2($this->winSlots($cfg)).str_repeat('10', $this->winSlots($cfg)).'#00101010|0',
+            default => '3310101010101010101010101010101010101010101010101010101010101010101010101010101010101010101010101010101010#00101010|0',
+        };
 
-        return '05'.$this->reelStrips($cfg, false).'5'.$this->reelStrips($cfg, true)
-            .'0'.$slotState.'0'.$reelState.'10'.$balance.$stateWin.$curBet.$minBets.$maxBets
+        $stripSlots = dechex(self::WIRE_REELS + count($cfg->amaticClient()['overlay_strips']));
+
+        return '0'.$stripSlots.$this->reelStrips($cfg, false).$this->overlayStrips($cfg).'5'.$this->reelStrips($cfg, true)
+            .'0'.$slotState.'0'.$this->positions($cfg, $rp).'10'.$balance.$stateWin.$curBet.$minBets.$maxBets
             .$linesHex.$freeInfo.'1010101011'.$linesHex.$linesHex.'0a1000'.$reelState
             .'0000000000000000'.$betsLen.$this->betString($bets)
             .$trailer;
@@ -213,9 +362,9 @@ class AmaticFormatter
         $cfg = $ctx->config();
         $balance = $this->hexFmt(round($ctx->balance() * self::CENTS));
         $rp = $state['rp'] ?? array_fill(0, $cfg->reelCount(), 0);
-        $linesHex = $this->hex2(self::LINES);
+        $linesHex = $this->hex2($this->wireLines($cfg));
 
-        return '100010'.$balance.'10'.$this->reelState($rp).'00'.$linesHex
+        return '100010'.$balance.'10'.$this->positions($cfg, $rp).'00'.$linesHex
             .'10101010101010101010100b101010101010101010101014311d0c18190208#101010';
     }
 
@@ -245,8 +394,10 @@ class AmaticFormatter
         $displayBalance = $this->hexFmt(round((float) ($state['frozen_balance'] ?? $ctx->balance()) * self::CENTS));
         $stepWin = $isFree ? (float) ($state['bonus_win'] ?? $r->win) : $r->win;
 
-        // per-line win, expressed in "credits" (win / betline / freeMpl), then the scatter total
-        $perLine = array_fill(0, self::LINES, 0.0);
+        // per-line win (ways: per paying symbol), expressed in "credits"
+        // (win / betline / freeMpl), then the scatter total
+        $wireLines = $this->wireLines($cfg);
+        $perLine = array_fill(0, $wireLines, 0.0);
         $scatterWin = 0.0;
         foreach ($r->lines as $w) {
             $ln = (int) ($w['line'] ?? -1);
@@ -255,7 +406,7 @@ class AmaticFormatter
 
                 continue;
             }
-            if ($ln < self::LINES) {
+            if ($ln < $wireLines) {
                 $perLine[$ln] += (float) ($w['amount'] ?? 0);
             }
         }
@@ -263,7 +414,11 @@ class AmaticFormatter
         foreach ($perLine as $amt) {
             $winHex .= $this->hexFmt(round($amt / max($betLine, 0.0001) / $bonusMpl));
         }
-        $winHex .= $this->hexFmt(round($scatterWin / max($betLine, 0.0001) / max($lines, 1) / $bonusMpl));
+        if ($this->winSlots($cfg) > $wireLines) {
+            $winHex .= $this->hexFmt(round($scatterWin / max($betLine, 0.0001) / max($lines, 1) / $bonusMpl));
+        }
+        // a ways game's own "lines" field is its symbol count, not the 1 line it stakes
+        $linesField = $cfg->isWays() ? $wireLines : $lines;
 
         $freeTotal = (int) ($state['free_total'] ?? 0);
         $freeLeft = (int) ($state['free_left'] ?? 0);
@@ -289,14 +444,14 @@ class AmaticFormatter
         // the `#` and the reels never stop.
         $freeSymbol = $cfg->freeSymbolCandidates() !== [] ? $this->freeSymbol($state, $gmsl) : '';
         // legacy `$fixedLinesFormated0` is fixed at dechex(10 + 1) — computed once,
-        // never recomputed for the actual line count.
-        $linesPlus = $this->hex2(self::LINES + 1);   // '0b'
-        $doubleAnswer = $reelState.$this->hex2($betIndex).$this->hex2($lines)
+        // never recomputed for the actual line count (ways: `$symCountAll`).
+        $linesPlus = $this->hex2($this->winSlots($cfg));   // '0b'
+        $doubleAnswer = $this->positions($cfg, $rp).$this->hex2($betIndex).$this->hex2($linesField)
             .'1010101010101010101010'.$linesPlus.$winHex;
 
-        $frame = '1'.$gameState.'010'.$displayBalance.$this->hexFmt(round($stepWin * self::CENTS)).$reelState
-            .$this->hex2($betIndex).$this->hex2($lines).$freeInfo.$freeWinState.$this->hexFmt($bonusMpl)
-            .'1010'.$reelState.$linesPlus.$winHex.$cards.$freeSymbol;
+        $frame = '1'.$gameState.'010'.$displayBalance.$this->hexFmt(round($stepWin * self::CENTS)).$this->positions($cfg, $rp)
+            .$this->hex2($betIndex).$this->hex2($linesField).$freeInfo.$freeWinState.$this->hexFmt($bonusMpl)
+            .'1010'.$reelState.$linesPlus.$winHex.$cards.$freeSymbol.($freeSymbol === '' ? $this->spinTail($cfg, $r->reels) : '');
         // The old amarent client reads `#<scatters>_<reels JSON>`; the gmsl
         // client decodes three more hex fields after `#` and derives the board
         // from the strip positions itself (as captured from Amatic's own server).
@@ -324,7 +479,7 @@ class AmaticFormatter
         $answer = (string) ($state['double_answer'] ?? '');
         $cards = $this->cards($state, $action, $won);
 
-        return '107010'.$balance.strlen($winHex).$winHex.$answer.$cards;
+        return '107010'.$balance.strlen($winHex).$winHex.$answer.$cards.$this->spinTail($ctx->config());
     }
 
     /** `A/u258` — same shape, header `1 08 010`. */
@@ -335,7 +490,7 @@ class AmaticFormatter
         $winHex = dechex((int) round($win * self::CENTS));
         $answer = (string) ($state['double_answer'] ?? '');
 
-        return '108010'.$balance.strlen($winHex).$winHex.$answer.str_repeat('00', self::CARDS);
+        return '108010'.$balance.strlen($winHex).$winHex.$answer.str_repeat('00', self::CARDS).$this->spinTail($ctx->config());
     }
 
     /** Gamble-card history, newest first — one fresh card pushed each round. */
@@ -364,12 +519,13 @@ class AmaticFormatter
         $rp = $state['rp'] ?? array_fill(0, $cfg->reelCount(), 0);
         $reelState = $this->reelState($rp);
         $win = $this->hexFmt(round((float) ($state['total_win'] ?? 0) * self::CENTS));
-        $winHex = (string) ($state['win_hex'] ?? str_repeat('10', self::LINES + 1));
+        $winHex = (string) ($state['win_hex'] ?? str_repeat('10', $this->winSlots($cfg)));
         $betIndex = $this->hex2((int) ($state['last_bet_index'] ?? 0));
-        $lines = $this->hex2((int) ($state['last_lines'] ?? self::LINES));
+        $lines = $this->hex2($cfg->isWays() ? $this->wireLines($cfg) : (int) ($state['last_lines'] ?? $this->wireLines($cfg)));
 
-        return '104010'.$balance.$win.$reelState.$betIndex.$lines
-            .'1010101010101010101010'.$this->hex2(self::LINES + 1).$winHex.str_repeat('00', self::CARDS).'#101010';
+        return '104010'.$balance.$win.$this->positions($cfg, $rp).$betIndex.$lines
+            .'1010101010101010101010'.$this->hex2($this->winSlots($cfg)).$winHex.str_repeat('00', self::CARDS)
+            .$this->spinTail($cfg).'#101010';
     }
 
     /** `A/u350` — the 5-second balance poll. */
