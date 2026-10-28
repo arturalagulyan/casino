@@ -2,10 +2,13 @@
 
 namespace App\Services\GamePlay\Protocol;
 
+use App\Services\GamePlay\Amatic\AmaticClientMath;
 use App\Services\GamePlay\Engine\SlotEngine;
 use App\Services\GamePlay\GameContext;
 use App\Services\GamePlay\SpinResult;
 use App\Services\Legacy\Bridge\LegacyServerBridge;
+use Illuminate\Support\Facades\Cache;
+use Illuminate\Support\Facades\Log;
 
 /**
  * The legacy Amatic "amarent" wire protocol — one handler shared by every `*AM`
@@ -31,6 +34,7 @@ class AmaticProtocol
         private readonly LegacyServerBridge $legacy,
         private readonly AmaticKenoHandler $keno,
         private readonly AmaticWildcatHandler $wildcat,
+        private readonly AmaticClientMath $clientMath,
     ) {}
 
     /**
@@ -102,9 +106,14 @@ class AmaticProtocol
         $isFree = $freeCmd || $inFreeSpins;
 
         // a buy starts the free spins, so only from the base game, on a game that has them
-        $client = $cfg->amaticClient();
-        $price = $buy >= 0 ? (float) ($client['buy'][$buy] ?? 0) : 1.0;
+        $offer = $buy >= 0 ? $this->buyOffer($ctx) : ['prices' => [], 'cap' => 0];
+        $price = $buy >= 0 ? (float) ($offer['prices'][$buy] ?? 0) : 1.0;
         if ($buy >= 0 && ($price <= 0 || $inFreeSpins || ! $cfg->hasFreeSpins() || $cfg->scatterSymbol() === null)) {
+            Log::warning('Amatic bonus buy refused', [
+                'template' => $ctx->game->template->code, 'buy' => $buy, 'prices' => $offer['prices'],
+                'in_free_spins' => $inFreeSpins, 'has_free_spins' => $cfg->hasFreeSpins(), 'scatter' => $cfg->scatterSymbol(),
+            ]);
+
             return [$this->fmt->error('A/u2566', 'invalid buy')];
         }
 
@@ -133,7 +142,7 @@ class AmaticProtocol
             $betLine = round((float) $bets[$betIndex] * $denom, 8);
             $stake = round($betLine * $lines, 4);
             $cost = round($stake * $price, 4);
-            if ($buy >= 0 && $client['buy_cap'] > 0 && round($cost * 100) > $client['buy_cap']) {
+            if ($buy >= 0 && $offer['cap'] > 0 && round($cost * 100) > $offer['cap']) {
                 return [$this->fmt->error('A/u2566', 'invalid buy')];
             }
             if ($ctx->balance() < $cost) {
@@ -195,6 +204,28 @@ class AmaticProtocol
         );
 
         return [$packet['frame']];
+    }
+
+    /**
+     * The bonus-buy prices (× stake) and cost cap the client was offered:
+     * stored at import, else read once from the active bundle's engine
+     * (games imported before the import kept them).
+     *
+     * @return array{prices: list<int>, cap: int}
+     */
+    private function buyOffer(GameContext $ctx): array
+    {
+        $client = $ctx->config()->amaticClient();
+        if ($client['buy'] !== []) {
+            return ['prices' => $client['buy'], 'cap' => $client['buy_cap']];
+        }
+        $bundle = $ctx->game->template->activeBundle;
+        if ($bundle === null || $client['init_tail'] === null) {
+            return ['prices' => [], 'cap' => 0];
+        }
+
+        return Cache::rememberForever("amatic:buy:{$bundle->id}:".md5($client['init_tail']),
+            fn () => $this->clientMath->bundleBuyOptions($bundle, $client['init_tail']) ?? ['prices' => [], 'cap' => 0]);
     }
 
     // ---- gamble ------------------------------------------------

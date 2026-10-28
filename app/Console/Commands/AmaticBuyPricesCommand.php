@@ -31,13 +31,7 @@ class AmaticBuyPricesCommand extends Command
         foreach ($query->orderBy('id')->cursor() as $bundle) {
             $template = $bundle->template;
             $config = (array) $template->bonus_config;
-            $js = '';
-            foreach ($bundle->disk()->allFiles($bundle->path) as $file) {
-                if (preg_match('#/src/[^/]+\.js$#', $file) && ! str_contains($file, '/amarent/')) {
-                    $js .= "\n".$bundle->disk()->get($file);
-                }
-            }
-            $buy = $math->buyOptions($js, (string) $config['client']['init_tail']);
+            $buy = $math->bundleBuyOptions($bundle, (string) $config['client']['init_tail']);
             if ($buy === null) {
                 continue;
             }

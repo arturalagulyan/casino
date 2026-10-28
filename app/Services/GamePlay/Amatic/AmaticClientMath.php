@@ -2,6 +2,8 @@
 
 namespace App\Services\GamePlay\Amatic;
 
+use App\Models\GameBundle;
+
 /**
  * Pulls a game's base-game tables out of its (minified) Amatic engine. The
  * client draws its help screens and line animations from its own copy of
@@ -99,6 +101,24 @@ class AmaticClientMath
         }
 
         return $out;
+    }
+
+    /**
+     * {@see buyOptions()} with the engine scripts of a mirrored game bundle
+     * (its `/src/*.js`, not the shared amarent loader/config).
+     *
+     * @return array{prices: list<int>, cap: int}|null
+     */
+    public function bundleBuyOptions(GameBundle $bundle, string $tail): ?array
+    {
+        $js = '';
+        foreach ($bundle->disk()->allFiles($bundle->path) as $file) {
+            if (preg_match('#/src/[^/]+\.js$#', $file) && ! str_contains($file, '/amarent/')) {
+                $js .= "\n".$bundle->disk()->get($file);
+            }
+        }
+
+        return $this->buyOptions($js, $tail);
     }
 
     /**
