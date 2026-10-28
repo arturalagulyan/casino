@@ -206,7 +206,7 @@ class PlayNGoProtocol
 
     private function currency(GameContext $context): string
     {
-        return $context->session()->game->shop->currency->value;
+        return $context->currency->value;
     }
 
     private function cents(float $amount): int
