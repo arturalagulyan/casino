@@ -33,12 +33,16 @@ class SlotEngine
 
     public function __construct(private readonly SpinDecider $decider) {}
 
-    public function spin(GameContext $context, float $stake, int $lines, float $betline, bool $free = false): SpinResult
+    /** `$buy`: a bought bonus — the board must trigger the feature, whatever the decider wanted. */
+    public function spin(GameContext $context, float $stake, int $lines, float $betline, bool $free = false, bool $buy = false): SpinResult
     {
         $cfg = $context->config();
         // Ways games stake one line but read the 10-line win chances (legacy
         // `GetSpinSettings(…, 10)`); their evaluation ignores $lines.
         $decision = $this->decider->decide($context, $free ? 'bonus' : 'spin', $cfg->isWays() ? 10 : $lines, $stake);
+        if ($buy) {
+            $decision->type = 'bonus';
+        }
 
         // Win ceiling = what the bank can afford, capped by the shop's single-win
         // cap (which the RTP loop shrinks when the game is ahead); win floor = a

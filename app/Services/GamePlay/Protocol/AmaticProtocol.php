@@ -17,6 +17,7 @@ use App\Services\Legacy\Bridge\LegacyServerBridge;
  *   A/u25   init / settings          A/u251  spin        A/u257  gamble (red/black/suit)
  *   A/u250  re-sync                  A/u254  collect     A/u258  gamble half-collect
  *   A/u256  free spin (→ A/u251)     A/u350  balance poll
+ *   A/u2566 bonus buy (gmsl: `,<lines>,<bet>,…,<n>` — price n of the init tail × the stake)
  *
  * All spin/win maths is the generic {@see SlotEngine}; money mirrors
  * {@see GamePlatformProtocol} (spin balance is pre-win, reconciled to afterBalance).
@@ -71,6 +72,7 @@ class AmaticProtocol
                 'A/u25' => [$this->fmt->settings($ctx, $state, $gmsl)],
                 'A/u250' => [$this->fmt->resync($ctx, $state)],
                 'A/u251', 'A/u256' => $this->spin($ctx, $parts, $cmd === 'A/u256', $gmsl),
+                'A/u2566' => $this->spin($ctx, $parts, false, $gmsl, (int) end($parts)),
                 'A/u254' => [$this->fmt->collect($ctx, $state)],
                 'A/u257' => $this->gamble($ctx, $parts),
                 'A/u258' => $this->gambleHalf($ctx),
@@ -86,8 +88,11 @@ class AmaticProtocol
 
     // ---- spin ---------------------------------------------------
 
-    /** @param list<string> $parts  [cmd, lines, betIndex] */
-    private function spin(GameContext $ctx, array $parts, bool $freeCmd, bool $gmsl = false): array
+    /**
+     * @param  list<string>  $parts  [cmd, lines, betIndex]
+     * @param  int  $buy  bought bonus (index into the client's buy prices), -1 for a plain spin
+     */
+    private function spin(GameContext $ctx, array $parts, bool $freeCmd, bool $gmsl = false, int $buy = -1): array
     {
         $cfg = $ctx->config();
         $denom = $cfg->denomination();
@@ -95,6 +100,13 @@ class AmaticProtocol
 
         $inFreeSpins = (int) ($state['free_left'] ?? 0) > 0;
         $isFree = $freeCmd || $inFreeSpins;
+
+        // a buy starts the free spins, so only from the base game, on a game that has them
+        $client = $cfg->amaticClient();
+        $price = $buy >= 0 ? (float) ($client['buy'][$buy] ?? 0) : 1.0;
+        if ($buy >= 0 && ($price <= 0 || $inFreeSpins || ! $cfg->hasFreeSpins() || $cfg->scatterSymbol() === null)) {
+            return [$this->fmt->error('A/u2566', 'invalid buy')];
+        }
 
         if ($isFree && ! $inFreeSpins) {
             return [$this->fmt->error('A/u256', 'invalid bonus state')];
@@ -105,7 +117,7 @@ class AmaticProtocol
             $betLine = (float) ($state['last_bet'] ?? 0);   // already re-priced (see below)
             $betIndex = (int) ($state['last_bet_index'] ?? 0);
             $state['free_left'] = (int) $state['free_left'] - 1;
-            $stake = 0.0;
+            $stake = $cost = 0.0;
         } else {
             // Ways games send their symbol count as "lines" but stake one bet
             // (legacy `$lines = 1`).
@@ -120,10 +132,14 @@ class AmaticProtocol
             // here on, so it matches what settings() displayed at that index.
             $betLine = round((float) $bets[$betIndex] * $denom, 8);
             $stake = round($betLine * $lines, 4);
-            if ($ctx->balance() < $stake) {
-                return [$this->fmt->error('A/u251', 'invalid balance')];
+            $cost = round($stake * $price, 4);
+            if ($buy >= 0 && $client['buy_cap'] > 0 && round($cost * 100) > $client['buy_cap']) {
+                return [$this->fmt->error('A/u2566', 'invalid buy')];
             }
-            $ctx->placeBet($stake);
+            if ($ctx->balance() < $cost) {
+                return [$this->fmt->error($buy >= 0 ? 'A/u2566' : 'A/u251', 'invalid balance')];
+            }
+            $ctx->placeBet($cost);
             $state = [
                 'last_bet' => $betLine,
                 'last_lines' => $lines,
@@ -138,7 +154,7 @@ class AmaticProtocol
         }
 
         $mult = $isFree ? max(1, $cfg->freeSpinsMultiplier()) : 1;
-        $result = $this->engine->spin($ctx, max($stake, $betLine * $lines), $lines, $betLine, $isFree);
+        $result = $this->engine->spin($ctx, max($stake, $betLine * $lines), $lines, $betLine, $isFree, $buy >= 0);
         $result->win = min(round($result->win * $mult, 4), $ctx->maxWin($betLine * $lines));
 
         if ($result->win > 0) {
@@ -147,8 +163,9 @@ class AmaticProtocol
 
         $scatter = $cfg->scatterSymbol();
         $scatterCount = (int) ($result->extra['scatters'][$scatter] ?? 0);
-        if ($scatterCount >= 3 && $cfg->hasFreeSpins()) {
-            $grant = $cfg->freeSpinsFor($scatterCount);
+        // a bought bonus is paid for: the free spins come even if no triggering board was found
+        if (($scatterCount >= 3 || $buy >= 0) && $cfg->hasFreeSpins()) {
+            $grant = $cfg->freeSpinsFor(max(3, $scatterCount));
             $state['free_left'] = (int) ($state['free_left'] ?? 0) + $grant;
             $state['free_total'] = (int) ($state['free_total'] ?? 0) + $grant;
 
@@ -166,15 +183,15 @@ class AmaticProtocol
         $state['total_win'] = $isFree ? $state['bonus_win'] : $result->win;
         $state['gamble_amount'] = $isFree ? 0.0 : $result->win;
 
-        $packet = $this->fmt->spin($ctx, $result, $state, $isFree, $gmsl);
+        $packet = $this->fmt->spin($ctx, $result, $state, $isFree, $gmsl, $buy >= 0);
         $state['rp'] = $packet['rp'];
         $state['double_answer'] = $packet['double_answer'];
         $state['win_hex'] = $packet['win_hex'];
 
         $ctx->statePut(['features' => $state]);
         $ctx->recordRound(
-            new SpinResult(bet: $isFree ? 0.0 : $stake, win: $result->win, state: $isFree ? 'freespin' : 'bet'),
-            json_encode(['responseEvent' => 'spin', 'serverResponse' => ['totalWin' => $result->win]]),
+            new SpinResult(bet: $isFree ? 0.0 : $cost, win: $result->win, state: $isFree ? 'freespin' : 'bet'),
+            json_encode(['responseEvent' => 'spin', 'serverResponse' => ['totalWin' => $result->win] + ($buy >= 0 ? ['buy' => $buy] : [])]),
         );
 
         return [$packet['frame']];

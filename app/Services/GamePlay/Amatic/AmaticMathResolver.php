@@ -455,6 +455,7 @@ class AmaticMathResolver
         if ($initTail === '' && $spinTail === '' && $init['width'] === 1 && $overlay === []) {
             return null;
         }
+        $buy = $this->clientMath->buyOptions($engineJs, $initTail);
         // Coin games' booster (`this.Yev=this.Y3r(a);this.Ye8=[this.Y3r(a)/100]`
         // first in the tail): we run no coin feature, so it must cost nothing (×1.00)
         if (preg_match('/this\.[\w$]+=this\.[\w$]+\(a\);this\.[\w$]+=\[this\.[\w$]+\(a\)\/100\]/', $engineJs) && preg_match('/^(\d)/', $initTail)) {
@@ -468,6 +469,9 @@ class AmaticMathResolver
             'spin_tail' => $spinTail,
             'overlay_strips' => $overlay ?: null,
             'overlay_rp' => $overlay ? array_map(fn ($strip) => $this->blankPosition($strip, $rows), $overlay) : null,
+            // bonus-buy prices (× total bet) the init tail offers, and their cost cap (cents, 0 = none)
+            'buy' => $buy['prices'] ?? null,
+            'buy_cap' => $buy['cap'] ?? null,
         ];
     }
 

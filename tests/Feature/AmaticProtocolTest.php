@@ -209,6 +209,40 @@ class AmaticProtocolTest extends TestCase
         $this->assertSame('0.0000', $player->rounds()->latest('id')->first()->bet);
     }
 
+    public function test_bonus_buy_charges_the_price_and_starts_the_free_spins(): void
+    {
+        [, $game, $player] = $this->amaticGame();
+        $game->template->update(['bonus_config' => ['client' => ['buy' => [100], 'buy_cap' => 0]]]);
+        $session = $this->openSession($player, $game);
+
+        // A/u2566,<lines>,<betIndex>,<…>,<buy> → stake 10 lines × 1 credit = 10, × 100
+        $out = $this->send($session, 'A/u2566,10,0,0,0');
+
+        $this->assertStringStartsWith('142010', $out[0]);      // state 66: bonus bought
+        $this->assertSame('1000.0000', $player->rounds()->latest('id')->first()->bet);
+        $this->assertSame(10, $session->fresh()->state['features']['free_left']);
+        $this->assertEqualsWithDelta(
+            10000 + $this->walletDelta($player),
+            (float) $player->wallet->fresh()->balance,
+            0.001,
+        );
+    }
+
+    public function test_bonus_buy_is_refused_without_prices_or_during_free_spins(): void
+    {
+        [, $game, $player] = $this->amaticGame();
+        $session = $this->openSession($player, $game);
+
+        $this->assertStringContainsString('invalid buy', $this->send($session, 'A/u2566,10,0,0,0')[0]);
+
+        $game->template->update(['bonus_config' => ['client' => ['buy' => [100], 'buy_cap' => 0]]]);
+        $session->update(['state' => ['features' => ['last_bet' => 1.0, 'last_lines' => 10, 'free_total' => 10, 'free_left' => 5]]]);
+        $this->assertStringContainsString('invalid buy', $this->send($session, 'A/u2566,10,0,0,0')[0]);
+
+        $this->assertSame(0, $player->rounds()->count());
+        $this->assertSame(10000.0, (float) $player->wallet->fresh()->balance);
+    }
+
     public function test_gamble_is_wallet_consistent(): void
     {
         [, $game, $player] = $this->amaticGame();

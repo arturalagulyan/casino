@@ -796,7 +796,10 @@ class GameConfig
      * Overlay games (a second strip set over the reels) also carry those strips
      * and the parked positions to send.
      *
-     * @return array{digits: int, win_slots: ?int, init_tail: ?string, spin_tail: ?string, overlay_strips: list<list<int>>, overlay_rp: list<int>}
+     * Bonus-buy games carry the prices their init tail offers (× total bet)
+     * and the cap on a buy's cost (cents, 0 = none).
+     *
+     * @return array{digits: int, win_slots: ?int, init_tail: ?string, spin_tail: ?string, overlay_strips: list<list<int>>, overlay_rp: list<int>, buy: list<int>, buy_cap: int}
      */
     public function amaticClient(): array
     {
@@ -809,6 +812,8 @@ class GameConfig
             'spin_tail' => isset($c['spin_tail']) ? (string) $c['spin_tail'] : null,
             'overlay_strips' => array_values(array_map(fn ($s) => array_map('intval', (array) $s), (array) ($c['overlay_strips'] ?? []))),
             'overlay_rp' => array_values(array_map('intval', (array) ($c['overlay_rp'] ?? []))),
+            'buy' => array_values(array_map('intval', (array) ($c['buy'] ?? []))),
+            'buy_cap' => (int) ($c['buy_cap'] ?? 0),
         ];
     }
 

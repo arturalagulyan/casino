@@ -376,7 +376,7 @@ class AmaticFormatter
      * @param  array<string, mixed>  $state
      * @return array{frame: string, rp: list<int>, double_answer: string, win_hex: string}
      */
-    public function spin(GameContext $ctx, SpinResult $r, array $state, bool $isFree, bool $gmsl = false): array
+    public function spin(GameContext $ctx, SpinResult $r, array $state, bool $isFree, bool $gmsl = false, bool $bought = false): array
     {
         $cfg = $ctx->config();
         $betLine = (float) ($state['last_bet'] ?? 0) ?: 1.0;
@@ -427,6 +427,8 @@ class AmaticFormatter
         $freeWinState = $isFree && $r->win > 0 ? '19' : '10';
 
         $gameState = match (true) {
+            // 66: bonus bought — the client starts the free spins as on 05
+            $bought => '42',
             $scatterCount >= 3 && ! $isFree => '05',
             $isFree && $freeLeft <= 0 => '0c',
             $isFree && $scatterCount >= 3 => '0a',
