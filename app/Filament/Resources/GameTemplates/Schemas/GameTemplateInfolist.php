@@ -28,6 +28,10 @@ class GameTemplateInfolist
                     ->badge()
                     ->state(fn (GameTemplate $record) => $record->categories->pluck('title')->all())
                     ->placeholder('— (inherited from this template\'s games)'),
+                TextEntry::make('tags.name')
+                    ->label('Tags')
+                    ->badge()
+                    ->placeholder('—'),
                 TextEntry::make('package_path')
                     ->placeholder('-'),
                 TextEntry::make('client_path')

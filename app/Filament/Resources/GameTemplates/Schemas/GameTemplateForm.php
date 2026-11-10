@@ -17,7 +17,9 @@ use Filament\Forms\Components\TextInput;
 use Filament\Forms\Components\Toggle;
 use Filament\Schemas\Components\Section;
 use Filament\Schemas\Components\Utilities\Get;
+use Filament\Schemas\Components\Utilities\Set;
 use Filament\Schemas\Schema;
+use Illuminate\Support\Str;
 
 /**
  * A game template is the shared engine spec — the "group" every game cloned from
@@ -44,6 +46,19 @@ class GameTemplateForm
                         Select::make('bank_type')->options(BankType::class)->default('slots')->required()
                             ->helperText('Default liquidity pool (legacy gamebank).'),
                         Toggle::make('is_active')->default(true),
+                        Select::make('tags')
+                            ->relationship('tags', 'name')
+                            ->multiple()
+                            ->preload()
+                            ->searchable()
+                            ->createOptionForm([
+                                TextInput::make('name')->required()
+                                    ->afterStateUpdated(fn ($state, Set $set) => $set('slug', Str::slug((string) $state)))
+                                    ->live(onBlur: true),
+                                TextInput::make('slug')->required()->unique('tags', 'slug'),
+                            ])
+                            ->helperText('Themes / labels (Christmas, Books, New…) — searchable in the lobby. Providers are categories.')
+                            ->columnSpanFull(),
                         FileUpload::make('poster_path')
                             ->label('Poster')
                             ->image()

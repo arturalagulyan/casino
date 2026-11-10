@@ -11,24 +11,50 @@
                    data-lobby-search autocomplete="off" class="field">
         </form>
 
-        {{-- category rail --}}
-        <div class="mb-4 flex gap-2 overflow-x-auto pb-2">
-            <a href="{{ route('frontend.lobby', array_filter(['q' => $search])) }}"
+        {{-- provider rail --}}
+        <div class="mb-3 flex items-center gap-2 overflow-x-auto pb-2">
+            <a href="{{ route('frontend.lobby', array_filter(['tag' => $activeTag, 'q' => $search])) }}"
                class="cat-chip" data-active="{{ $activeCategory ? 'false' : 'true' }}">All</a>
             @foreach($categories as $category)
-                <a href="{{ route('frontend.lobby', array_filter(['category' => $category->slug, 'q' => $search])) }}"
-                   class="cat-chip" data-active="{{ $activeCategory === $category->slug ? 'true' : 'false' }}">
-                    {{ $category->title }}
+                <a href="{{ route('frontend.lobby', array_filter(['category' => $category->slug, 'tag' => $activeTag, 'q' => $search])) }}"
+                   class="cat-chip shrink-0" title="{{ $category->title }}"
+                   data-active="{{ $activeCategory === $category->slug ? 'true' : 'false' }}">
+                    @if($icon = $category->imageUrl())
+                        <img src="{{ $icon }}" alt="{{ $category->title }}" class="h-4 w-auto max-w-[110px] object-contain">
+                    @else
+                        {{ $category->title }}
+                    @endif
                     <span class="text-zinc-500">{{ $category->games_count }}</span>
                 </a>
             @endforeach
         </div>
+
+        {{-- tag rail --}}
+        @if($tags->isNotEmpty())
+            <div class="mb-4 flex items-center gap-2 overflow-x-auto pb-2">
+                @foreach($tags as $tag)
+                    <a href="{{ route('frontend.lobby', array_filter([
+                            'category' => $activeCategory,
+                            'q' => $search,
+                            'tag' => $activeTag === $tag->slug ? null : $tag->slug,
+                        ])) }}"
+                       class="cat-chip shrink-0" data-active="{{ $activeTag === $tag->slug ? 'true' : 'false' }}">
+                        @if($icon = $tag->imageUrl())
+                            <img src="{{ $icon }}" alt="" class="h-4 w-4 object-contain">
+                        @endif
+                        {{ $tag->name }}
+                        <span class="text-zinc-500">{{ $tag->games_count }}</span>
+                    </a>
+                @endforeach
+            </div>
+        @endif
 
         {{-- label filters --}}
         <div class="mb-6 flex gap-2">
             @foreach(\App\Enums\GameLabel::cases() as $label)
                 <a href="{{ route('frontend.lobby', array_filter([
                         'category' => $activeCategory,
+                        'tag' => $activeTag,
                         'q' => $search,
                         'label' => $activeLabel === $label ? null : $label->value,
                     ])) }}"

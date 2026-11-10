@@ -10,6 +10,7 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Support\Carbon;
+use Illuminate\Support\Facades\Storage;
 
 /**
  * @property int $id
@@ -18,6 +19,9 @@ use Illuminate\Support\Carbon;
  * @property int|null $template_id
  * @property string $title
  * @property string|null $slug
+ * @property string|null $type
+ * @property string|null $image_path
+ * @property string|null $external_ref
  * @property int $position
  * @property array<array-key, mixed>|null $config
  * @property Carbon|null $created_at
@@ -76,6 +80,12 @@ class Category extends Model
     public function games(): BelongsToMany
     {
         return $this->belongsToMany(Game::class)->withTimestamps();
+    }
+
+    /** Public URL of the category's icon (provider logo), or null. */
+    public function imageUrl(): ?string
+    {
+        return $this->image_path ? Storage::disk('public')->url($this->image_path) : null;
     }
 
     public function shops(): BelongsToMany

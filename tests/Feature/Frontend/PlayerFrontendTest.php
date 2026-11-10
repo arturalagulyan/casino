@@ -9,6 +9,7 @@ use App\Models\Game;
 use App\Models\GameBank;
 use App\Models\GameTemplate;
 use App\Models\Shop;
+use App\Models\Tag;
 use App\Models\User;
 use App\Services\SeamlessWallet\GameLaunch;
 use Database\Seeders\RolesAndPermissionsSeeder;
@@ -116,6 +117,32 @@ class PlayerFrontendTest extends TestCase
 
         $this->get('/?category=egt')->assertOk()->assertSee('Sweet Bonanza')->assertDontSee('Book of Ra');
         $this->get('/?q=book')->assertOk()->assertSee('Book of Ra')->assertDontSee('Sweet Bonanza');
+    }
+
+    public function test_lobby_filters_by_tag_and_search_matches_tag_names(): void
+    {
+        $other = GameTemplate::create(['code' => 'BookOfRaNV', 'title' => 'Book of Ra', 'device' => 'both', 'bank_type' => 'slots', 'default_denomination' => 1]);
+        Game::create(['shop_id' => $this->shop->id, 'template_id' => $other->id, 'bank_type' => 'slots', 'denomination' => 1, 'is_visible' => true]);
+        Tag::create(['name' => 'Christmas', 'slug' => 'christmas'])->templates()->attach($this->game->template_id);
+
+        $this->actingAs($this->player());
+
+        $this->get('/')->assertOk()->assertSee('href="'.e(route('frontend.lobby', ['tag' => 'christmas'])).'"', false);
+        $this->get('/?tag=christmas')->assertOk()->assertSee('Sweet Bonanza')->assertDontSee('Book of Ra');
+        $this->get('/?q=christ')->assertOk()->assertSee('Sweet Bonanza')->assertDontSee('Book of Ra');
+        $this->get('/?category=egt&tag=christmas')->assertOk()->assertSee('Sweet Bonanza');
+    }
+
+    public function test_lobby_shows_provider_icons_and_hides_empty_tags(): void
+    {
+        Category::where('slug', 'egt')->update(['image_path' => 'category-images/provider-egt.svg']);
+        Tag::create(['name' => 'Halloween', 'slug' => 'halloween']);
+
+        $this->actingAs($this->player());
+
+        $this->get('/')->assertOk()
+            ->assertSee('category-images/provider-egt.svg', false)
+            ->assertDontSee('Halloween');
     }
 
     public function test_launch_issues_a_valid_token_and_redirects_to_the_game(): void

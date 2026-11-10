@@ -11,6 +11,7 @@ use App\Models\Game;
 use App\Models\GameBundle;
 use App\Models\GameTemplate;
 use App\Models\Shop;
+use App\Models\Tag;
 use App\Services\GamePlay\Amatic\AmaticLiveClient;
 use App\Services\GamePlay\Amatic\AmaticMathResolver;
 use App\Services\GamePlay\Amatic\AmaticWildcatMath;
@@ -63,7 +64,7 @@ class FetchAmaticGameCommand extends Command
         {--rtp=90 : Per-shop RTP %}
         {--max-win=50 : Per-shop max win (× bet)}
         {--spins=40 : Live free-play spins sampled on Amatic\'s server to verify the maths}
-        {--category=* : Extra category (by title, created if missing) for the games — besides "Amatic"}
+        {--category=* : Tag (by name, created if missing) for the game — themes / lobby sections; the provider category is always "Amatic"}
         {--plain-code : Default the template code to the game id itself (e.g. FortuneJoker10, not FortuneJoker10New)}
         {--reuse-mirror : Use an earlier mirror of the same game instead of downloading it again}
         {--keep-bundle : Keep the template\'s active bundle (only update maths/games)}
@@ -220,11 +221,12 @@ class FetchAmaticGameCommand extends Command
             ['title' => 'Amatic', 'position' => 4, 'config' => ['client_protocol' => 'amatic']],
         );
         $categoryIds = [$amatic->id];
+        // themes / lobby sections are tags on the template, not categories (categories = providers)
         foreach ((array) $this->option('category') as $name) {
-            $categoryIds[] = Category::firstOrCreate(
+            $template->tags()->syncWithoutDetaching([Tag::firstOrCreate(
                 ['slug' => Str::slug((string) $name)],
-                ['title' => (string) $name, 'position' => 10],
-            )->id;
+                ['name' => (string) $name, 'position' => 10],
+            )->id]);
         }
         foreach ($shops as $shop) {
             $row = Game::updateOrCreate(

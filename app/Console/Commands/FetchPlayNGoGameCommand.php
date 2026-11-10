@@ -10,6 +10,7 @@ use App\Models\Category;
 use App\Models\Game;
 use App\Models\GameTemplate;
 use App\Models\Shop;
+use App\Models\Tag;
 use App\Services\GamePlay\BundleManager;
 use App\Services\GamePlay\PlayNGo\PlayNGoLibrary;
 use App\Services\GamePlay\PlayNGo\PlayNGoMirror;
@@ -42,7 +43,7 @@ class FetchPlayNGoGameCommand extends Command
         {--currency=EUR : Pricing currency of the bet ladder}
         {--rtp=90 : Per-shop RTP %}
         {--max-win=2000 : Per-shop max win (× bet)}
-        {--category=* : Extra category (by title, created if missing) — besides "Play\'n GO"}
+        {--category=* : Tag (by name, created if missing) for the game — the provider category is always "Play\'n GO"}
         {--poster= : Poster image URL}
         {--rounds=500 : Practice rounds to record when the library is empty}
         {--reuse-mirror : Use an earlier mirror instead of downloading the client again}';
@@ -139,8 +140,9 @@ class FetchPlayNGoGameCommand extends Command
         // 6. games
         $categoryIds = [Category::firstOrCreate(['slug' => 'playngo'],
             ['title' => "Play'n GO", 'position' => 5, 'config' => ['client_protocol' => ClientProtocol::PlayNGo->value]])->id];
+        // themes are tags on the template, not categories (categories = providers)
         foreach ((array) $this->option('category') as $name) {
-            $categoryIds[] = Category::firstOrCreate(['slug' => Str::slug((string) $name)], ['title' => (string) $name, 'position' => 10])->id;
+            $template->tags()->syncWithoutDetaching([Tag::firstOrCreate(['slug' => Str::slug((string) $name)], ['name' => (string) $name, 'position' => 10])->id]);
         }
         foreach ($shops as $shop) {
             $row = Game::updateOrCreate(['shop_id' => $shop->id, 'template_id' => $template->id], [

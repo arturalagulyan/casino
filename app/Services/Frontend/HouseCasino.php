@@ -6,6 +6,7 @@ use App\Models\ApiKey;
 use App\Models\Category;
 use App\Models\Game;
 use App\Models\Shop;
+use App\Models\Tag;
 use App\Models\User;
 use App\Services\SeamlessWallet\GameLaunch;
 use Illuminate\Database\Eloquent\Builder;
@@ -51,7 +52,7 @@ class HouseCasino
         return Game::query()
             ->where('shop_id', $this->shop()->id)
             ->where('is_visible', true)
-            ->with(['template:id,code,title,poster_path', 'categories:id,title,slug']);
+            ->with(['template:id,code,title,poster_path', 'categories:id,title,slug,image_path']);
     }
 
     /** Categories that carry at least one visible house game, with their counts. */
@@ -66,6 +67,19 @@ class HouseCasino
                 ->where('games.is_visible', true)])
             ->orderBy('position')
             ->orderBy('title')
+            ->get();
+    }
+
+    /** Tags that carry at least one visible house game, with their counts. */
+    public function tags(): Collection
+    {
+        $visible = fn (Builder $q) => $q->where('games.shop_id', $this->shop()->id)->where('games.is_visible', true);
+
+        return Tag::query()
+            ->whereHas('templates.games', $visible)
+            ->withCount(['templates as games_count' => fn (Builder $q) => $q->whereHas('games', $visible)])
+            ->orderBy('position')
+            ->orderBy('name')
             ->get();
     }
 

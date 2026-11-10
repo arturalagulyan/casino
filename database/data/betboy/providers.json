@@ -1,0 +1,186 @@
+[
+  {
+    "id": "netent",
+    "name": "NetEnt"
+  },
+  {
+    "id": "amatic",
+    "name": "Amatic"
+  },
+  {
+    "id": "apollo",
+    "name": "Apollo"
+  },
+  {
+    "id": "novoline",
+    "name": "Novoline"
+  },
+  {
+    "id": "igrosoft",
+    "name": "Igrosoft"
+  },
+  {
+    "id": "igt",
+    "name": "IGT"
+  },
+  {
+    "id": "aristocrat",
+    "name": "Aristocrat"
+  },
+  {
+    "id": "gaminator",
+    "name": "Gaminator"
+  },
+  {
+    "id": "quickspin",
+    "name": "Quickspin"
+  },
+  {
+    "id": "playtech",
+    "name": "Playtech"
+  },
+  {
+    "id": "microgaming",
+    "name": "Microgaming"
+  },
+  {
+    "id": "wazdan",
+    "name": "Wazdan"
+  },
+  {
+    "id": "kajot",
+    "name": "Kajot"
+  },
+  {
+    "id": "merkur",
+    "name": "Merkur"
+  },
+  {
+    "id": "booongo",
+    "name": "Booongo"
+  },
+  {
+    "id": "playson",
+    "name": "Playson"
+  },
+  {
+    "id": "konami",
+    "name": "Konami"
+  },
+  {
+    "id": "mascot",
+    "name": "Mascot"
+  },
+  {
+    "id": "fishing",
+    "name": "Fishing"
+  },
+  {
+    "id": "spadegaming",
+    "name": "Spadegaming"
+  },
+  {
+    "id": "egt",
+    "name": "EGT"
+  },
+  {
+    "id": "pragmatic",
+    "name": "Pragmatic"
+  },
+  {
+    "id": "wmg",
+    "name": "WMG"
+  },
+  {
+    "id": "austria",
+    "name": "Austria"
+  },
+  {
+    "id": "play_and_go",
+    "name": "Play’n’go"
+  },
+  {
+    "id": "hacksaw",
+    "name": "Hacksaw"
+  },
+  {
+    "id": "relax_gaming",
+    "name": "Relax gaming"
+  },
+  {
+    "id": "push_gaming",
+    "name": "Push gaming"
+  },
+  {
+    "id": "betsoft",
+    "name": "Betsoft"
+  },
+  {
+    "id": "nolimit_city",
+    "name": "Nolimit city"
+  },
+  {
+    "id": "crash_games",
+    "name": "Crash Games"
+  },
+  {
+    "id": "red_rake",
+    "name": "RedRake"
+  },
+  {
+    "id": "evoplay",
+    "name": "Evoplay"
+  },
+  {
+    "id": "Aviatrix",
+    "name": "Aviatrix"
+  },
+  {
+    "id": "mga_games",
+    "name": "MGA Games"
+  },
+  {
+    "id": "blueprintgaming",
+    "name": "Blueprint Games"
+  },
+  {
+    "id": "ruby_play",
+    "name": "Ruby Play"
+  },
+  {
+    "id": "fortune_panda",
+    "name": "Fortune Panda"
+  },
+  {
+    "id": "bgaming",
+    "name": "BGaming"
+  },
+  {
+    "id": "in_out",
+    "name": "InOut"
+  },
+  {
+    "id": "pgsoft",
+    "name": "PGsoft"
+  },
+  {
+    "id": "1spin_4win",
+    "name": "1spin4win"
+  },
+  {
+    "id": "spinomenal",
+    "name": "Spinomenal"
+  },
+  {
+    "id": "3_oaks",
+    "name": "3Oaks"
+  },
+  {
+    "id": "evolution_3",
+    "name": "Evolution 3"
+  },
+  {
+    "id": "pragmatic_play_live_3",
+    "name": "Pragmatic Play Live 3"
+  }
+]

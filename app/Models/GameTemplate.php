@@ -13,6 +13,7 @@ use App\Enums\Volatility;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Collection;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\Relations\HasOne;
 use Illuminate\Support\Carbon;
@@ -83,6 +84,7 @@ use Illuminate\Support\Facades\Storage;
  * @property-read Collection<int, Game> $games
  * @property-read int|null $games_count
  * @property-read BaseCollection<int, Category> $categories
+ * @property-read Collection<int, Tag> $tags
  *
  * @method static Builder<static>|GameTemplate newModelQuery()
  * @method static Builder<static>|GameTemplate newQuery()
@@ -199,6 +201,17 @@ class GameTemplate extends Model
             ->unique('id')
             ->sortBy('title')
             ->values();
+    }
+
+    /**
+     * Themes / labels (Christmas, Books, New…) — shared by this template's
+     * games in every shop, unlike categories, which attach per shop game.
+     *
+     * @return BelongsToMany<Tag, $this>
+     */
+    public function tags(): BelongsToMany
+    {
+        return $this->belongsToMany(Tag::class)->withTimestamps()->orderBy('position')->orderBy('name');
     }
 
     public function bundles(): HasMany

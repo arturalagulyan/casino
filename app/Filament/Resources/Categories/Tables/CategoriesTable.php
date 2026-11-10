@@ -6,6 +6,7 @@ use Filament\Actions\BulkActionGroup;
 use Filament\Actions\DeleteBulkAction;
 use Filament\Actions\EditAction;
 use Filament\Actions\ViewAction;
+use Filament\Tables\Columns\ImageColumn;
 use Filament\Tables\Columns\TextColumn;
 use Filament\Tables\Filters\Filter;
 use Filament\Tables\Filters\SelectFilter;
@@ -18,6 +19,7 @@ class CategoriesTable
     {
         return $table
             ->columns([
+                ImageColumn::make('image_path')->label('Icon')->disk('public')->height(18)->width(90),
                 TextColumn::make('shop.name')
                     ->searchable(),
                 TextColumn::make('parent.title')
