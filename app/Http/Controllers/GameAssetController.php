@@ -11,6 +11,7 @@ use App\Models\Jackpot;
 use App\Models\User;
 use App\Services\Fx;
 use App\Services\GamePlay\GameConfig;
+use App\Services\GamePlay\NetEnt\NetEntCurrencyFile;
 use App\Services\GamePlay\Protocol\GamePlatformLobby;
 use App\Services\Legacy\LegacyGameReader;
 use App\Services\SeamlessWallet\GameLaunch;
@@ -245,6 +246,12 @@ class GameAssetController extends Controller
         if (! $rel && preg_match('#(^|/)assets/library-single-game-(v\d+\.\w+)$#', $path, $m)) {
             $rel = $bundle->filePath(str_replace('library-single-game-', 'library-', $path))
                 ?? $bundle->filePath('html5/assets/library-'.$m[2]);
+        }
+
+        // NetEnt clients fetch the player's currency format; a currency the
+        // bundle lacks (NetEnt never had ALL) is made at request time
+        if (! $rel && $template->client_protocol === ClientProtocol::NetEnt && ($file = NetEntCurrencyFile::for($path))) {
+            return response($file['body'], 200, ['Content-Type' => $file['type'], 'Cache-Control' => 'public, max-age=3600']);
         }
 
         if (! $rel) {
