@@ -1,0 +1,385 @@
+{
+ "inits": {
+  "blackjack_html": "clientaction=init&MAX_BOX_BET=500&MIN_BOX_BET=10&autoplay=10,25,50,100,250,500,750,1000&autoresolution.on=true&casinoID=netent&config.gameParameters.clockRequired=false&config.gameParameters.quickSpinActive=false&config.gameParameters.quickSpinAvailable=true&config.gameParameters.quickStopAvailable=true&config.gameParameters.showMaxWinProbability=false&denomination.all=10,20,50,100,200,500&denomination.default=10&g4mode=false&gameEventSetters.enabled=false&nearwinallowed=true&restore=false&staticsharedurl=https://static.joker-entry.link/nth/gameclient_html/devicedetection/current&activebox=0&activeplayerhand=0&gameover=true&totalbet.cents=0&totalwin.cents=0&credit=10000&g4mode=false&gamesoundurl=https://static.joker-entry.link/nth&historybutton=false&isJackpotWin=false&jackpotcurrency= &jackpotcurrencyiso=NAN&playercurrency= &playercurrencyiso=NAN&playforfun=false",
+  "blackjack_touch": "request=init&defaultdenomination=10&denominations=10,50,100,200,500&g4mode=false&gameEventSetters.enabled=false&gamesoundurl=https://static.joker-entry.link/ntt&jackpotcurrency= &jackpotcurrencyiso=NAN&limitsidebettocurrenthandbet=false&maxboxbet=500&minboxbet=10&nearwinallowed=true&playableboxes=b0&staticsharedurl=https://static.joker-entry.link/ntt/gameclient_html/devicedetection/current&usesidebet=false&credit=10000&g4mode=false&gamesoundurl=https://static.joker-entry.link/netEnt&historybutton=false&isJackpotWin=false&jackpotcurrency= &jackpotcurrencyiso=NAN&playercurrency= &playercurrencyiso=NAN&playforfun=false"
+ },
+ "rounds": [
+  {
+   "game": "blackjack_html",
+   "case": "double",
+   "shoe": [
+    "QC",
+    "7S",
+    "QD",
+    "4S",
+    "8D",
+    "2S",
+    "9H",
+    "KS",
+    "2H",
+    "9D",
+    "2C",
+    "2C",
+    "2C",
+    "2C",
+    "2C",
+    "2C"
+   ],
+   "steps": [
+    {
+     "query": "action=deal&bet=0:10,1:10,2:10",
+     "reply": "clientaction=deal&activebox=0&activeplayerhand=0&box.i0.playerhand.i0.availableactions=DOUBLE,HIT,STAND&box.i0.playerhand.i0.blackjack=false&box.i0.playerhand.i0.canbesplit=false&box.i0.playerhand.i0.candouble=true&box.i0.playerhand.i0.doublebet=0&box.i0.playerhand.i0.initialbet=10&box.i0.playerhand.i0.insurancebet=0&box.i0.playerhand.i0.hand=QC,8D&box.i0.playerhand.i0.hardvalue=18&box.i0.playerhand.i0.outcomeevent=inplay&box.i0.playerhand.i0.soft=false&box.i0.playerhand.i0.softvalue=18&box.i0.playerhand.i0.split=false&box.i0.playerhand.i0.splitfromaa=false&box.i0.playerhand.i0.state=inplay&box.i0.playerhand.i0.win=0&box.i1.playerhand.i0.availableactions=DOUBLE,HIT,STAND&box.i1.playerhand.i0.blackjack=false&box.i1.playerhand.i0.canbesplit=false&box.i1.playerhand.i0.candouble=true&box.i1.playerhand.i0.doublebet=0&box.i1.playerhand.i0.initialbet=10&box.i1.playerhand.i0.insurancebet=0&box.i1.playerhand.i0.hand=7S,2S&box.i1.playerhand.i0.hardvalue=9&box.i1.playerhand.i0.outcomeevent=inplay&box.i1.playerhand.i0.soft=false&box.i1.playerhand.i0.softvalue=9&box.i1.playerhand.i0.split=false&box.i1.playerhand.i0.splitfromaa=false&box.i1.playerhand.i0.state=inplay&box.i1.playerhand.i0.win=0&box.i2.playerhand.i0.availableactions=DOUBLE,HIT,STAND&box.i2.playerhand.i0.blackjack=false&box.i2.playerhand.i0.canbesplit=false&box.i2.playerhand.i0.candouble=true&box.i2.playerhand.i0.doublebet=0&box.i2.playerhand.i0.initialbet=10&box.i2.playerhand.i0.insurancebet=0&box.i2.playerhand.i0.hand=QD,9H&box.i2.playerhand.i0.hardvalue=19&box.i2.playerhand.i0.outcomeevent=inplay&box.i2.playerhand.i0.soft=false&box.i2.playerhand.i0.softvalue=19&box.i2.playerhand.i0.split=false&box.i2.playerhand.i0.splitfromaa=false&box.i2.playerhand.i0.state=inplay&box.i2.playerhand.i0.win=0&dealerhand.hand=4S&dealerhand.offerinsurance=false&dealerhand.value=4&gameover=false&totalbet.cents=30&totalwin.cents=0&credit=9970&g4mode=false&gamesoundurl=https://static.joker-entry.link/nth&historybutton=false&isJackpotWin=false&jackpotcurrency= &jackpotcurrencyiso=NAN&playercurrency= &playercurrencyiso=NAN&playforfun=false"
+    },
+    {
+     "query": "action=stand",
+     "reply": "clientaction=stand&activebox=1&activeplayerhand=0&box.i0.playerhand.i0.availableactions=DOUBLE,HIT,STAND&box.i0.playerhand.i0.blackjack=false&box.i0.playerhand.i0.canbesplit=false&box.i0.playerhand.i0.candouble=true&box.i0.playerhand.i0.doublebet=0&box.i0.playerhand.i0.initialbet=10&box.i0.playerhand.i0.insurancebet=0&box.i0.playerhand.i0.hand=QC,8D&box.i0.playerhand.i0.hardvalue=18&box.i0.playerhand.i0.outcomeevent=inplay&box.i0.playerhand.i0.soft=false&box.i0.playerhand.i0.softvalue=18&box.i0.playerhand.i0.split=false&box.i0.playerhand.i0.splitfromaa=false&box.i0.playerhand.i0.state=player_done&box.i0.playerhand.i0.win=0&box.i1.playerhand.i0.availableactions=DOUBLE,HIT,STAND&box.i1.playerhand.i0.blackjack=false&box.i1.playerhand.i0.canbesplit=false&box.i1.playerhand.i0.candouble=true&box.i1.playerhand.i0.doublebet=0&box.i1.playerhand.i0.initialbet=10&box.i1.playerhand.i0.insurancebet=0&box.i1.playerhand.i0.hand=7S,2S&box.i1.playerhand.i0.hardvalue=9&box.i1.playerhand.i0.outcomeevent=inplay&box.i1.playerhand.i0.soft=false&box.i1.playerhand.i0.softvalue=9&box.i1.playerhand.i0.split=false&box.i1.playerhand.i0.splitfromaa=false&box.i1.playerhand.i0.state=inplay&box.i1.playerhand.i0.win=0&box.i2.playerhand.i0.availableactions=DOUBLE,HIT,STAND&box.i2.playerhand.i0.blackjack=false&box.i2.playerhand.i0.canbesplit=false&box.i2.playerhand.i0.candouble=true&box.i2.playerhand.i0.doublebet=0&box.i2.playerhand.i0.initialbet=10&box.i2.playerhand.i0.insurancebet=0&box.i2.playerhand.i0.hand=QD,9H&box.i2.playerhand.i0.hardvalue=19&box.i2.playerhand.i0.outcomeevent=inplay&box.i2.playerhand.i0.soft=false&box.i2.playerhand.i0.softvalue=19&box.i2.playerhand.i0.split=false&box.i2.playerhand.i0.splitfromaa=false&box.i2.playerhand.i0.state=inplay&box.i2.playerhand.i0.win=0&dealerhand.hand=4S&dealerhand.offerinsurance=false&dealerhand.value=4&gameover=false&totalbet.cents=30&totalwin.cents=0&credit=9970&g4mode=false&gamesoundurl=https://static.joker-entry.link/nth&historybutton=false&isJackpotWin=false&jackpotcurrency= &jackpotcurrencyiso=NAN&playercurrency= &playercurrencyiso=NAN&playforfun=false"
+    },
+    {
+     "query": "action=double",
+     "reply": "clientaction=double&activebox=2&activeplayerhand=0&box.i0.playerhand.i0.availableactions=DOUBLE,HIT,STAND&box.i0.playerhand.i0.blackjack=false&box.i0.playerhand.i0.canbesplit=false&box.i0.playerhand.i0.candouble=true&box.i0.playerhand.i0.doublebet=0&box.i0.playerhand.i0.initialbet=10&box.i0.playerhand.i0.insurancebet=0&box.i0.playerhand.i0.hand=QC,8D&box.i0.playerhand.i0.hardvalue=18&box.i0.playerhand.i0.outcomeevent=inplay&box.i0.playerhand.i0.soft=false&box.i0.playerhand.i0.softvalue=18&box.i0.playerhand.i0.split=false&box.i0.playerhand.i0.splitfromaa=false&box.i0.playerhand.i0.state=player_done&box.i0.playerhand.i0.win=0&box.i1.playerhand.i0.availableactions=HIT,STAND&box.i1.playerhand.i0.blackjack=false&box.i1.playerhand.i0.canbesplit=false&box.i1.playerhand.i0.candouble=false&box.i1.playerhand.i0.doublebet=10&box.i1.playerhand.i0.initialbet=10&box.i1.playerhand.i0.insurancebet=0&box.i1.playerhand.i0.hand=7S,2S,2H&box.i1.playerhand.i0.hardvalue=11&box.i1.playerhand.i0.outcomeevent=inplay&box.i1.playerhand.i0.soft=false&box.i1.playerhand.i0.softvalue=11&box.i1.playerhand.i0.split=false&box.i1.playerhand.i0.splitfromaa=false&box.i1.playerhand.i0.state=player_done&box.i1.playerhand.i0.win=0&box.i2.playerhand.i0.availableactions=DOUBLE,HIT,STAND&box.i2.playerhand.i0.blackjack=false&box.i2.playerhand.i0.canbesplit=false&box.i2.playerhand.i0.candouble=true&box.i2.playerhand.i0.doublebet=0&box.i2.playerhand.i0.initialbet=10&box.i2.playerhand.i0.insurancebet=0&box.i2.playerhand.i0.hand=QD,9H&box.i2.playerhand.i0.hardvalue=19&box.i2.playerhand.i0.outcomeevent=inplay&box.i2.playerhand.i0.soft=false&box.i2.playerhand.i0.softvalue=19&box.i2.playerhand.i0.split=false&box.i2.playerhand.i0.splitfromaa=false&box.i2.playerhand.i0.state=inplay&box.i2.playerhand.i0.win=0&dealerhand.hand=4S&dealerhand.offerinsurance=false&dealerhand.value=4&gameover=false&totalbet.cents=40&totalwin.cents=0&credit=9960&g4mode=false&gamesoundurl=https://static.joker-entry.link/nth&historybutton=false&isJackpotWin=false&jackpotcurrency= &jackpotcurrencyiso=NAN&playercurrency= &playercurrencyiso=NAN&playforfun=false"
+    },
+    {
+     "query": "action=stand",
+     "reply": "clientaction=stand&activebox=0&activeplayerhand=0&box.i0.playerhand.i0.availableactions=DOUBLE,HIT,STAND&box.i0.playerhand.i0.blackjack=false&box.i0.playerhand.i0.canbesplit=false&box.i0.playerhand.i0.candouble=true&box.i0.playerhand.i0.doublebet=0&box.i0.playerhand.i0.initialbet=10&box.i0.playerhand.i0.insurancebet=0&box.i0.playerhand.i0.hand=QC,8D&box.i0.playerhand.i0.hardvalue=18&box.i0.playerhand.i0.outcomeevent=normal&box.i0.playerhand.i0.soft=false&box.i0.playerhand.i0.softvalue=18&box.i0.playerhand.i0.split=false&box.i0.playerhand.i0.splitfromaa=false&box.i0.playerhand.i0.state=win&box.i0.playerhand.i0.win=20&box.i1.playerhand.i0.availableactions=HIT,STAND&box.i1.playerhand.i0.blackjack=false&box.i1.playerhand.i0.canbesplit=false&box.i1.playerhand.i0.candouble=false&box.i1.playerhand.i0.doublebet=10&box.i1.playerhand.i0.initialbet=10&box.i1.playerhand.i0.insurancebet=0&box.i1.playerhand.i0.hand=7S,2S,2H&box.i1.playerhand.i0.hardvalue=11&box.i1.playerhand.i0.outcomeevent=normal&box.i1.playerhand.i0.soft=false&box.i1.playerhand.i0.softvalue=11&box.i1.playerhand.i0.split=false&box.i1.playerhand.i0.splitfromaa=false&box.i1.playerhand.i0.state=win&box.i1.playerhand.i0.win=40&box.i2.playerhand.i0.availableactions=DOUBLE,HIT,STAND&box.i2.playerhand.i0.blackjack=false&box.i2.playerhand.i0.canbesplit=false&box.i2.playerhand.i0.candouble=true&box.i2.playerhand.i0.doublebet=0&box.i2.playerhand.i0.initialbet=10&box.i2.playerhand.i0.insurancebet=0&box.i2.playerhand.i0.hand=QD,9H&box.i2.playerhand.i0.hardvalue=19&box.i2.playerhand.i0.outcomeevent=normal&box.i2.playerhand.i0.soft=false&box.i2.playerhand.i0.softvalue=19&box.i2.playerhand.i0.split=false&box.i2.playerhand.i0.splitfromaa=false&box.i2.playerhand.i0.state=win&box.i2.playerhand.i0.win=20&dealerhand.blackjack=false&dealerhand.hand=4S,KS,9D&dealerhand.hardvalue=23&dealerhand.soft=false&dealerhand.softvalue=23&dealerhand.value=23&gameover=true&totalbet.cents=40&totalwin.cents=80&credit=10040&g4mode=false&gamesoundurl=https://static.joker-entry.link/nth&historybutton=false&isJackpotWin=false&jackpotcurrency= &jackpotcurrencyiso=NAN&playercurrency= &playercurrencyiso=NAN&playforfun=false"
+    }
+   ]
+  },
+  {
+   "game": "blackjack_html",
+   "case": "split",
+   "shoe": [
+    "2H",
+    "JC",
+    "KD",
+    "5S",
+    "JS",
+    "JS",
+    "6D",
+    "9C",
+    "9C",
+    "KD",
+    "4S",
+    "3S",
+    "6H",
+    "8H",
+    "2C",
+    "2C",
+    "2C",
+    "2C",
+    "2C",
+    "2C"
+   ],
+   "steps": [
+    {
+     "query": "action=deal&bet=0:10,1:10,2:10",
+     "reply": "clientaction=deal&activebox=0&activeplayerhand=0&box.i0.playerhand.i0.availableactions=DOUBLE,HIT,STAND&box.i0.playerhand.i0.blackjack=false&box.i0.playerhand.i0.canbesplit=false&box.i0.playerhand.i0.candouble=true&box.i0.playerhand.i0.doublebet=0&box.i0.playerhand.i0.initialbet=10&box.i0.playerhand.i0.insurancebet=0&box.i0.playerhand.i0.hand=2H,JS&box.i0.playerhand.i0.hardvalue=12&box.i0.playerhand.i0.outcomeevent=inplay&box.i0.playerhand.i0.soft=false&box.i0.playerhand.i0.softvalue=12&box.i0.playerhand.i0.split=false&box.i0.playerhand.i0.splitfromaa=false&box.i0.playerhand.i0.state=inplay&box.i0.playerhand.i0.win=0&box.i1.playerhand.i0.availableactions=SPLIT,DOUBLE,HIT,STAND&box.i1.playerhand.i0.blackjack=false&box.i1.playerhand.i0.canbesplit=true&box.i1.playerhand.i0.candouble=true&box.i1.playerhand.i0.doublebet=0&box.i1.playerhand.i0.initialbet=10&box.i1.playerhand.i0.insurancebet=0&box.i1.playerhand.i0.hand=JC,JS&box.i1.playerhand.i0.hardvalue=20&box.i1.playerhand.i0.outcomeevent=inplay&box.i1.playerhand.i0.soft=false&box.i1.playerhand.i0.softvalue=20&box.i1.playerhand.i0.split=false&box.i1.playerhand.i0.splitfromaa=false&box.i1.playerhand.i0.state=inplay&box.i1.playerhand.i0.win=0&box.i2.playerhand.i0.availableactions=DOUBLE,HIT,STAND&box.i2.playerhand.i0.blackjack=false&box.i2.playerhand.i0.canbesplit=false&box.i2.playerhand.i0.candouble=true&box.i2.playerhand.i0.doublebet=0&box.i2.playerhand.i0.initialbet=10&box.i2.playerhand.i0.insurancebet=0&box.i2.playerhand.i0.hand=KD,6D&box.i2.playerhand.i0.hardvalue=16&box.i2.playerhand.i0.outcomeevent=inplay&box.i2.playerhand.i0.soft=false&box.i2.playerhand.i0.softvalue=16&box.i2.playerhand.i0.split=false&box.i2.playerhand.i0.splitfromaa=false&box.i2.playerhand.i0.state=inplay&box.i2.playerhand.i0.win=0&dealerhand.hand=5S&dealerhand.offerinsurance=false&dealerhand.value=5&gameover=false&totalbet.cents=30&totalwin.cents=0&credit=10010&g4mode=false&gamesoundurl=https://static.joker-entry.link/nth&historybutton=false&isJackpotWin=false&jackpotcurrency= &jackpotcurrencyiso=NAN&playercurrency= &playercurrencyiso=NAN&playforfun=false"
+    },
+    {
+     "query": "action=hit",
+     "reply": "clientaction=hit&activebox=1&activeplayerhand=0&box.i0.playerhand.i0.availableactions=HIT,STAND&box.i0.playerhand.i0.blackjack=false&box.i0.playerhand.i0.canbesplit=false&box.i0.playerhand.i0.candouble=false&box.i0.playerhand.i0.doublebet=0&box.i0.playerhand.i0.initialbet=10&box.i0.playerhand.i0.insurancebet=0&box.i0.playerhand.i0.hand=2H,JS,9C&box.i0.playerhand.i0.hardvalue=21&box.i0.playerhand.i0.outcomeevent=inplay&box.i0.playerhand.i0.soft=false&box.i0.playerhand.i0.softvalue=21&box.i0.playerhand.i0.split=false&box.i0.playerhand.i0.splitfromaa=false&box.i0.playerhand.i0.state=player_done&box.i0.playerhand.i0.win=0&box.i1.playerhand.i0.availableactions=SPLIT,DOUBLE,HIT,STAND&box.i1.playerhand.i0.blackjack=false&box.i1.playerhand.i0.canbesplit=true&box.i1.playerhand.i0.candouble=true&box.i1.playerhand.i0.doublebet=0&box.i1.playerhand.i0.initialbet=10&box.i1.playerhand.i0.insurancebet=0&box.i1.playerhand.i0.hand=JC,JS&box.i1.playerhand.i0.hardvalue=20&box.i1.playerhand.i0.outcomeevent=inplay&box.i1.playerhand.i0.soft=false&box.i1.playerhand.i0.softvalue=20&box.i1.playerhand.i0.split=false&box.i1.playerhand.i0.splitfromaa=false&box.i1.playerhand.i0.state=inplay&box.i1.playerhand.i0.win=0&box.i2.playerhand.i0.availableactions=DOUBLE,HIT,STAND&box.i2.playerhand.i0.blackjack=false&box.i2.playerhand.i0.canbesplit=false&box.i2.playerhand.i0.candouble=true&box.i2.playerhand.i0.doublebet=0&box.i2.playerhand.i0.initialbet=10&box.i2.playerhand.i0.insurancebet=0&box.i2.playerhand.i0.hand=KD,6D&box.i2.playerhand.i0.hardvalue=16&box.i2.playerhand.i0.outcomeevent=inplay&box.i2.playerhand.i0.soft=false&box.i2.playerhand.i0.softvalue=16&box.i2.playerhand.i0.split=false&box.i2.playerhand.i0.splitfromaa=false&box.i2.playerhand.i0.state=inplay&box.i2.playerhand.i0.win=0&dealerhand.hand=5S&dealerhand.offerinsurance=false&dealerhand.value=5&gameover=false&totalbet.cents=30&totalwin.cents=0&credit=10010&g4mode=false&gamesoundurl=https://static.joker-entry.link/nth&historybutton=false&isJackpotWin=false&jackpotcurrency= &jackpotcurrencyiso=NAN&playercurrency= &playercurrencyiso=NAN&playforfun=false"
+    },
+    {
+     "query": "action=split",
+     "reply": "clientaction=split&activebox=1&activeplayerhand=0&box.i0.playerhand.i0.availableactions=HIT,STAND&box.i0.playerhand.i0.blackjack=false&box.i0.playerhand.i0.canbesplit=false&box.i0.playerhand.i0.candouble=false&box.i0.playerhand.i0.doublebet=0&box.i0.playerhand.i0.initialbet=10&box.i0.playerhand.i0.insurancebet=0&box.i0.playerhand.i0.hand=2H,JS,9C&box.i0.playerhand.i0.hardvalue=21&box.i0.playerhand.i0.outcomeevent=inplay&box.i0.playerhand.i0.soft=false&box.i0.playerhand.i0.softvalue=21&box.i0.playerhand.i0.split=false&box.i0.playerhand.i0.splitfromaa=false&box.i0.playerhand.i0.state=player_done&box.i0.playerhand.i0.win=0&box.i1.playerhand.i0.availableactions=DOUBLE,HIT,STAND&box.i1.playerhand.i0.blackjack=false&box.i1.playerhand.i0.canbesplit=false&box.i1.playerhand.i0.candouble=true&box.i1.playerhand.i0.doublebet=0&box.i1.playerhand.i0.initialbet=10&box.i1.playerhand.i0.insurancebet=0&box.i1.playerhand.i0.hand=JC,KD&box.i1.playerhand.i0.hardvalue=20&box.i1.playerhand.i0.outcomeevent=inplay&box.i1.playerhand.i0.soft=false&box.i1.playerhand.i0.softvalue=20&box.i1.playerhand.i0.split=true&box.i1.playerhand.i0.splitfromaa=false&box.i1.playerhand.i0.state=inplay&box.i1.playerhand.i0.win=0&box.i1.playerhand.i1.availableactions=HIT,STAND&box.i1.playerhand.i1.blackjack=false&box.i1.playerhand.i1.canbesplit=false&box.i1.playerhand.i1.candouble=false&box.i1.playerhand.i1.doublebet=0&box.i1.playerhand.i1.initialbet=10&box.i1.playerhand.i1.insurancebet=0&box.i1.playerhand.i1.hand=JS&box.i1.playerhand.i1.hardvalue=10&box.i1.playerhand.i1.outcomeevent=inplay&box.i1.playerhand.i1.soft=false&box.i1.playerhand.i1.softvalue=10&box.i1.playerhand.i1.split=true&box.i1.playerhand.i1.splitfromaa=false&box.i1.playerhand.i1.splitparenthandindex=0&box.i1.playerhand.i1.state=inplay&box.i1.playerhand.i1.win=0&box.i2.playerhand.i0.availableactions=DOUBLE,HIT,STAND&box.i2.playerhand.i0.blackjack=false&box.i2.playerhand.i0.canbesplit=false&box.i2.playerhand.i0.candouble=true&box.i2.playerhand.i0.doublebet=0&box.i2.playerhand.i0.initialbet=10&box.i2.playerhand.i0.insurancebet=0&box.i2.playerhand.i0.hand=KD,6D&box.i2.playerhand.i0.hardvalue=16&box.i2.playerhand.i0.outcomeevent=inplay&box.i2.playerhand.i0.soft=false&box.i2.playerhand.i0.softvalue=16&box.i2.playerhand.i0.split=false&box.i2.playerhand.i0.splitfromaa=false&box.i2.playerhand.i0.state=inplay&box.i2.playerhand.i0.win=0&dealerhand.hand=5S&dealerhand.offerinsurance=false&dealerhand.value=5&gameover=false&totalbet.cents=40&totalwin.cents=0&credit=10000&g4mode=false&gamesoundurl=https://static.joker-entry.link/nth&historybutton=false&isJackpotWin=false&jackpotcurrency= &jackpotcurrencyiso=NAN&playercurrency= &playercurrencyiso=NAN&playforfun=false"
+    },
+    {
+     "query": "action=stand",
+     "reply": "clientaction=stand&activebox=1&activeplayerhand=1&box.i0.playerhand.i0.availableactions=HIT,STAND&box.i0.playerhand.i0.blackjack=false&box.i0.playerhand.i0.canbesplit=false&box.i0.playerhand.i0.candouble=false&box.i0.playerhand.i0.doublebet=0&box.i0.playerhand.i0.initialbet=10&box.i0.playerhand.i0.insurancebet=0&box.i0.playerhand.i0.hand=2H,JS,9C&box.i0.playerhand.i0.hardvalue=21&box.i0.playerhand.i0.outcomeevent=inplay&box.i0.playerhand.i0.soft=false&box.i0.playerhand.i0.softvalue=21&box.i0.playerhand.i0.split=false&box.i0.playerhand.i0.splitfromaa=false&box.i0.playerhand.i0.state=player_done&box.i0.playerhand.i0.win=0&box.i1.playerhand.i0.availableactions=DOUBLE,HIT,STAND&box.i1.playerhand.i0.blackjack=false&box.i1.playerhand.i0.canbesplit=false&box.i1.playerhand.i0.candouble=true&box.i1.playerhand.i0.doublebet=0&box.i1.playerhand.i0.initialbet=10&box.i1.playerhand.i0.insurancebet=0&box.i1.playerhand.i0.hand=JC,KD&box.i1.playerhand.i0.hardvalue=20&box.i1.playerhand.i0.outcomeevent=inplay&box.i1.playerhand.i0.soft=false&box.i1.playerhand.i0.softvalue=20&box.i1.playerhand.i0.split=true&box.i1.playerhand.i0.splitfromaa=false&box.i1.playerhand.i0.state=inplay&box.i1.playerhand.i0.win=0&box.i1.playerhand.i1.availableactions=DOUBLE,HIT,STAND&box.i1.playerhand.i1.blackjack=false&box.i1.playerhand.i1.canbesplit=false&box.i1.playerhand.i1.candouble=true&box.i1.playerhand.i1.doublebet=0&box.i1.playerhand.i1.initialbet=10&box.i1.playerhand.i1.insurancebet=0&box.i1.playerhand.i1.hand=JS,4S&box.i1.playerhand.i1.hardvalue=14&box.i1.playerhand.i1.outcomeevent=inplay&box.i1.playerhand.i1.soft=false&box.i1.playerhand.i1.softvalue=14&box.i1.playerhand.i1.split=true&box.i1.playerhand.i1.splitfromaa=false&box.i1.playerhand.i1.splitparenthandindex=0&box.i1.playerhand.i1.state=inplay&box.i1.playerhand.i1.win=0&box.i2.playerhand.i0.availableactions=DOUBLE,HIT,STAND&box.i2.playerhand.i0.blackjack=false&box.i2.playerhand.i0.canbesplit=false&box.i2.playerhand.i0.candouble=true&box.i2.playerhand.i0.doublebet=0&box.i2.playerhand.i0.initialbet=10&box.i2.playerhand.i0.insurancebet=0&box.i2.playerhand.i0.hand=KD,6D&box.i2.playerhand.i0.hardvalue=16&box.i2.playerhand.i0.outcomeevent=inplay&box.i2.playerhand.i0.soft=false&box.i2.playerhand.i0.softvalue=16&box.i2.playerhand.i0.split=false&box.i2.playerhand.i0.splitfromaa=false&box.i2.playerhand.i0.state=inplay&box.i2.playerhand.i0.win=0&dealerhand.hand=5S&dealerhand.offerinsurance=false&dealerhand.value=5&gameover=false&totalbet.cents=40&totalwin.cents=0&credit=10000&g4mode=false&gamesoundurl=https://static.joker-entry.link/nth&historybutton=false&isJackpotWin=false&jackpotcurrency= &jackpotcurrencyiso=NAN&playercurrency= &playercurrencyiso=NAN&playforfun=false"
+    },
+    {
+     "query": "action=hit",
+     "reply": "clientaction=hit&activebox=1&activeplayerhand=1&box.i0.playerhand.i0.availableactions=HIT,STAND&box.i0.playerhand.i0.blackjack=false&box.i0.playerhand.i0.canbesplit=false&box.i0.playerhand.i0.candouble=false&box.i0.playerhand.i0.doublebet=0&box.i0.playerhand.i0.initialbet=10&box.i0.playerhand.i0.insurancebet=0&box.i0.playerhand.i0.hand=2H,JS,9C&box.i0.playerhand.i0.hardvalue=21&box.i0.playerhand.i0.outcomeevent=inplay&box.i0.playerhand.i0.soft=false&box.i0.playerhand.i0.softvalue=21&box.i0.playerhand.i0.split=false&box.i0.playerhand.i0.splitfromaa=false&box.i0.playerhand.i0.state=player_done&box.i0.playerhand.i0.win=0&box.i1.playerhand.i0.availableactions=DOUBLE,HIT,STAND&box.i1.playerhand.i0.blackjack=false&box.i1.playerhand.i0.canbesplit=false&box.i1.playerhand.i0.candouble=true&box.i1.playerhand.i0.doublebet=0&box.i1.playerhand.i0.initialbet=10&box.i1.playerhand.i0.insurancebet=0&box.i1.playerhand.i0.hand=JC,KD&box.i1.playerhand.i0.hardvalue=20&box.i1.playerhand.i0.outcomeevent=inplay&box.i1.playerhand.i0.soft=false&box.i1.playerhand.i0.softvalue=20&box.i1.playerhand.i0.split=true&box.i1.playerhand.i0.splitfromaa=false&box.i1.playerhand.i0.state=inplay&box.i1.playerhand.i0.win=0&box.i1.playerhand.i1.availableactions=HIT,STAND&box.i1.playerhand.i1.blackjack=false&box.i1.playerhand.i1.canbesplit=false&box.i1.playerhand.i1.candouble=false&box.i1.playerhand.i1.doublebet=0&box.i1.playerhand.i1.initialbet=10&box.i1.playerhand.i1.insurancebet=0&box.i1.playerhand.i1.hand=JS,4S,3S&box.i1.playerhand.i1.hardvalue=17&box.i1.playerhand.i1.outcomeevent=inplay&box.i1.playerhand.i1.soft=false&box.i1.playerhand.i1.softvalue=17&box.i1.playerhand.i1.split=true&box.i1.playerhand.i1.splitfromaa=false&box.i1.playerhand.i1.splitparenthandindex=0&box.i1.playerhand.i1.state=inplay&box.i1.playerhand.i1.win=0&box.i2.playerhand.i0.availableactions=DOUBLE,HIT,STAND&box.i2.playerhand.i0.blackjack=false&box.i2.playerhand.i0.canbesplit=false&box.i2.playerhand.i0.candouble=true&box.i2.playerhand.i0.doublebet=0&box.i2.playerhand.i0.initialbet=10&box.i2.playerhand.i0.insurancebet=0&box.i2.playerhand.i0.hand=KD,6D&box.i2.playerhand.i0.hardvalue=16&box.i2.playerhand.i0.outcomeevent=inplay&box.i2.playerhand.i0.soft=false&box.i2.playerhand.i0.softvalue=16&box.i2.playerhand.i0.split=false&box.i2.playerhand.i0.splitfromaa=false&box.i2.playerhand.i0.state=inplay&box.i2.playerhand.i0.win=0&dealerhand.hand=5S&dealerhand.offerinsurance=false&dealerhand.value=5&gameover=false&totalbet.cents=40&totalwin.cents=0&credit=10000&g4mode=false&gamesoundurl=https://static.joker-entry.link/nth&historybutton=false&isJackpotWin=false&jackpotcurrency= &jackpotcurrencyiso=NAN&playercurrency= &playercurrencyiso=NAN&playforfun=false"
+    },
+    {
+     "query": "action=stand",
+     "reply": "clientaction=stand&activebox=2&activeplayerhand=0&box.i0.playerhand.i0.availableactions=HIT,STAND&box.i0.playerhand.i0.blackjack=false&box.i0.playerhand.i0.canbesplit=false&box.i0.playerhand.i0.candouble=false&box.i0.playerhand.i0.doublebet=0&box.i0.playerhand.i0.initialbet=10&box.i0.playerhand.i0.insurancebet=0&box.i0.playerhand.i0.hand=2H,JS,9C&box.i0.playerhand.i0.hardvalue=21&box.i0.playerhand.i0.outcomeevent=inplay&box.i0.playerhand.i0.soft=false&box.i0.playerhand.i0.softvalue=21&box.i0.playerhand.i0.split=false&box.i0.playerhand.i0.splitfromaa=false&box.i0.playerhand.i0.state=player_done&box.i0.playerhand.i0.win=0&box.i1.playerhand.i0.availableactions=DOUBLE,HIT,STAND&box.i1.playerhand.i0.blackjack=false&box.i1.playerhand.i0.canbesplit=false&box.i1.playerhand.i0.candouble=true&box.i1.playerhand.i0.doublebet=0&box.i1.playerhand.i0.initialbet=10&box.i1.playerhand.i0.insurancebet=0&box.i1.playerhand.i0.hand=JC,KD&box.i1.playerhand.i0.hardvalue=20&box.i1.playerhand.i0.outcomeevent=inplay&box.i1.playerhand.i0.soft=false&box.i1.playerhand.i0.softvalue=20&box.i1.playerhand.i0.split=true&box.i1.playerhand.i0.splitfromaa=false&box.i1.playerhand.i0.state=player_done&box.i1.playerhand.i0.win=0&box.i1.playerhand.i1.availableactions=HIT,STAND&box.i1.playerhand.i1.blackjack=false&box.i1.playerhand.i1.canbesplit=false&box.i1.playerhand.i1.candouble=false&box.i1.playerhand.i1.doublebet=0&box.i1.playerhand.i1.initialbet=10&box.i1.playerhand.i1.insurancebet=0&box.i1.playerhand.i1.hand=JS,4S,3S&box.i1.playerhand.i1.hardvalue=17&box.i1.playerhand.i1.outcomeevent=inplay&box.i1.playerhand.i1.soft=false&box.i1.playerhand.i1.softvalue=17&box.i1.playerhand.i1.split=true&box.i1.playerhand.i1.splitfromaa=false&box.i1.playerhand.i1.splitparenthandindex=0&box.i1.playerhand.i1.state=player_done&box.i1.playerhand.i1.win=0&box.i2.playerhand.i0.availableactions=DOUBLE,HIT,STAND&box.i2.playerhand.i0.blackjack=false&box.i2.playerhand.i0.canbesplit=false&box.i2.playerhand.i0.candouble=true&box.i2.playerhand.i0.doublebet=0&box.i2.playerhand.i0.initialbet=10&box.i2.playerhand.i0.insurancebet=0&box.i2.playerhand.i0.hand=KD,6D&box.i2.playerhand.i0.hardvalue=16&box.i2.playerhand.i0.outcomeevent=inplay&box.i2.playerhand.i0.soft=false&box.i2.playerhand.i0.softvalue=16&box.i2.playerhand.i0.split=false&box.i2.playerhand.i0.splitfromaa=false&box.i2.playerhand.i0.state=inplay&box.i2.playerhand.i0.win=0&dealerhand.hand=5S&dealerhand.offerinsurance=false&dealerhand.value=5&gameover=false&totalbet.cents=40&totalwin.cents=0&credit=10000&g4mode=false&gamesoundurl=https://static.joker-entry.link/nth&historybutton=false&isJackpotWin=false&jackpotcurrency= &jackpotcurrencyiso=NAN&playercurrency= &playercurrencyiso=NAN&playforfun=false"
+    },
+    {
+     "query": "action=hit",
+     "reply": "clientaction=hit&activebox=0&activeplayerhand=0&box.i0.playerhand.i0.availableactions=HIT,STAND&box.i0.playerhand.i0.blackjack=false&box.i0.playerhand.i0.canbesplit=false&box.i0.playerhand.i0.candouble=false&box.i0.playerhand.i0.doublebet=0&box.i0.playerhand.i0.initialbet=10&box.i0.playerhand.i0.insurancebet=0&box.i0.playerhand.i0.hand=2H,JS,9C&box.i0.playerhand.i0.hardvalue=21&box.i0.playerhand.i0.outcomeevent=normal&box.i0.playerhand.i0.soft=false&box.i0.playerhand.i0.softvalue=21&box.i0.playerhand.i0.split=false&box.i0.playerhand.i0.splitfromaa=false&box.i0.playerhand.i0.state=win&box.i0.playerhand.i0.win=20&box.i1.playerhand.i0.availableactions=DOUBLE,HIT,STAND&box.i1.playerhand.i0.blackjack=false&box.i1.playerhand.i0.canbesplit=false&box.i1.playerhand.i0.candouble=true&box.i1.playerhand.i0.doublebet=0&box.i1.playerhand.i0.initialbet=10&box.i1.playerhand.i0.insurancebet=0&box.i1.playerhand.i0.hand=JC,KD&box.i1.playerhand.i0.hardvalue=20&box.i1.playerhand.i0.outcomeevent=normal&box.i1.playerhand.i0.soft=false&box.i1.playerhand.i0.softvalue=20&box.i1.playerhand.i0.split=true&box.i1.playerhand.i0.splitfromaa=false&box.i1.playerhand.i0.state=win&box.i1.playerhand.i0.win=20&box.i1.playerhand.i1.availableactions=HIT,STAND&box.i1.playerhand.i1.blackjack=false&box.i1.playerhand.i1.canbesplit=false&box.i1.playerhand.i1.candouble=false&box.i1.playerhand.i1.doublebet=0&box.i1.playerhand.i1.initialbet=10&box.i1.playerhand.i1.insurancebet=0&box.i1.playerhand.i1.hand=JS,4S,3S&box.i1.playerhand.i1.hardvalue=17&box.i1.playerhand.i1.outcomeevent=normal&box.i1.playerhand.i1.soft=false&box.i1.playerhand.i1.softvalue=17&box.i1.playerhand.i1.split=true&box.i1.playerhand.i1.splitfromaa=false&box.i1.playerhand.i1.splitparenthandindex=0&box.i1.playerhand.i1.state=win&box.i1.playerhand.i1.win=20&box.i2.playerhand.i0.availableactions=&box.i2.playerhand.i0.blackjack=false&box.i2.playerhand.i0.canbesplit=false&box.i2.playerhand.i0.candouble=false&box.i2.playerhand.i0.doublebet=0&box.i2.playerhand.i0.initialbet=10&box.i2.playerhand.i0.insurancebet=0&box.i2.playerhand.i0.hand=KD,6D,6H&box.i2.playerhand.i0.hardvalue=22&box.i2.playerhand.i0.outcomeevent=bust&box.i2.playerhand.i0.soft=false&box.i2.playerhand.i0.softvalue=22&box.i2.playerhand.i0.split=false&box.i2.playerhand.i0.splitfromaa=false&box.i2.playerhand.i0.state=lost&box.i2.playerhand.i0.win=0&dealerhand.blackjack=false&dealerhand.hand=5S,9C,8H&dealerhand.hardvalue=22&dealerhand.soft=false&dealerhand.softvalue=22&dealerhand.value=22&gameover=true&totalbet.cents=40&totalwin.cents=60&credit=10060&g4mode=false&gamesoundurl=https://static.joker-entry.link/nth&historybutton=false&isJackpotWin=false&jackpotcurrency= &jackpotcurrencyiso=NAN&playercurrency= &playercurrencyiso=NAN&playforfun=false"
+    }
+   ]
+  },
+  {
+   "game": "blackjack_html",
+   "case": "insured-dealer-bj",
+   "shoe": [
+    "JH",
+    "AC",
+    "4S",
+    "AS",
+    "9H",
+    "8C",
+    "2S",
+    "TS",
+    "2C",
+    "2C",
+    "2C",
+    "2C",
+    "2C",
+    "2C"
+   ],
+   "steps": [
+    {
+     "query": "action=deal&bet=0:10,1:10,2:10",
+     "reply": "clientaction=deal&activebox=0&activeplayerhand=0&box.i0.playerhand.i0.availableactions=DOUBLE,HIT,STAND&box.i0.playerhand.i0.blackjack=false&box.i0.playerhand.i0.canbesplit=false&box.i0.playerhand.i0.candouble=true&box.i0.playerhand.i0.doublebet=0&box.i0.playerhand.i0.initialbet=10&box.i0.playerhand.i0.insurancebet=0&box.i0.playerhand.i0.hand=JH,9H&box.i0.playerhand.i0.hardvalue=19&box.i0.playerhand.i0.outcomeevent=inplay&box.i0.playerhand.i0.soft=false&box.i0.playerhand.i0.softvalue=19&box.i0.playerhand.i0.split=false&box.i0.playerhand.i0.splitfromaa=false&box.i0.playerhand.i0.state=inplay&box.i0.playerhand.i0.win=0&box.i1.playerhand.i0.availableactions=DOUBLE,HIT,STAND&box.i1.playerhand.i0.blackjack=false&box.i1.playerhand.i0.canbesplit=false&box.i1.playerhand.i0.candouble=true&box.i1.playerhand.i0.doublebet=0&box.i1.playerhand.i0.initialbet=10&box.i1.playerhand.i0.insurancebet=0&box.i1.playerhand.i0.hand=AC,8C&box.i1.playerhand.i0.hardvalue=19&box.i1.playerhand.i0.outcomeevent=inplay&box.i1.playerhand.i0.soft=true&box.i1.playerhand.i0.softvalue=9&box.i1.playerhand.i0.split=false&box.i1.playerhand.i0.splitfromaa=false&box.i1.playerhand.i0.state=inplay&box.i1.playerhand.i0.win=0&box.i2.playerhand.i0.availableactions=DOUBLE,HIT,STAND&box.i2.playerhand.i0.blackjack=false&box.i2.playerhand.i0.canbesplit=false&box.i2.playerhand.i0.candouble=true&box.i2.playerhand.i0.doublebet=0&box.i2.playerhand.i0.initialbet=10&box.i2.playerhand.i0.insurancebet=0&box.i2.playerhand.i0.hand=4S,2S&box.i2.playerhand.i0.hardvalue=6&box.i2.playerhand.i0.outcomeevent=inplay&box.i2.playerhand.i0.soft=false&box.i2.playerhand.i0.softvalue=6&box.i2.playerhand.i0.split=false&box.i2.playerhand.i0.splitfromaa=false&box.i2.playerhand.i0.state=inplay&box.i2.playerhand.i0.win=0&dealerhand.hand=AS&dealerhand.offerinsurance=true&dealerhand.value=11&gameover=false&totalbet.cents=30&totalwin.cents=0&credit=9945&g4mode=false&gamesoundurl=https://static.joker-entry.link/nth&historybutton=false&isJackpotWin=false&jackpotcurrency= &jackpotcurrencyiso=NAN&playercurrency= &playercurrencyiso=NAN&playforfun=false"
+    },
+    {
+     "query": "action=insurance",
+     "reply": "clientaction=insurance&activebox=1&activeplayerhand=0&box.i0.playerhand.i0.availableactions=DOUBLE,HIT,STAND&box.i0.playerhand.i0.blackjack=false&box.i0.playerhand.i0.canbesplit=false&box.i0.playerhand.i0.candouble=true&box.i0.playerhand.i0.doublebet=0&box.i0.playerhand.i0.initialbet=10&box.i0.playerhand.i0.insurancebet=5&box.i0.playerhand.i0.hand=JH,9H&box.i0.playerhand.i0.hardvalue=19&box.i0.playerhand.i0.outcomeevent=inplay&box.i0.playerhand.i0.soft=false&box.i0.playerhand.i0.softvalue=19&box.i0.playerhand.i0.split=false&box.i0.playerhand.i0.splitfromaa=false&box.i0.playerhand.i0.state=player_done&box.i0.playerhand.i0.win=0&box.i1.playerhand.i0.availableactions=DOUBLE,HIT,STAND&box.i1.playerhand.i0.blackjack=false&box.i1.playerhand.i0.canbesplit=false&box.i1.playerhand.i0.candouble=true&box.i1.playerhand.i0.doublebet=0&box.i1.playerhand.i0.initialbet=10&box.i1.playerhand.i0.insurancebet=0&box.i1.playerhand.i0.hand=AC,8C&box.i1.playerhand.i0.hardvalue=19&box.i1.playerhand.i0.outcomeevent=inplay&box.i1.playerhand.i0.soft=true&box.i1.playerhand.i0.softvalue=9&box.i1.playerhand.i0.split=false&box.i1.playerhand.i0.splitfromaa=false&box.i1.playerhand.i0.state=inplay&box.i1.playerhand.i0.win=0&box.i2.playerhand.i0.availableactions=DOUBLE,HIT,STAND&box.i2.playerhand.i0.blackjack=false&box.i2.playerhand.i0.canbesplit=false&box.i2.playerhand.i0.candouble=true&box.i2.playerhand.i0.doublebet=0&box.i2.playerhand.i0.initialbet=10&box.i2.playerhand.i0.insurancebet=0&box.i2.playerhand.i0.hand=4S,2S&box.i2.playerhand.i0.hardvalue=6&box.i2.playerhand.i0.outcomeevent=inplay&box.i2.playerhand.i0.soft=false&box.i2.playerhand.i0.softvalue=6&box.i2.playerhand.i0.split=false&box.i2.playerhand.i0.splitfromaa=false&box.i2.playerhand.i0.state=inplay&box.i2.playerhand.i0.win=0&dealerhand.hand=AS&dealerhand.offerinsurance=true&dealerhand.value=11&gameover=false&totalbet.cents=35&totalwin.cents=0&credit=9940&g4mode=false&gamesoundurl=https://static.joker-entry.link/nth&historybutton=false&isJackpotWin=false&jackpotcurrency= &jackpotcurrencyiso=NAN&playercurrency= &playercurrencyiso=NAN&playforfun=false"
+    },
+    {
+     "query": "action=noinsurance",
+     "reply": "clientaction=noinsurance&activebox=2&activeplayerhand=0&box.i0.playerhand.i0.availableactions=DOUBLE,HIT,STAND&box.i0.playerhand.i0.blackjack=false&box.i0.playerhand.i0.canbesplit=false&box.i0.playerhand.i0.candouble=true&box.i0.playerhand.i0.doublebet=0&box.i0.playerhand.i0.initialbet=10&box.i0.playerhand.i0.insurancebet=5&box.i0.playerhand.i0.hand=JH,9H&box.i0.playerhand.i0.hardvalue=19&box.i0.playerhand.i0.outcomeevent=inplay&box.i0.playerhand.i0.soft=false&box.i0.playerhand.i0.softvalue=19&box.i0.playerhand.i0.split=false&box.i0.playerhand.i0.splitfromaa=false&box.i0.playerhand.i0.state=player_done&box.i0.playerhand.i0.win=0&box.i1.playerhand.i0.availableactions=DOUBLE,HIT,STAND&box.i1.playerhand.i0.blackjack=false&box.i1.playerhand.i0.canbesplit=false&box.i1.playerhand.i0.candouble=true&box.i1.playerhand.i0.doublebet=0&box.i1.playerhand.i0.initialbet=10&box.i1.playerhand.i0.insurancebet=0&box.i1.playerhand.i0.hand=AC,8C&box.i1.playerhand.i0.hardvalue=19&box.i1.playerhand.i0.outcomeevent=inplay&box.i1.playerhand.i0.soft=true&box.i1.playerhand.i0.softvalue=9&box.i1.playerhand.i0.split=false&box.i1.playerhand.i0.splitfromaa=false&box.i1.playerhand.i0.state=player_done&box.i1.playerhand.i0.win=0&box.i2.playerhand.i0.availableactions=DOUBLE,HIT,STAND&box.i2.playerhand.i0.blackjack=false&box.i2.playerhand.i0.canbesplit=false&box.i2.playerhand.i0.candouble=true&box.i2.playerhand.i0.doublebet=0&box.i2.playerhand.i0.initialbet=10&box.i2.playerhand.i0.insurancebet=0&box.i2.playerhand.i0.hand=4S,2S&box.i2.playerhand.i0.hardvalue=6&box.i2.playerhand.i0.outcomeevent=inplay&box.i2.playerhand.i0.soft=false&box.i2.playerhand.i0.softvalue=6&box.i2.playerhand.i0.split=false&box.i2.playerhand.i0.splitfromaa=false&box.i2.playerhand.i0.state=inplay&box.i2.playerhand.i0.win=0&dealerhand.hand=AS&dealerhand.offerinsurance=true&dealerhand.value=11&gameover=false&totalbet.cents=35&totalwin.cents=0&credit=9940&g4mode=false&gamesoundurl=https://static.joker-entry.link/nth&historybutton=false&isJackpotWin=false&jackpotcurrency= &jackpotcurrencyiso=NAN&playercurrency= &playercurrencyiso=NAN&playforfun=false"
+    },
+    {
+     "query": "action=insurance",
+     "reply": "clientaction=insurance&activebox=0&activeplayerhand=0&box.i0.playerhand.i0.availableactions=DOUBLE,HIT,STAND&box.i0.playerhand.i0.blackjack=false&box.i0.playerhand.i0.canbesplit=false&box.i0.playerhand.i0.candouble=true&box.i0.playerhand.i0.doublebet=0&box.i0.playerhand.i0.initialbet=10&box.i0.playerhand.i0.insurancebet=5&box.i0.playerhand.i0.hand=JH,9H&box.i0.playerhand.i0.hardvalue=19&box.i0.playerhand.i0.outcomeevent=normal&box.i0.playerhand.i0.soft=false&box.i0.playerhand.i0.softvalue=19&box.i0.playerhand.i0.split=false&box.i0.playerhand.i0.splitfromaa=false&box.i0.playerhand.i0.state=lost&box.i0.playerhand.i0.win=15&box.i1.playerhand.i0.availableactions=DOUBLE,HIT,STAND&box.i1.playerhand.i0.blackjack=false&box.i1.playerhand.i0.canbesplit=false&box.i1.playerhand.i0.candouble=true&box.i1.playerhand.i0.doublebet=0&box.i1.playerhand.i0.initialbet=10&box.i1.playerhand.i0.insurancebet=0&box.i1.playerhand.i0.hand=AC,8C&box.i1.playerhand.i0.hardvalue=19&box.i1.playerhand.i0.outcomeevent=normal&box.i1.playerhand.i0.soft=true&box.i1.playerhand.i0.softvalue=9&box.i1.playerhand.i0.split=false&box.i1.playerhand.i0.splitfromaa=false&box.i1.playerhand.i0.state=lost&box.i1.playerhand.i0.win=0&box.i2.playerhand.i0.availableactions=DOUBLE,HIT,STAND&box.i2.playerhand.i0.blackjack=false&box.i2.playerhand.i0.canbesplit=false&box.i2.playerhand.i0.candouble=true&box.i2.playerhand.i0.doublebet=0&box.i2.playerhand.i0.initialbet=10&box.i2.playerhand.i0.insurancebet=5&box.i2.playerhand.i0.hand=4S,2S&box.i2.playerhand.i0.hardvalue=6&box.i2.playerhand.i0.outcomeevent=normal&box.i2.playerhand.i0.soft=false&box.i2.playerhand.i0.softvalue=6&box.i2.playerhand.i0.split=false&box.i2.playerhand.i0.splitfromaa=false&box.i2.playerhand.i0.state=lost&box.i2.playerhand.i0.win=15&dealerhand.blackjack=true&dealerhand.hand=AS,TS&dealerhand.hardvalue=21&dealerhand.soft=true&dealerhand.softvalue=11&dealerhand.value=21&gameover=true&totalbet.cents=40&totalwin.cents=30&credit=9965&g4mode=false&gamesoundurl=https://static.joker-entry.link/nth&historybutton=false&isJackpotWin=false&jackpotcurrency= &jackpotcurrencyiso=NAN&playercurrency= &playercurrencyiso=NAN&playforfun=false"
+    }
+   ]
+  },
+  {
+   "game": "blackjack_html",
+   "case": "insurance-play-on",
+   "shoe": [
+    "2C",
+    "3S",
+    "6C",
+    "AS",
+    "QC",
+    "8S",
+    "6S",
+    "5S",
+    "JS",
+    "6D",
+    "2D",
+    "AS",
+    "AS",
+    "8H",
+    "5C",
+    "2C",
+    "2C",
+    "2C",
+    "2C",
+    "2C",
+    "2C"
+   ],
+   "steps": [
+    {
+     "query": "action=deal&bet=0:10,1:10,2:10",
+     "reply": "clientaction=deal&activebox=0&activeplayerhand=0&box.i0.playerhand.i0.availableactions=DOUBLE,HIT,STAND&box.i0.playerhand.i0.blackjack=false&box.i0.playerhand.i0.canbesplit=false&box.i0.playerhand.i0.candouble=true&box.i0.playerhand.i0.doublebet=0&box.i0.playerhand.i0.initialbet=10&box.i0.playerhand.i0.insurancebet=0&box.i0.playerhand.i0.hand=2C,QC&box.i0.playerhand.i0.hardvalue=12&box.i0.playerhand.i0.outcomeevent=inplay&box.i0.playerhand.i0.soft=false&box.i0.playerhand.i0.softvalue=12&box.i0.playerhand.i0.split=false&box.i0.playerhand.i0.splitfromaa=false&box.i0.playerhand.i0.state=inplay&box.i0.playerhand.i0.win=0&box.i1.playerhand.i0.availableactions=DOUBLE,HIT,STAND&box.i1.playerhand.i0.blackjack=false&box.i1.playerhand.i0.canbesplit=false&box.i1.playerhand.i0.candouble=true&box.i1.playerhand.i0.doublebet=0&box.i1.playerhand.i0.initialbet=10&box.i1.playerhand.i0.insurancebet=0&box.i1.playerhand.i0.hand=3S,8S&box.i1.playerhand.i0.hardvalue=11&box.i1.playerhand.i0.outcomeevent=inplay&box.i1.playerhand.i0.soft=false&box.i1.playerhand.i0.softvalue=11&box.i1.playerhand.i0.split=false&box.i1.playerhand.i0.splitfromaa=false&box.i1.playerhand.i0.state=inplay&box.i1.playerhand.i0.win=0&box.i2.playerhand.i0.availableactions=SPLIT,DOUBLE,HIT,STAND&box.i2.playerhand.i0.blackjack=false&box.i2.playerhand.i0.canbesplit=true&box.i2.playerhand.i0.candouble=true&box.i2.playerhand.i0.doublebet=0&box.i2.playerhand.i0.initialbet=10&box.i2.playerhand.i0.insurancebet=0&box.i2.playerhand.i0.hand=6C,6S&box.i2.playerhand.i0.hardvalue=12&box.i2.playerhand.i0.outcomeevent=inplay&box.i2.playerhand.i0.soft=false&box.i2.playerhand.i0.softvalue=12&box.i2.playerhand.i0.split=false&box.i2.playerhand.i0.splitfromaa=false&box.i2.playerhand.i0.state=inplay&box.i2.playerhand.i0.win=0&dealerhand.hand=AS&dealerhand.offerinsurance=true&dealerhand.value=11&gameover=false&totalbet.cents=30&totalwin.cents=0&credit=9990&g4mode=false&gamesoundurl=https://static.joker-entry.link/nth&historybutton=false&isJackpotWin=false&jackpotcurrency= &jackpotcurrencyiso=NAN&playercurrency= &playercurrencyiso=NAN&playforfun=false"
+    },
+    {
+     "query": "action=noinsurance",
+     "reply": "clientaction=noinsurance&activebox=1&activeplayerhand=0&box.i0.playerhand.i0.availableactions=DOUBLE,HIT,STAND&box.i0.playerhand.i0.blackjack=false&box.i0.playerhand.i0.canbesplit=false&box.i0.playerhand.i0.candouble=true&box.i0.playerhand.i0.doublebet=0&box.i0.playerhand.i0.initialbet=10&box.i0.playerhand.i0.insurancebet=0&box.i0.playerhand.i0.hand=2C,QC&box.i0.playerhand.i0.hardvalue=12&box.i0.playerhand.i0.outcomeevent=inplay&box.i0.playerhand.i0.soft=false&box.i0.playerhand.i0.softvalue=12&box.i0.playerhand.i0.split=false&box.i0.playerhand.i0.splitfromaa=false&box.i0.playerhand.i0.state=player_done&box.i0.playerhand.i0.win=0&box.i1.playerhand.i0.availableactions=DOUBLE,HIT,STAND&box.i1.playerhand.i0.blackjack=false&box.i1.playerhand.i0.canbesplit=false&box.i1.playerhand.i0.candouble=true&box.i1.playerhand.i0.doublebet=0&box.i1.playerhand.i0.initialbet=10&box.i1.playerhand.i0.insurancebet=0&box.i1.playerhand.i0.hand=3S,8S&box.i1.playerhand.i0.hardvalue=11&box.i1.playerhand.i0.outcomeevent=inplay&box.i1.playerhand.i0.soft=false&box.i1.playerhand.i0.softvalue=11&box.i1.playerhand.i0.split=false&box.i1.playerhand.i0.splitfromaa=false&box.i1.playerhand.i0.state=inplay&box.i1.playerhand.i0.win=0&box.i2.playerhand.i0.availableactions=SPLIT,DOUBLE,HIT,STAND&box.i2.playerhand.i0.blackjack=false&box.i2.playerhand.i0.canbesplit=true&box.i2.playerhand.i0.candouble=true&box.i2.playerhand.i0.doublebet=0&box.i2.playerhand.i0.initialbet=10&box.i2.playerhand.i0.insurancebet=0&box.i2.playerhand.i0.hand=6C,6S&box.i2.playerhand.i0.hardvalue=12&box.i2.playerhand.i0.outcomeevent=inplay&box.i2.playerhand.i0.soft=false&box.i2.playerhand.i0.softvalue=12&box.i2.playerhand.i0.split=false&box.i2.playerhand.i0.splitfromaa=false&box.i2.playerhand.i0.state=inplay&box.i2.playerhand.i0.win=0&dealerhand.hand=AS&dealerhand.offerinsurance=true&dealerhand.value=11&gameover=false&totalbet.cents=30&totalwin.cents=0&credit=9990&g4mode=false&gamesoundurl=https://static.joker-entry.link/nth&historybutton=false&isJackpotWin=false&jackpotcurrency= &jackpotcurrencyiso=NAN&playercurrency= &playercurrencyiso=NAN&playforfun=false"
+    },
+    {
+     "query": "action=insurance",
+     "reply": "clientaction=insurance&activebox=2&activeplayerhand=0&box.i0.playerhand.i0.availableactions=DOUBLE,HIT,STAND&box.i0.playerhand.i0.blackjack=false&box.i0.playerhand.i0.canbesplit=false&box.i0.playerhand.i0.candouble=true&box.i0.playerhand.i0.doublebet=0&box.i0.playerhand.i0.initialbet=10&box.i0.playerhand.i0.insurancebet=0&box.i0.playerhand.i0.hand=2C,QC&box.i0.playerhand.i0.hardvalue=12&box.i0.playerhand.i0.outcomeevent=inplay&box.i0.playerhand.i0.soft=false&box.i0.playerhand.i0.softvalue=12&box.i0.playerhand.i0.split=false&box.i0.playerhand.i0.splitfromaa=false&box.i0.playerhand.i0.state=player_done&box.i0.playerhand.i0.win=0&box.i1.playerhand.i0.availableactions=DOUBLE,HIT,STAND&box.i1.playerhand.i0.blackjack=false&box.i1.playerhand.i0.canbesplit=false&box.i1.playerhand.i0.candouble=true&box.i1.playerhand.i0.doublebet=0&box.i1.playerhand.i0.initialbet=10&box.i1.playerhand.i0.insurancebet=5&box.i1.playerhand.i0.hand=3S,8S&box.i1.playerhand.i0.hardvalue=11&box.i1.playerhand.i0.outcomeevent=inplay&box.i1.playerhand.i0.soft=false&box.i1.playerhand.i0.softvalue=11&box.i1.playerhand.i0.split=false&box.i1.playerhand.i0.splitfromaa=false&box.i1.playerhand.i0.state=player_done&box.i1.playerhand.i0.win=0&box.i2.playerhand.i0.availableactions=SPLIT,DOUBLE,HIT,STAND&box.i2.playerhand.i0.blackjack=false&box.i2.playerhand.i0.canbesplit=true&box.i2.playerhand.i0.candouble=true&box.i2.playerhand.i0.doublebet=0&box.i2.playerhand.i0.initialbet=10&box.i2.playerhand.i0.insurancebet=0&box.i2.playerhand.i0.hand=6C,6S&box.i2.playerhand.i0.hardvalue=12&box.i2.playerhand.i0.outcomeevent=inplay&box.i2.playerhand.i0.soft=false&box.i2.playerhand.i0.softvalue=12&box.i2.playerhand.i0.split=false&box.i2.playerhand.i0.splitfromaa=false&box.i2.playerhand.i0.state=inplay&box.i2.playerhand.i0.win=0&dealerhand.hand=AS&dealerhand.offerinsurance=true&dealerhand.value=11&gameover=false&totalbet.cents=35&totalwin.cents=0&credit=9985&g4mode=false&gamesoundurl=https://static.joker-entry.link/nth&historybutton=false&isJackpotWin=false&jackpotcurrency= &jackpotcurrencyiso=NAN&playercurrency= &playercurrencyiso=NAN&playforfun=false"
+    },
+    {
+     "query": "action=noinsurance",
+     "reply": "clientaction=noinsurance&activebox=0&activeplayerhand=0&box.i0.playerhand.i0.availableactions=DOUBLE,HIT,STAND&box.i0.playerhand.i0.blackjack=false&box.i0.playerhand.i0.canbesplit=false&box.i0.playerhand.i0.candouble=true&box.i0.playerhand.i0.doublebet=0&box.i0.playerhand.i0.initialbet=10&box.i0.playerhand.i0.insurancebet=0&box.i0.playerhand.i0.hand=2C,QC&box.i0.playerhand.i0.hardvalue=12&box.i0.playerhand.i0.outcomeevent=inplay&box.i0.playerhand.i0.soft=false&box.i0.playerhand.i0.softvalue=12&box.i0.playerhand.i0.split=false&box.i0.playerhand.i0.splitfromaa=false&box.i0.playerhand.i0.state=inplay&box.i0.playerhand.i0.win=0&box.i1.playerhand.i0.availableactions=DOUBLE,HIT,STAND&box.i1.playerhand.i0.blackjack=false&box.i1.playerhand.i0.canbesplit=false&box.i1.playerhand.i0.candouble=true&box.i1.playerhand.i0.doublebet=0&box.i1.playerhand.i0.initialbet=10&box.i1.playerhand.i0.insurancebet=5&box.i1.playerhand.i0.hand=3S,8S&box.i1.playerhand.i0.hardvalue=11&box.i1.playerhand.i0.outcomeevent=inplay&box.i1.playerhand.i0.soft=false&box.i1.playerhand.i0.softvalue=11&box.i1.playerhand.i0.split=false&box.i1.playerhand.i0.splitfromaa=false&box.i1.playerhand.i0.state=inplay&box.i1.playerhand.i0.win=0&box.i2.playerhand.i0.availableactions=SPLIT,DOUBLE,HIT,STAND&box.i2.playerhand.i0.blackjack=false&box.i2.playerhand.i0.canbesplit=true&box.i2.playerhand.i0.candouble=true&box.i2.playerhand.i0.doublebet=0&box.i2.playerhand.i0.initialbet=10&box.i2.playerhand.i0.insurancebet=0&box.i2.playerhand.i0.hand=6C,6S&box.i2.playerhand.i0.hardvalue=12&box.i2.playerhand.i0.outcomeevent=inplay&box.i2.playerhand.i0.soft=false&box.i2.playerhand.i0.softvalue=12&box.i2.playerhand.i0.split=false&box.i2.playerhand.i0.splitfromaa=false&box.i2.playerhand.i0.state=inplay&box.i2.playerhand.i0.win=0&dealerhand.hand=AS&dealerhand.offerinsurance=false&dealerhand.value=11&gameover=false&totalbet.cents=35&totalwin.cents=0&credit=9985&g4mode=false&gamesoundurl=https://static.joker-entry.link/nth&historybutton=false&isJackpotWin=false&jackpotcurrency= &jackpotcurrencyiso=NAN&playercurrency= &playercurrencyiso=NAN&playforfun=false"
+    },
+    {
+     "query": "action=hit",
+     "reply": "clientaction=hit&activebox=1&activeplayerhand=0&box.i0.playerhand.i0.availableactions=&box.i0.playerhand.i0.blackjack=false&box.i0.playerhand.i0.canbesplit=false&box.i0.playerhand.i0.candouble=false&box.i0.playerhand.i0.doublebet=0&box.i0.playerhand.i0.initialbet=10&box.i0.playerhand.i0.insurancebet=0&box.i0.playerhand.i0.hand=2C,QC,JS&box.i0.playerhand.i0.hardvalue=22&box.i0.playerhand.i0.outcomeevent=bust&box.i0.playerhand.i0.soft=false&box.i0.playerhand.i0.softvalue=22&box.i0.playerhand.i0.split=false&box.i0.playerhand.i0.splitfromaa=false&box.i0.playerhand.i0.state=lost&box.i0.playerhand.i0.win=0&box.i1.playerhand.i0.availableactions=DOUBLE,HIT,STAND&box.i1.playerhand.i0.blackjack=false&box.i1.playerhand.i0.canbesplit=false&box.i1.playerhand.i0.candouble=true&box.i1.playerhand.i0.doublebet=0&box.i1.playerhand.i0.initialbet=10&box.i1.playerhand.i0.insurancebet=5&box.i1.playerhand.i0.hand=3S,8S&box.i1.playerhand.i0.hardvalue=11&box.i1.playerhand.i0.outcomeevent=inplay&box.i1.playerhand.i0.soft=false&box.i1.playerhand.i0.softvalue=11&box.i1.playerhand.i0.split=false&box.i1.playerhand.i0.splitfromaa=false&box.i1.playerhand.i0.state=inplay&box.i1.playerhand.i0.win=0&box.i2.playerhand.i0.availableactions=SPLIT,DOUBLE,HIT,STAND&box.i2.playerhand.i0.blackjack=false&box.i2.playerhand.i0.canbesplit=true&box.i2.playerhand.i0.candouble=true&box.i2.playerhand.i0.doublebet=0&box.i2.playerhand.i0.initialbet=10&box.i2.playerhand.i0.insurancebet=0&box.i2.playerhand.i0.hand=6C,6S&box.i2.playerhand.i0.hardvalue=12&box.i2.playerhand.i0.outcomeevent=inplay&box.i2.playerhand.i0.soft=false&box.i2.playerhand.i0.softvalue=12&box.i2.playerhand.i0.split=false&box.i2.playerhand.i0.splitfromaa=false&box.i2.playerhand.i0.state=inplay&box.i2.playerhand.i0.win=0&dealerhand.hand=AS&dealerhand.offerinsurance=false&dealerhand.value=11&gameover=false&totalbet.cents=35&totalwin.cents=0&credit=9985&g4mode=false&gamesoundurl=https://static.joker-entry.link/nth&historybutton=false&isJackpotWin=false&jackpotcurrency= &jackpotcurrencyiso=NAN&playercurrency= &playercurrencyiso=NAN&playforfun=false"
+    },
+    {
+     "query": "action=double",
+     "reply": "clientaction=double&activebox=2&activeplayerhand=0&box.i0.playerhand.i0.availableactions=&box.i0.playerhand.i0.blackjack=false&box.i0.playerhand.i0.canbesplit=false&box.i0.playerhand.i0.candouble=false&box.i0.playerhand.i0.doublebet=0&box.i0.playerhand.i0.initialbet=10&box.i0.playerhand.i0.insurancebet=0&box.i0.playerhand.i0.hand=2C,QC,JS&box.i0.playerhand.i0.hardvalue=22&box.i0.playerhand.i0.outcomeevent=bust&box.i0.playerhand.i0.soft=false&box.i0.playerhand.i0.softvalue=22&box.i0.playerhand.i0.split=false&box.i0.playerhand.i0.splitfromaa=false&box.i0.playerhand.i0.state=lost&box.i0.playerhand.i0.win=0&box.i1.playerhand.i0.availableactions=HIT,STAND&box.i1.playerhand.i0.blackjack=false&box.i1.playerhand.i0.canbesplit=false&box.i1.playerhand.i0.candouble=false&box.i1.playerhand.i0.doublebet=10&box.i1.playerhand.i0.initialbet=10&box.i1.playerhand.i0.insurancebet=5&box.i1.playerhand.i0.hand=3S,8S,6D&box.i1.playerhand.i0.hardvalue=17&box.i1.playerhand.i0.outcomeevent=inplay&box.i1.playerhand.i0.soft=false&box.i1.playerhand.i0.softvalue=17&box.i1.playerhand.i0.split=false&box.i1.playerhand.i0.splitfromaa=false&box.i1.playerhand.i0.state=player_done&box.i1.playerhand.i0.win=0&box.i2.playerhand.i0.availableactions=SPLIT,DOUBLE,HIT,STAND&box.i2.playerhand.i0.blackjack=false&box.i2.playerhand.i0.canbesplit=true&box.i2.playerhand.i0.candouble=true&box.i2.playerhand.i0.doublebet=0&box.i2.playerhand.i0.initialbet=10&box.i2.playerhand.i0.insurancebet=0&box.i2.playerhand.i0.hand=6C,6S&box.i2.playerhand.i0.hardvalue=12&box.i2.playerhand.i0.outcomeevent=inplay&box.i2.playerhand.i0.soft=false&box.i2.playerhand.i0.softvalue=12&box.i2.playerhand.i0.split=false&box.i2.playerhand.i0.splitfromaa=false&box.i2.playerhand.i0.state=inplay&box.i2.playerhand.i0.win=0&dealerhand.hand=AS&dealerhand.offerinsurance=false&dealerhand.value=11&gameover=false&totalbet.cents=45&totalwin.cents=0&credit=9975&g4mode=false&gamesoundurl=https://static.joker-entry.link/nth&historybutton=false&isJackpotWin=false&jackpotcurrency= &jackpotcurrencyiso=NAN&playercurrency= &playercurrencyiso=NAN&playforfun=false"
+    },
+    {
+     "query": "action=split",
+     "reply": "clientaction=split&activebox=2&activeplayerhand=0&box.i0.playerhand.i0.availableactions=&box.i0.playerhand.i0.blackjack=false&box.i0.playerhand.i0.canbesplit=false&box.i0.playerhand.i0.candouble=false&box.i0.playerhand.i0.doublebet=0&box.i0.playerhand.i0.initialbet=10&box.i0.playerhand.i0.insurancebet=0&box.i0.playerhand.i0.hand=2C,QC,JS&box.i0.playerhand.i0.hardvalue=22&box.i0.playerhand.i0.outcomeevent=bust&box.i0.playerhand.i0.soft=false&box.i0.playerhand.i0.softvalue=22&box.i0.playerhand.i0.split=false&box.i0.playerhand.i0.splitfromaa=false&box.i0.playerhand.i0.state=lost&box.i0.playerhand.i0.win=0&box.i1.playerhand.i0.availableactions=HIT,STAND&box.i1.playerhand.i0.blackjack=false&box.i1.playerhand.i0.canbesplit=false&box.i1.playerhand.i0.candouble=false&box.i1.playerhand.i0.doublebet=10&box.i1.playerhand.i0.initialbet=10&box.i1.playerhand.i0.insurancebet=5&box.i1.playerhand.i0.hand=3S,8S,6D&box.i1.playerhand.i0.hardvalue=17&box.i1.playerhand.i0.outcomeevent=inplay&box.i1.playerhand.i0.soft=false&box.i1.playerhand.i0.softvalue=17&box.i1.playerhand.i0.split=false&box.i1.playerhand.i0.splitfromaa=false&box.i1.playerhand.i0.state=player_done&box.i1.playerhand.i0.win=0&box.i2.playerhand.i0.availableactions=DOUBLE,HIT,STAND&box.i2.playerhand.i0.blackjack=false&box.i2.playerhand.i0.canbesplit=false&box.i2.playerhand.i0.candouble=true&box.i2.playerhand.i0.doublebet=0&box.i2.playerhand.i0.initialbet=10&box.i2.playerhand.i0.insurancebet=0&box.i2.playerhand.i0.hand=6C,2D&box.i2.playerhand.i0.hardvalue=8&box.i2.playerhand.i0.outcomeevent=inplay&box.i2.playerhand.i0.soft=false&box.i2.playerhand.i0.softvalue=8&box.i2.playerhand.i0.split=true&box.i2.playerhand.i0.splitfromaa=false&box.i2.playerhand.i0.state=inplay&box.i2.playerhand.i0.win=0&box.i2.playerhand.i1.availableactions=HIT,STAND&box.i2.playerhand.i1.blackjack=false&box.i2.playerhand.i1.canbesplit=false&box.i2.playerhand.i1.candouble=false&box.i2.playerhand.i1.doublebet=0&box.i2.playerhand.i1.initialbet=10&box.i2.playerhand.i1.insurancebet=0&box.i2.playerhand.i1.hand=6S&box.i2.playerhand.i1.hardvalue=6&box.i2.playerhand.i1.outcomeevent=inplay&box.i2.playerhand.i1.soft=false&box.i2.playerhand.i1.softvalue=6&box.i2.playerhand.i1.split=true&box.i2.playerhand.i1.splitfromaa=false&box.i2.playerhand.i1.splitparenthandindex=0&box.i2.playerhand.i1.state=inplay&box.i2.playerhand.i1.win=0&dealerhand.hand=AS&dealerhand.offerinsurance=false&dealerhand.value=11&gameover=false&totalbet.cents=55&totalwin.cents=0&credit=9965&g4mode=false&gamesoundurl=https://static.joker-entry.link/nth&historybutton=false&isJackpotWin=false&jackpotcurrency= &jackpotcurrencyiso=NAN&playercurrency= &playercurrencyiso=NAN&playforfun=false"
+    },
+    {
+     "query": "action=hit",
+     "reply": "clientaction=hit&activebox=2&activeplayerhand=0&box.i0.playerhand.i0.availableactions=&box.i0.playerhand.i0.blackjack=false&box.i0.playerhand.i0.canbesplit=false&box.i0.playerhand.i0.candouble=false&box.i0.playerhand.i0.doublebet=0&box.i0.playerhand.i0.initialbet=10&box.i0.playerhand.i0.insurancebet=0&box.i0.playerhand.i0.hand=2C,QC,JS&box.i0.playerhand.i0.hardvalue=22&box.i0.playerhand.i0.outcomeevent=bust&box.i0.playerhand.i0.soft=false&box.i0.playerhand.i0.softvalue=22&box.i0.playerhand.i0.split=false&box.i0.playerhand.i0.splitfromaa=false&box.i0.playerhand.i0.state=lost&box.i0.playerhand.i0.win=0&box.i1.playerhand.i0.availableactions=HIT,STAND&box.i1.playerhand.i0.blackjack=false&box.i1.playerhand.i0.canbesplit=false&box.i1.playerhand.i0.candouble=false&box.i1.playerhand.i0.doublebet=10&box.i1.playerhand.i0.initialbet=10&box.i1.playerhand.i0.insurancebet=5&box.i1.playerhand.i0.hand=3S,8S,6D&box.i1.playerhand.i0.hardvalue=17&box.i1.playerhand.i0.outcomeevent=inplay&box.i1.playerhand.i0.soft=false&box.i1.playerhand.i0.softvalue=17&box.i1.playerhand.i0.split=false&box.i1.playerhand.i0.splitfromaa=false&box.i1.playerhand.i0.state=player_done&box.i1.playerhand.i0.win=0&box.i2.playerhand.i0.availableactions=HIT,STAND&box.i2.playerhand.i0.blackjack=false&box.i2.playerhand.i0.canbesplit=false&box.i2.playerhand.i0.candouble=false&box.i2.playerhand.i0.doublebet=0&box.i2.playerhand.i0.initialbet=10&box.i2.playerhand.i0.insurancebet=0&box.i2.playerhand.i0.hand=6C,2D,AS&box.i2.playerhand.i0.hardvalue=19&box.i2.playerhand.i0.outcomeevent=inplay&box.i2.playerhand.i0.soft=true&box.i2.playerhand.i0.softvalue=9&box.i2.playerhand.i0.split=true&box.i2.playerhand.i0.splitfromaa=false&box.i2.playerhand.i0.state=inplay&box.i2.playerhand.i0.win=0&box.i2.playerhand.i1.availableactions=HIT,STAND&box.i2.playerhand.i1.blackjack=false&box.i2.playerhand.i1.canbesplit=false&box.i2.playerhand.i1.candouble=false&box.i2.playerhand.i1.doublebet=0&box.i2.playerhand.i1.initialbet=10&box.i2.playerhand.i1.insurancebet=0&box.i2.playerhand.i1.hand=6S&box.i2.playerhand.i1.hardvalue=6&box.i2.playerhand.i1.outcomeevent=inplay&box.i2.playerhand.i1.soft=false&box.i2.playerhand.i1.softvalue=6&box.i2.playerhand.i1.split=true&box.i2.playerhand.i1.splitfromaa=false&box.i2.playerhand.i1.splitparenthandindex=0&box.i2.playerhand.i1.state=inplay&box.i2.playerhand.i1.win=0&dealerhand.hand=AS&dealerhand.offerinsurance=false&dealerhand.value=11&gameover=false&totalbet.cents=55&totalwin.cents=0&credit=9965&g4mode=false&gamesoundurl=https://static.joker-entry.link/nth&historybutton=false&isJackpotWin=false&jackpotcurrency= &jackpotcurrencyiso=NAN&playercurrency= &playercurrencyiso=NAN&playforfun=false"
+    },
+    {
+     "query": "action=stand",
+     "reply": "clientaction=stand&activebox=2&activeplayerhand=1&box.i0.playerhand.i0.availableactions=&box.i0.playerhand.i0.blackjack=false&box.i0.playerhand.i0.canbesplit=false&box.i0.playerhand.i0.candouble=false&box.i0.playerhand.i0.doublebet=0&box.i0.playerhand.i0.initialbet=10&box.i0.playerhand.i0.insurancebet=0&box.i0.playerhand.i0.hand=2C,QC,JS&box.i0.playerhand.i0.hardvalue=22&box.i0.playerhand.i0.outcomeevent=bust&box.i0.playerhand.i0.soft=false&box.i0.playerhand.i0.softvalue=22&box.i0.playerhand.i0.split=false&box.i0.playerhand.i0.splitfromaa=false&box.i0.playerhand.i0.state=lost&box.i0.playerhand.i0.win=0&box.i1.playerhand.i0.availableactions=HIT,STAND&box.i1.playerhand.i0.blackjack=false&box.i1.playerhand.i0.canbesplit=false&box.i1.playerhand.i0.candouble=false&box.i1.playerhand.i0.doublebet=10&box.i1.playerhand.i0.initialbet=10&box.i1.playerhand.i0.insurancebet=5&box.i1.playerhand.i0.hand=3S,8S,6D&box.i1.playerhand.i0.hardvalue=17&box.i1.playerhand.i0.outcomeevent=inplay&box.i1.playerhand.i0.soft=false&box.i1.playerhand.i0.softvalue=17&box.i1.playerhand.i0.split=false&box.i1.playerhand.i0.splitfromaa=false&box.i1.playerhand.i0.state=player_done&box.i1.playerhand.i0.win=0&box.i2.playerhand.i0.availableactions=HIT,STAND&box.i2.playerhand.i0.blackjack=false&box.i2.playerhand.i0.canbesplit=false&box.i2.playerhand.i0.candouble=false&box.i2.playerhand.i0.doublebet=0&box.i2.playerhand.i0.initialbet=10&box.i2.playerhand.i0.insurancebet=0&box.i2.playerhand.i0.hand=6C,2D,AS&box.i2.playerhand.i0.hardvalue=19&box.i2.playerhand.i0.outcomeevent=inplay&box.i2.playerhand.i0.soft=true&box.i2.playerhand.i0.softvalue=9&box.i2.playerhand.i0.split=true&box.i2.playerhand.i0.splitfromaa=false&box.i2.playerhand.i0.state=inplay&box.i2.playerhand.i0.win=0&box.i2.playerhand.i1.availableactions=DOUBLE,HIT,STAND&box.i2.playerhand.i1.blackjack=false&box.i2.playerhand.i1.canbesplit=false&box.i2.playerhand.i1.candouble=true&box.i2.playerhand.i1.doublebet=0&box.i2.playerhand.i1.initialbet=10&box.i2.playerhand.i1.insurancebet=0&box.i2.playerhand.i1.hand=6S,AS&box.i2.playerhand.i1.hardvalue=17&box.i2.playerhand.i1.outcomeevent=inplay&box.i2.playerhand.i1.soft=true&box.i2.playerhand.i1.softvalue=7&box.i2.playerhand.i1.split=true&box.i2.playerhand.i1.splitfromaa=false&box.i2.playerhand.i1.splitparenthandindex=0&box.i2.playerhand.i1.state=inplay&box.i2.playerhand.i1.win=0&dealerhand.hand=AS&dealerhand.offerinsurance=false&dealerhand.value=11&gameover=false&totalbet.cents=55&totalwin.cents=0&credit=9965&g4mode=false&gamesoundurl=https://static.joker-entry.link/nth&historybutton=false&isJackpotWin=false&jackpotcurrency= &jackpotcurrencyiso=NAN&playercurrency= &playercurrencyiso=NAN&playforfun=false"
+    },
+    {
+     "query": "action=stand",
+     "reply": "clientaction=stand&activebox=0&activeplayerhand=0&box.i0.playerhand.i0.availableactions=&box.i0.playerhand.i0.blackjack=false&box.i0.playerhand.i0.canbesplit=false&box.i0.playerhand.i0.candouble=false&box.i0.playerhand.i0.doublebet=0&box.i0.playerhand.i0.initialbet=10&box.i0.playerhand.i0.insurancebet=0&box.i0.playerhand.i0.hand=2C,QC,JS&box.i0.playerhand.i0.hardvalue=22&box.i0.playerhand.i0.outcomeevent=bust&box.i0.playerhand.i0.soft=false&box.i0.playerhand.i0.softvalue=22&box.i0.playerhand.i0.split=false&box.i0.playerhand.i0.splitfromaa=false&box.i0.playerhand.i0.state=lost&box.i0.playerhand.i0.win=0&box.i1.playerhand.i0.availableactions=HIT,STAND&box.i1.playerhand.i0.blackjack=false&box.i1.playerhand.i0.canbesplit=false&box.i1.playerhand.i0.candouble=false&box.i1.playerhand.i0.doublebet=10&box.i1.playerhand.i0.initialbet=10&box.i1.playerhand.i0.insurancebet=5&box.i1.playerhand.i0.hand=3S,8S,6D&box.i1.playerhand.i0.hardvalue=17&box.i1.playerhand.i0.outcomeevent=normal&box.i1.playerhand.i0.soft=false&box.i1.playerhand.i0.softvalue=17&box.i1.playerhand.i0.split=false&box.i1.playerhand.i0.splitfromaa=false&box.i1.playerhand.i0.state=lost&box.i1.playerhand.i0.win=0&box.i2.playerhand.i0.availableactions=HIT,STAND&box.i2.playerhand.i0.blackjack=false&box.i2.playerhand.i0.canbesplit=false&box.i2.playerhand.i0.candouble=false&box.i2.playerhand.i0.doublebet=0&box.i2.playerhand.i0.initialbet=10&box.i2.playerhand.i0.insurancebet=0&box.i2.playerhand.i0.hand=6C,2D,AS&box.i2.playerhand.i0.hardvalue=19&box.i2.playerhand.i0.outcomeevent=push&box.i2.playerhand.i0.soft=true&box.i2.playerhand.i0.softvalue=9&box.i2.playerhand.i0.split=true&box.i2.playerhand.i0.splitfromaa=false&box.i2.playerhand.i0.state=win&box.i2.playerhand.i0.win=10&box.i2.playerhand.i1.availableactions=DOUBLE,HIT,STAND&box.i2.playerhand.i1.blackjack=false&box.i2.playerhand.i1.canbesplit=false&box.i2.playerhand.i1.candouble=true&box.i2.playerhand.i1.doublebet=0&box.i2.playerhand.i1.initialbet=10&box.i2.playerhand.i1.insurancebet=0&box.i2.playerhand.i1.hand=6S,AS&box.i2.playerhand.i1.hardvalue=17&box.i2.playerhand.i1.outcomeevent=normal&box.i2.playerhand.i1.soft=true&box.i2.playerhand.i1.softvalue=7&box.i2.playerhand.i1.split=true&box.i2.playerhand.i1.splitfromaa=false&box.i2.playerhand.i1.splitparenthandindex=0&box.i2.playerhand.i1.state=lost&box.i2.playerhand.i1.win=0&dealerhand.blackjack=false&dealerhand.hand=AS,5S,8H,5C&dealerhand.hardvalue=19&dealerhand.soft=false&dealerhand.softvalue=19&dealerhand.value=19&gameover=true&totalbet.cents=55&totalwin.cents=10&credit=9975&g4mode=false&gamesoundurl=https://static.joker-entry.link/nth&historybutton=false&isJackpotWin=false&jackpotcurrency= &jackpotcurrencyiso=NAN&playercurrency= &playercurrencyiso=NAN&playforfun=false"
+    }
+   ]
+  },
+  {
+   "game": "blackjack_touch",
+   "case": "plain",
+   "shoe": [
+    "9H",
+    "QD",
+    "KD",
+    "4C",
+    "2D",
+    "7H",
+    "2C",
+    "2C",
+    "2C",
+    "2C",
+    "2C",
+    "2C"
+   ],
+   "steps": [
+    {
+     "query": "action=deal&b0.bet.amount=10",
+     "reply": "request=deal&b0.h0.cards=9H,KD&b0.h0.isblackjack=false&b0.h0.value.type=hard&b0.h0.value=19&actions=hit,stand&activehand=b0.h0&d.cards=QD&d.value=10&credit=10020&g4mode=false&gamesoundurl=https://static.joker-entry.link/netEnt&historybutton=false&isJackpotWin=false&jackpotcurrency= &jackpotcurrencyiso=NAN&playercurrency= &playercurrencyiso=NAN&playforfun=false"
+    },
+    {
+     "query": "action=stand",
+     "reply": "request=stand&b0.h0.isblackjack=false&b0.h0.outcome.amount=20&b0.h0.outcome.type=normal&b0.h0.outcome=win&d.cards=QD,4C,2D,7H&d.isblackjack=false&d.value.type=hard&d.value=23&credit=10040&g4mode=false&gamesoundurl=https://static.joker-entry.link/netEnt&historybutton=false&isJackpotWin=false&jackpotcurrency= &jackpotcurrencyiso=NAN&playercurrency= &playercurrencyiso=NAN&playforfun=false"
+    }
+   ]
+  },
+  {
+   "game": "blackjack_touch",
+   "case": "double",
+   "shoe": [
+    "7C",
+    "9S",
+    "3C",
+    "6D",
+    "2C",
+    "KH",
+    "2C",
+    "2C",
+    "2C",
+    "2C",
+    "2C",
+    "2C"
+   ],
+   "steps": [
+    {
+     "query": "action=deal&b0.bet.amount=10",
+     "reply": "request=deal&b0.h0.cards=7C,3C&b0.h0.isblackjack=false&b0.h0.value.type=hard&b0.h0.value=10&actions=hit,stand,double&activehand=b0.h0&d.cards=9S&d.value=9&credit=9980&g4mode=false&gamesoundurl=https://static.joker-entry.link/netEnt&historybutton=false&isJackpotWin=false&jackpotcurrency= &jackpotcurrencyiso=NAN&playercurrency= &playercurrencyiso=NAN&playforfun=false"
+    },
+    {
+     "query": "action=double",
+     "reply": "request=double&b0.h0.cards=7C,3C,2C&b0.h0.isblackjack=false&b0.h0.outcome.amount=40&b0.h0.outcome.type=normal&b0.h0.outcome=win&b0.h0.value.type=hard&b0.h0.value=12&d.cards=9S,6D,KH&d.isblackjack=false&d.value.type=hard&d.value=25&credit=10010&g4mode=false&gamesoundurl=https://static.joker-entry.link/netEnt&historybutton=false&isJackpotWin=false&jackpotcurrency= &jackpotcurrencyiso=NAN&playercurrency= &playercurrencyiso=NAN&playforfun=false"
+    }
+   ]
+  },
+  {
+   "game": "blackjack_touch",
+   "case": "split",
+   "shoe": [
+    "KC",
+    "3D",
+    "TH",
+    "6C",
+    "3H",
+    "7H",
+    "2D",
+    "9H",
+    "8C",
+    "2C",
+    "2C",
+    "2C",
+    "2C",
+    "2C",
+    "2C"
+   ],
+   "steps": [
+    {
+     "query": "action=deal&b0.bet.amount=10",
+     "reply": "request=deal&b0.h0.cards=KC,TH&b0.h0.isblackjack=false&b0.h0.value.type=hard&b0.h0.value=20&actions=hit,stand,split&activehand=b0.h0&d.cards=3D&d.value=3&credit=10000&g4mode=false&gamesoundurl=https://static.joker-entry.link/netEnt&historybutton=false&isJackpotWin=false&jackpotcurrency= &jackpotcurrencyiso=NAN&playercurrency= &playercurrencyiso=NAN&playforfun=false"
+    },
+    {
+     "query": "action=split",
+     "reply": "request=split&actions=hit,stand&activehand=b0.h0&b0.h0.cards=KC,3H&b0.h0.isblackjack=false&b0.h0.value.type=hard&b0.h0.value=13&b0.h1.cards=TH&b0.h1.isblackjack=false&b0.h1.parent=b0.h0&b0.h1.value.type=hard&b0.h1.value=10&newhand=b0.h1&credit=9990&g4mode=false&gamesoundurl=https://static.joker-entry.link/netEnt&historybutton=false&isJackpotWin=false&jackpotcurrency= &jackpotcurrencyiso=NAN&playercurrency= &playercurrencyiso=NAN&playforfun=false"
+    },
+    {
+     "query": "action=hit",
+     "reply": "request=hit&actions=hit,stand&b0.h0.cards=KC,3H,7H&b0.h0.isblackjack=false&b0.h0.value.type=hard&b0.h0.value=20&activehand=b0.h0&credit=9990&g4mode=false&gamesoundurl=https://static.joker-entry.link/netEnt&historybutton=false&isJackpotWin=false&jackpotcurrency= &jackpotcurrencyiso=NAN&playercurrency= &playercurrencyiso=NAN&playforfun=false"
+    },
+    {
+     "query": "action=stand",
+     "reply": "request=stand&actions=hit,stand&b0.h0.cards=KC,3H,7H&b0.h0.isblackjack=false&b0.h0.value.type=hard&b0.h0.value=20&b0.h1.cards=TH,2D&b0.h1.isblackjack=false&b0.h1.value.type=hard&b0.h1.value=12&b0.h1.parent=b0.h0&targethand=b0.h1&activehand=b0.h1&credit=9990&g4mode=false&gamesoundurl=https://static.joker-entry.link/netEnt&historybutton=false&isJackpotWin=false&jackpotcurrency= &jackpotcurrencyiso=NAN&playercurrency= &playercurrencyiso=NAN&playforfun=false"
+    },
+    {
+     "query": "action=hit",
+     "reply": "request=hit&b0.h0.cards=KC,3H,7H&b0.h0.isblackjack=false&b0.h0.outcome.amount=20&b0.h0.outcome.type=normal&b0.h0.outcome=win&b0.h0.value.type=hard&b0.h0.value=20&b0.h1.cards=TH,2D,9H&b0.h1.isblackjack=false&b0.h1.outcome.amount=20&b0.h1.outcome.type=normal&b0.h1.outcome=win&b0.h1.value.type=hard&b0.h1.value=21&b0.h1.parent=b0.h0&d.cards=3D,6C,8C&d.isblackjack=false&d.value.type=hard&d.value=17&credit=10030&g4mode=false&gamesoundurl=https://static.joker-entry.link/netEnt&historybutton=false&isJackpotWin=false&jackpotcurrency= &jackpotcurrencyiso=NAN&playercurrency= &playercurrencyiso=NAN&playforfun=false"
+    }
+   ]
+  },
+  {
+   "game": "blackjack_touch",
+   "case": "insurance-play-on",
+   "shoe": [
+    "5S",
+    "AC",
+    "TC",
+    "9D",
+    "6H",
+    "2C",
+    "2C",
+    "2C",
+    "2C",
+    "2C",
+    "2C"
+   ],
+   "steps": [
+    {
+     "query": "action=deal&b0.bet.amount=10",
+     "reply": "request=deal&b0.h0.cards=5S,TC&b0.h0.isblackjack=false&b0.h0.value.type=hard&b0.h0.value=15&actions=insure,noinsure&activehand=b0.h0&d.cards=AC&d.value=11&ytanta=true&credit=10030&g4mode=false&gamesoundurl=https://static.joker-entry.link/netEnt&historybutton=false&isJackpotWin=false&jackpotcurrency= &jackpotcurrencyiso=NAN&playercurrency= &playercurrencyiso=NAN&playforfun=false"
+    },
+    {
+     "query": "action=insure",
+     "reply": "request=insure&b0.h0.isblackjack=false&actions=hit,stand&activehand=b0.h0&credit=10025&g4mode=false&gamesoundurl=https://static.joker-entry.link/netEnt&historybutton=false&isJackpotWin=false&jackpotcurrency= &jackpotcurrencyiso=NAN&playercurrency= &playercurrencyiso=NAN&playforfun=false"
+    },
+    {
+     "query": "action=hit",
+     "reply": "request=hit&b0.h0.cards=5S,TC,6H&b0.h0.isblackjack=false&b0.h0.outcome.amount=20&b0.h0.outcome.type=normal&b0.h0.outcome=win&b0.h0.value.type=hard&b0.h0.value=21&d.cards=AC,9D&d.isblackjack=false&d.value.type=soft&d.value=20&credit=10045&g4mode=false&gamesoundurl=https://static.joker-entry.link/netEnt&historybutton=false&isJackpotWin=false&jackpotcurrency= &jackpotcurrencyiso=NAN&playercurrency= &playercurrencyiso=NAN&playforfun=false"
+    }
+   ]
+  },
+  {
+   "game": "blackjack_touch",
+   "case": "player-bj",
+   "shoe": [
+    "QD",
+    "3C",
+    "AD",
+    "6D",
+    "2C",
+    "2C",
+    "2C",
+    "2C",
+    "2C",
+    "2C"
+   ],
+   "steps": [
+    {
+     "query": "action=deal&b0.bet.amount=10",
+     "reply": "request=deal&b0.h0.cards=QD,AD&b0.h0.isblackjack=true&b0.h0.value.type=soft&b0.h0.value=21&b0.h0.outcome.amount=25&b0.h0.outcome.type=blackjack&b0.h0.outcome=win&d.cards=3C,6D&d.isblackjack=false&d.value.type=hard&d.value=9&credit=9935&g4mode=false&gamesoundurl=https://static.joker-entry.link/netEnt&historybutton=false&isJackpotWin=false&jackpotcurrency= &jackpotcurrencyiso=NAN&playercurrency= &playercurrencyiso=NAN&playforfun=false"
+    }
+   ]
+  },
+  {
+   "game": "blackjack_touch",
+   "case": "dealer-bj-at-deal",
+   "shoe": [
+    "5H",
+    "QS",
+    "TH",
+    "AC",
+    "2C",
+    "2C",
+    "2C",
+    "2C",
+    "2C",
+    "2C"
+   ],
+   "steps": [
+    {
+     "query": "action=deal&b0.bet.amount=10",
+     "reply": "request=deal&b0.h0.cards=5H,TH&b0.h0.isblackjack=false&b0.h0.value.type=hard&b0.h0.value=15&b0.h0.outcome.type=normal&b0.h0.outcome=lost&d.cards=QS,AC&d.isblackjack=true&d.value.type=soft&d.value=21&credit=9965&g4mode=false&gamesoundurl=https://static.joker-entry.link/netEnt&historybutton=false&isJackpotWin=false&jackpotcurrency= &jackpotcurrencyiso=NAN&playercurrency= &playercurrencyiso=NAN&playforfun=false"
+    }
+   ]
+  }
+ ]
+}

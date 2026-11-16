@@ -577,7 +577,14 @@ class FetchAmaticGameCommand extends Command
 
             return null;
         }
-        $ext = strtolower(pathinfo((string) parse_url($url, PHP_URL_PATH), PATHINFO_EXTENSION)) ?: 'png';
+        // by the bytes, not the URL — Betboy serves WebP as `…_original.jpg`
+        $ext = match (getimagesizefromstring($response->body())['mime'] ?? null) {
+            'image/webp' => 'webp',
+            'image/jpeg' => 'jpg',
+            'image/png' => 'png',
+            'image/gif' => 'gif',
+            default => strtolower(pathinfo((string) parse_url($url, PHP_URL_PATH), PATHINFO_EXTENSION)) ?: 'png',
+        };
         $rel = 'game-posters/'.$code.'.'.$ext;
         Storage::disk('public')->put($rel, $response->body());
 

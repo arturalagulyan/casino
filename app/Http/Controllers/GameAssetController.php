@@ -82,16 +82,43 @@ class GameAssetController extends Controller
         // and 404'd). Bundles that ship their own <base> (EGT's
         // "/games/<Code>/html5/") are left alone — `code` is unchanged, so
         // those absolute paths still hit the asset route.
+        //
+        // The base carries the bundle version (`/games/<Code>~v2/…`, see
+        // asset()) so a re-uploaded bundle never mixes with files the browser
+        // cached from the previous one under the same name — e.g. an Amatic
+        // config whose name stays `config_1373_<hash>.js` across re-imports.
         $entryDir = trim(str_replace('\\', '/', dirname((string) $bundle->entry)), '/.');
         if (! preg_match('/<base\s/i', $html)) {
-            $base = rtrim(url("/games/{$code}/{$entryDir}"), '/').'/';
+            $base = rtrim(url("/games/{$code}~v{$bundle->version}/{$entryDir}"), '/').'/';
             $html = $this->injectHead($html, "<base href=\"{$base}\">");
+        }
+
+        $config = new GameConfig($template, $game);
+
+        // NetEnt's HTML5 client reads its launch parameters off the page URL —
+        // the ones NetEnt's launcher adds: which game, which servlet (ours, under
+        // /netent/{session}/), which session, which language.
+        if ($config->clientProtocol() === ClientProtocol::NetEnt) {
+            $netent = (array) ($config->bonusConfig()['netent'] ?? []);
+            $languages = (array) ($netent['languages'] ?? ['en']);
+            $lang = substr((string) ($request->query('lang') ?: app()->getLocale()), 0, 2);
+            $params = json_encode(http_build_query([
+                'gameId' => (string) ($netent['game_id'] ?? ''),
+                'server' => url("/netent/{$session->token}").'/',
+                'sessId' => $session->token,
+                'lang' => in_array($lang, $languages, true) ? $lang : 'en',
+                'lobbyURL' => '',
+                'operatorId' => 'default',
+            ]));
+            $inject = "<script>(function(){var s=location.search;history.replaceState(null,'',location.pathname+s+(s?'&':'?')+{$params});})();</script>";
+
+            return response($this->injectHead($html, $inject.$this->jackpotTickerSnippet($game, $user)))
+                ->header('Content-Type', 'text/html');
         }
 
         // WebSocket bundles (EGT GamePlatform, …) identify the player by a
         // `sessionId` in the page, not a POST endpoint. Force this launch's token
         // in (overwriting any stale value the tab's sessionStorage kept).
-        $config = new GameConfig($template, $game);
         if ($config->clientProtocol()->usesWebSocket()) {
             $token = json_encode($session->token);
             $inject = "<script>try{sessionStorage.setItem('sessionId',{$token});}catch(e){}</script>";
@@ -204,6 +231,9 @@ class GameAssetController extends Controller
 
     public function asset(string $code, string $path): Response
     {
+        // `<Code>~v<n>` — the versioned base play() injects; the version only
+        // busts browser caches, files always come from the active bundle.
+        $code = (string) preg_replace('/~v\d+$/', '', $code);
         $template = GameTemplate::where('code', $code)->firstOr(fn () => abort(404));
         $bundle = $template->activeBundle ?? abort(404);
 

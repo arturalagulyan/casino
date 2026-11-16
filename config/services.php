@@ -35,4 +35,10 @@ return [
         ],
     ],
 
+    // Betboy lobby login (the token of an "AuthByToken" link) — netent:fetch /
+    // netent:sample launch DEMO sessions there to mirror clients and record rounds.
+    'betboy' => [
+        'token' => env('BETBOY_TOKEN'),
+    ],
+
 ];

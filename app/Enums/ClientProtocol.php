@@ -113,6 +113,17 @@ enum ClientProtocol: string
      */
     case PlayNGo = 'playngo';
 
+    /**
+     * NetEnt's classic HTML5 client protocol: `GET {server}servlet/
+     * CasinoGameServlet;jsession=<session>?action=init|paytable|spin|freespin…`
+     * → a flat `key=value&…` body. Our page hands the client
+     * `server=/netent/{session}/` and `sessId=<session>` in its query string
+     * (the parameters NetEnt's launcher would add). Spins are served from an
+     * outcome library of rounds recorded on a NetEnt demo session
+     * ({@see \App\Services\GamePlay\Protocol\NetEntProtocol}).
+     */
+    case NetEnt = 'netent';
+
     public function label(): string
     {
         return match ($this) {
@@ -125,6 +136,7 @@ enum ClientProtocol: string
             self::PragmaticTumble => 'Pragmatic Play gs2c (modern HTTP)',
             self::PragmaticPayline => 'Pragmatic Play gs2c payline (modern HTTP)',
             self::PlayNGo => "Play'n GO (line protocol over HTTP)",
+            self::NetEnt => 'NetEnt (CasinoGameServlet over HTTP)',
         };
     }
 

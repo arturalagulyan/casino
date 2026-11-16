@@ -77,6 +77,15 @@ JS;
 
     private bool $classic = false;
 
+    /** Where files a non-Amatic mirror 404s on are taken from instead. */
+    private const string AMATIC_CDN = 'https://cdn02.cdn.amatic.com';
+
+    /** @var (callable(string): ?string)|null host-relative path => Amatic CDN URL to try when the origin 404s */
+    private $fallback = null;
+
+    /** @var list<string> paths taken from the fallback */
+    private array $backfilled = [];
+
     /** @var (callable(string): void)|null */
     private $progress;
 
@@ -117,6 +126,15 @@ JS;
         // 1. the page, its stylesheet(s) and loader script(s)
         $this->log("page {$entry}");
         $html = $this->get($entry, required: true) ?? throw new RuntimeException("Game page not found: {$this->origin}/{$entry} — is `{$key}` an mpp-generation Amatic game?");
+        // Operator mirrors add their own site-root scripts (joker-entry's
+        // `<script src="/jp-external/main.js">` jackpot widget) — not part of
+        // the game, and a 404 against our origin. Drop them.
+        $stripped = preg_replace('#<script\b[^>]*\bsrc\s*=\s*["\']/(?!/)[^"\']*["\'][^>]*>\s*</script>#i', '', $html, -1, $n);
+        if ($n && is_string($stripped)) {
+            $html = $stripped;
+            $this->store($entry, $html);
+            $this->warnings[] = "Dropped {$n} operator site-root script(s) from the page.";
+        }
         $pageRefs = $this->htmlRefs($html, $pageDir);
         $bodies = $this->getMany($pageRefs, required: true);
 
@@ -257,6 +275,16 @@ JS;
             }
         }
 
+        // From here on, a file an operator's mirror lacks (it trims loading
+        // screens, .jpg twins, locales) is taken from Amatic's own CDN. Not
+        // earlier: the manifest probe must only see the mirror's own versions.
+        if (! str_ends_with((string) parse_url($this->origin, PHP_URL_HOST), 'amatic.com')) {
+            $prefix = $root !== '' ? $root.'/' : '';
+            $this->fallback = fn (string $rel) => $prefix === '' || str_starts_with($rel, $prefix)
+                ? self::AMATIC_CDN.'/gmsl/'.substr($rel, strlen($prefix))
+                : null;
+        }
+
         $this->log(count($plain).' files + '.count($sounds).' sounds declared');
         $this->expand($this->getMany(array_keys($plain), required: true));
         $this->fetchSounds(array_keys($sounds));
@@ -273,6 +301,13 @@ JS;
 
         $languages = array_values(array_unique($languages));
         sort($languages);
+
+        if ($configRel !== null) {
+            $this->normaliseConfig($configRel, $languages);
+        }
+        if ($this->backfilled !== []) {
+            $this->warnings[] = count($this->backfilled).' file(s) the mirror lacks taken from Amatic\'s CDN: '.implode(', ', array_map(fn ($r) => Str::after($r, $mpp.'/'), $this->backfilled));
+        }
 
         return new AmaticCdnGame(
             key: $key,
@@ -443,10 +478,17 @@ JS;
         return 'mpp';
     }
 
-    /** Point Config.value6 (Amatic's wss:// server) at our game socket. */
+    /**
+     * Point Config.value6 (Amatic's wss:// server) at our game socket.
+     *
+     * Operator mirrors (e.g. static.joker-entry.link) set it from a variable
+     * their loader reads off the page URL (`this.value6 = AOWSLINK;` ←
+     * `getParam("AOWSLINK")`) — our launch URL never carries it, so swap
+     * that in too.
+     */
     private function pointConfigAtOurSocket(string $config): string
     {
-        $patched = preg_replace('/(this\.value6\s*=\s*)"wss?:\/\/[^"]*"/', '$1serverString', $config, 1, $count);
+        $patched = preg_replace('/(this\.value6\s*=\s*)(?:"wss?:\/\/[^"]*"|(?!serverString\b)[A-Za-z_$][\w$]*)(?=\s*;)/', '$1serverString', $config, 1, $count);
         if (! $count) {
             $this->warnings[] = 'Config has no wss:// value6 socket URL — left unpatched.';
 
@@ -454,6 +496,48 @@ JS;
         }
 
         return self::SOCKET_CONFIG_PREAMBLE.$patched;
+    }
+
+    /**
+     * Undo operator-specific config settings our server doesn't speak, the way
+     * Amatic's own configs have them:
+     *  - value5 (locales) / value21.s (currency) taken from page-URL params the
+     *    loader reads (`[AOlanguage]`, `s:AOcurrency`) — our launch URL has
+     *    neither, so the client would ask for locale "" → every language the
+     *    manifest ships / null;
+     *  - value21.m, the credits→money divisor: our server sends Amatic's units
+     *    (m:1, as in every Amatic config), an operator's m:0.01 shows ×100.
+     *
+     * @param  list<string>  $languages
+     */
+    private function normaliseConfig(string $configRel, array $languages): void
+    {
+        $path = $this->outDir.'/'.$configRel;
+        $config = (string) file_get_contents($path);
+        $notes = [];
+
+        if ($languages !== [] && preg_match('/this\.value5\s*=\s*\[\s*[A-Za-z_$][\w$]*\s*\]\s*;/', $config)) {
+            $list = json_encode(array_values(array_unique(in_array('en', $languages, true) ? ['en', ...$languages] : $languages)));
+            $config = (string) preg_replace('/(this\.value5\s*=\s*)\[\s*[A-Za-z_$][\w$]*\s*\](?=\s*;)/', '${1}'.$list, $config, 1);
+            $notes[] = 'locales → '.count($languages).' languages';
+        }
+        $config = (string) preg_replace_callback('/(this\.value(?:21|76)\s*=\s*)\{([^}]*)\}/', function (array $m) use (&$notes): string {
+            $body = preg_replace('/\bs:(?!null\b)[A-Za-z_$][\w$]*/', 's:null', $m[2], -1, $s);
+            if ($s) {
+                $notes[] = 'currency → null';
+            }
+            if (str_contains($m[1], 'value21') && preg_match('/\bm:([\d.]+)/', (string) $body, $mm) && (float) $mm[1] !== 1.0) {
+                $body = preg_replace('/\bm:[\d.]+/', 'm:1', (string) $body);
+                $notes[] = "money divisor m:{$mm[1]} → m:1";
+            }
+
+            return $m[1].'{'.$body.'}';
+        }, $config);
+
+        if ($notes !== []) {
+            $this->store($configRel, $config);
+            $this->warnings[] = 'Config normalised to Amatic\'s: '.implode(', ', array_unique($notes)).'.';
+        }
     }
 
     /**
@@ -613,6 +697,29 @@ JS;
                 $chunk,
             ));
 
+            // the origin's misses, retried on the fallback (Amatic's own CDN)
+            $retry = [];
+            if ($this->fallback !== null) {
+                foreach ($chunk as $rel) {
+                    $response = $responses[$rel] ?? null;
+                    if (! ($response instanceof Response && $response->successful()) && ($url = ($this->fallback)($rel)) !== null) {
+                        $retry[$rel] = $url;
+                    }
+                }
+            }
+            if ($retry !== []) {
+                $again = Http::pool(fn (Pool $pool) => array_map(
+                    fn ($rel) => $pool->as($rel)->withUserAgent('Mozilla/5.0')->timeout(60)->get($retry[$rel]),
+                    array_keys($retry),
+                ));
+                foreach (array_keys($retry) as $rel) {
+                    if (($again[$rel] ?? null) instanceof Response && $again[$rel]->successful()) {
+                        $responses[$rel] = $again[$rel];
+                        $this->backfilled[] = $rel;
+                    }
+                }
+            }
+
             foreach ($chunk as $rel) {
                 $response = $responses[$rel] ?? null;
                 $ok = $response instanceof Response && $response->successful();
@@ -665,7 +772,8 @@ JS;
     {
         $this->outDir = rtrim($outDir, '/');
         $this->progress = $progress;
-        $this->seen = $this->missing = $this->warnings = [];
+        $this->seen = $this->missing = $this->warnings = $this->backfilled = [];
+        $this->fallback = null;
         $this->bytes = 0;
         $this->classic = false;
         File::deleteDirectory($this->outDir);

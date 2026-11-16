@@ -167,7 +167,11 @@ class GameCatalogCleanupTest extends TestCase
         $this->get('/games/AdmiralNelsonAM?token='.urlencode($token))
             ->assertOk()
             ->assertSee('NELSON')
-            ->assertSee('<base href="'.url('/games/AdmiralNelsonAM/amarent').'/">', false);
+            ->assertSee('<base href="'.url('/games/AdmiralNelsonAM~v1/amarent').'/">', false);
+
+        // the version in the base only busts browser caches — both spellings serve the active bundle
+        $this->get('/games/AdmiralNelsonAM~v1/amarent/js/game.js')->assertOk();
+        $this->get('/games/AdmiralNelsonAM/amarent/js/game.js')->assertOk();
     }
 
     /** @param array<string,string> $files */

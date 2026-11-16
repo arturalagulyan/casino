@@ -3,6 +3,7 @@
 use App\Http\Controllers\Api\GameServerController;
 use App\Http\Controllers\DemoPlayController;
 use App\Http\Controllers\GameAssetController;
+use App\Http\Controllers\NetEntController;
 use App\Http\Controllers\PlayNGoController;
 use App\Http\Controllers\RoyalSpinPackAssetController;
 use App\Http\Controllers\RtpSimulationReportController;
@@ -57,6 +58,15 @@ Route::prefix('playngo/{token}')->group(function () {
     Route::get('configuration/v2', [PlayNGoController::class, 'configuration']);
     Route::post('server', [PlayNGoController::class, 'server'])->name('games.server.playngo');
 });
+
+/*
+ * NetEnt: its HTML5 client calls `{server}servlet/CasinoGameServlet;jsession=<s>?action=…`
+ * (GET); our page sets `server=/netent/{session}/`. The `;jsession=…` path
+ * parameter is part of the last segment.
+ */
+Route::get('netent/{token}/servlet/{servlet}', [NetEntController::class, 'servlet'])
+    ->where('servlet', '(CasinoGameServlet|InfoServlet).*')   // InfoServlet: roulette statistics
+    ->name('games.server.netent');
 
 Route::get('games/{code}/{path}', [GameAssetController::class, 'asset'])
     ->where('path', '.*')
