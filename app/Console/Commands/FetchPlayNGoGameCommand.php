@@ -12,6 +12,7 @@ use App\Models\GameTemplate;
 use App\Models\Shop;
 use App\Models\Tag;
 use App\Services\GamePlay\BundleManager;
+use App\Services\GamePlay\NetEnt\BetboySite;
 use App\Services\GamePlay\PlayNGo\PlayNGoLibrary;
 use App\Services\GamePlay\PlayNGo\PlayNGoLiveClient;
 use App\Services\GamePlay\PlayNGo\PlayNGoMirror;
@@ -45,7 +46,7 @@ class FetchPlayNGoGameCommand extends Command
         {--rtp=90 : Per-shop RTP %}
         {--max-win=2000 : Per-shop max win (× bet)}
         {--category=* : Tag (by name, created if missing) for the game — the provider category is always "Play\'n GO"}
-        {--poster= : Poster image URL}
+        {--poster= : Poster image URL (default: the Betboy lobby tile, <gid>_png)}
         {--rounds=500 : Practice rounds to record when the library is empty}
         {--spin= : The spin line to record with, "1 <coins> <lines> <coin value> 1" (default: the game\'s own default bet)}
         {--reuse-mirror : Use an earlier mirror instead of downloading the client again}';
@@ -159,7 +160,7 @@ class FetchPlayNGoGameCommand extends Command
                 'build' => $build, 'launcher' => $launcher, 'bet_coins' => $betCoins, 'spin_coins' => $spinCoins, 'spin_lines' => $spinLines, 'record_coin' => 10,
                 'init_lines' => $initLines, 'configuration' => $config, 'prelaunch' => $prelaunch,
             ]],
-            'poster_path' => $this->option('poster') ? $this->downloadPoster((string) $this->option('poster'), $code) : null,
+            'poster_path' => $this->downloadPoster((string) ($this->option('poster') ?: self::betboyPoster($game['gid'])), $code),
             'is_active' => true,
         ], fn ($v) => $v !== null));
         $this->info(($template->wasRecentlyCreated ? 'Created' : 'Updated')." template #{$template->id} {$code} — {$title}");
@@ -288,8 +289,27 @@ class FetchPlayNGoGameCommand extends Command
         return $path;
     }
 
+    /** Betboy's lobby tile for a Play'n GO game (`<gid>_png`), or '' when Betboy has none. */
+    public static function betboyPoster(string $gid): string
+    {
+        try {
+            $betboy = app(BetboySite::class);
+            foreach ($betboy->games() as $g) {
+                if (($g['stringId'] ?? null) === "{$gid}_png" && ($g['pic'] ?? '') !== '') {
+                    return $betboy->absolute((string) $g['pic']);
+                }
+            }
+        } catch (\Throwable) {
+        }
+
+        return '';
+    }
+
     private function downloadPoster(string $url, string $code): ?string
     {
+        if ($url === '') {
+            return null;
+        }
         try {
             $response = Http::withUserAgent('Mozilla/5.0')->timeout(30)->get($url);
         } catch (\Throwable) {
@@ -300,9 +320,14 @@ class FetchPlayNGoGameCommand extends Command
 
             return null;
         }
-        $ext = strtolower(pathinfo((string) parse_url($url, PHP_URL_PATH), PATHINFO_EXTENSION)) ?: 'png';
+        // by the bytes, not the URL — Betboy serves WebP as `….jpg`
+        $ext = match (getimagesizefromstring($response->body())['mime'] ?? null) {
+            'image/webp' => 'webp', 'image/jpeg' => 'jpg', 'image/png' => 'png', 'image/gif' => 'gif',
+            default => strtolower(pathinfo((string) parse_url($url, PHP_URL_PATH), PATHINFO_EXTENSION)) ?: 'png',
+        };
         $rel = 'game-posters/'.$code.'.'.$ext;
         Storage::disk('public')->put($rel, $response->body());
+        $this->line("  poster {$url} → {$rel}");
 
         return $rel;
     }
