@@ -56,8 +56,8 @@ class PlayNGoProtocol
             '104' => $this->init($context),
             '0' => [],
             '1' => $this->spin($context, $p),
-            // the client starting a free round's board (its results came with the step before)
-            '7' => ['83 0'],
+            // the client reporting a free spin shown (`7 n`)
+            '7' => $this->report($context, $line, (int) ($p[1] ?? 0)),
             default => $this->step($context, $line),
         };
     }
@@ -76,6 +76,7 @@ class PlayNGoProtocol
             "60 {$rtp} 0 0 1",
             '52 '.$this->cents($context->balance()).' 0 0',
             '83 0',
+            ...$this->config($context)['init_lines'],
             '91 '.$context->session()->user_id.' "'.$context->session()->token.'"',
             '109',
         ];
@@ -85,12 +86,15 @@ class PlayNGoProtocol
     private function spin(GameContext $context, array $p): array
     {
         $coins = (int) ($p[1] ?? 0);
+        $lines = (int) ($p[2] ?? 0);
         $cv = (int) ($p[3] ?? 0);
         $cfg = $this->config($context);
-        if ($coins !== (int) $cfg['bet_coins'] || ! in_array($cv, $this->coinValues($context), true)) {
+        // the library holds rounds at one coins × lines (the client's default): the coin value is the player's
+        [$wantCoins, $wantLines] = [(int) ($cfg['spin_coins'] ?? $cfg['bet_coins']), (int) ($cfg['spin_lines'] ?? 1)];
+        if ($coins !== $wantCoins || $lines !== $wantLines || ! in_array($cv, $this->coinValues($context), true)) {
             return ['111 "Invalid bet"'];
         }
-        $stake = $coins * $cv / 100;
+        $stake = $coins * $lines * $cv / 100;
         if ($stake > $context->balance() + 1e-9) {
             return ['111 "There isn\'t enough funds on the account"'];
         }
@@ -110,10 +114,32 @@ class PlayNGoProtocol
     }
 
     /**
+     * A free spin reported shown (`7 n`): Play'n GO answers `83 n` (`113` past
+     * the last). Only an acknowledgement, so it never moves the round on —
+     * clients send it at their own moment (Rise of Olympus: between a free
+     * spin's boards, where the recording has it after them), and moving on
+     * would skip the `2 6` still to come and leave the client waiting.
+     *
+     * @return list<string>
+     */
+    private function report(GameContext $context, string $line, int $n): array
+    {
+        $state = $context->stateGet('playngo');
+        $round = is_array($state) ? PlayNGoRound::query()->find($state['round']) : null;
+        foreach ($round?->steps ?? [] as $s) {
+            if ($s['sent'] === $line) {
+                return $this->rescale($s['reply'], (int) $state['cv'], (int) $this->config($context)['record_coin'], (int) $state['balance']);
+            }
+        }
+
+        return ['83 '.$n];
+    }
+
+    /**
      * A round step. `2 4 <k>` acknowledges how far the client has shown the
-     * cascade (k award steps) — Play'n GO just echoes it. `2 6` (on to the
-     * next board) and `4 0` (collect) move the round on: the next recorded
-     * step sent with that same command answers it.
+     * cascade (k award steps) — Play'n GO just echoes it. Any other command
+     * (`2 6` on to the next board, `7 n` a free spin shown, `4 0` collect)
+     * is answered by the next recorded step sent with that same command.
      */
     private function step(GameContext $context, string $line): array
     {
@@ -121,7 +147,7 @@ class PlayNGoProtocol
         if (str_starts_with($line, '2 4 ')) {
             return [$line];
         }
-        if (! is_array($state) || ! in_array($line, ['2 6', '4 0'], true)) {
+        if (! is_array($state)) {
             return [];
         }
         $round = PlayNGoRound::query()->find($state['round']);
@@ -188,20 +214,28 @@ class PlayNGoProtocol
         return $out ?: [(int) $this->config($context)['record_coin']];
     }
 
-    /** @return array{gid: string, bet_coins: int, record_coin: int} */
+    /** @return array{gid: string, bet_coins: int, record_coin: int, spin_coins: int, spin_lines: int, init_lines: list<string>} */
     private function config(GameContext $context): array
     {
         $c = (array) ($context->config()->bonusConfig()['playngo'] ?? []);
 
-        return ['gid' => (string) ($c['gid'] ?? ''), 'bet_coins' => (int) ($c['bet_coins'] ?? 10), 'record_coin' => (int) ($c['record_coin'] ?? 10)];
+        $betCoins = (int) ($c['bet_coins'] ?? 10);
+
+        return ['gid' => (string) ($c['gid'] ?? ''), 'bet_coins' => $betCoins, 'record_coin' => (int) ($c['record_coin'] ?? 10),
+            // the recorded bet: coins × lines (Tome of Madness and older imports: bet_coins × 1)
+            'spin_coins' => (int) ($c['spin_coins'] ?? $betCoins), 'spin_lines' => (int) ($c['spin_lines'] ?? 1),
+            // the game's own init state, as Play'n GO sends it (Rise of Olympus: `56 0`)
+            'init_lines' => array_values(array_map('strval', (array) ($c['init_lines'] ?? [])))];
     }
 
-    /** The return the player is shown: our target, which the library can't exceed (Play'n GO's own return). */
+    /**
+     * The return the player is shown: the shop's target. (Not the library's
+     * own return — a 1,000-round sample swings far from the game's, e.g. 54%
+     * for Rise of Olympus, and the picker pays the target over time anyway.)
+     */
     private function rtp(GameContext $context): int
     {
-        $library = $this->library->stats($this->config($context)['gid'])['rtp'] ?: 96.0;
-
-        return (int) round(min($context->rtpTarget(), $library));
+        return (int) round($context->rtpTarget());
     }
 
     private function currency(GameContext $context): string

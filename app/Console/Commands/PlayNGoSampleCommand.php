@@ -21,13 +21,14 @@ class PlayNGoSampleCommand extends Command
         {gid : Play\'n GO game id, e.g. tomeofmadness}
         {--rounds=1000 : Rounds to record}
         {--coin=10 : Coin value (cents) to play at — wins are recorded in coins, so any works}
-        {--pace=150 : Milliseconds between rounds}
+        {--spin= : The spin line, "1 <coins> <lines> <coin value> 1" (default: the game\'s default coins × lines)}
+        {--pace=1100 : Least milliseconds between two packets — Play\'n GO cuts sessions off past about one a second}
         {--from= : Load rounds from a JSON-lines file instead (one [{sent, reply}, …] per line)}';
 
     protected $description = "Record practice rounds of a Play'n GO game into its outcome library";
 
-    /** The client's spin: always 10 coins, one "line", at the chosen coin value. */
-    private const int BET_COINS = 10;
+    /** Coins a recorded spin stakes (coins × lines). */
+    private int $betCoins = 10;
 
     public function handle(PlayNGoSite $site): int
     {
@@ -48,8 +49,12 @@ class PlayNGoSampleCommand extends Command
         }
 
         $game = $site->game($gid);
-        $settings = $site->settingsXml($site->configuration($game['id']));
-        $spin = sprintf('1 %d 1 %d 1', self::BET_COINS, (int) $this->option('coin'));
+        $configuration = $site->configuration($game['id']);
+        $settings = $site->settingsXml($configuration);
+        [$coins, $lines] = FetchPlayNGoGameCommand::spinOf($configuration, $this->option('spin') ?: null);
+        $this->betCoins = $coins * $lines;
+        $spin = sprintf('1 %d %d %d 1', $coins, $lines, (int) $this->option('coin'));
+        $this->line("  spin: {$spin}");
         $target = (int) $this->option('rounds');
         $client = null;
         $done = $errors = 0;
@@ -58,19 +63,20 @@ class PlayNGoSampleCommand extends Command
             try {
                 if ($client === null) {
                     $client = new PlayNGoLiveClient;
+                    $client->minGapMs = (int) $this->option('pace');
                     $client->open($game['id'], $game['name'], $settings);
                 }
-                usleep((int) $this->option('pace') * 1000);
                 $this->store($gid, $client->round($spin));
                 if (++$done % 250 === 0) {
                     $this->line("  {$done} rounds recorded");
                 }
             } catch (Throwable $e) {
-                $errors++;
+                $limited = str_contains($e->getMessage(), 'Rate limit') || str_contains($e->getMessage(), 'closed the hub');
+                $errors += $limited ? 0 : 1;   // the rate limit is no fault: wait it out
                 $this->warn('  '.mb_strimwidth($e->getMessage(), 0, 160, '…').' — reconnecting');
                 $client?->close();
                 $client = null;
-                sleep(min(30, $errors));
+                sleep($limited ? 90 : min(30, $errors));
             }
         }
         $client?->close();
@@ -82,7 +88,7 @@ class PlayNGoSampleCommand extends Command
     private function store(string $gid, array $steps): void
     {
         PlayNGoRound::create([
-            'game_key' => $gid, 'bet_coins' => self::BET_COINS, 'win_coins' => PlayNGoRound::winOf($steps),
+            'game_key' => $gid, 'bet_coins' => $this->betCoins, 'win_coins' => PlayNGoRound::winOf($steps),
             'feature' => PlayNGoRound::hasFeature($steps), 'steps' => $steps, 'created_at' => now(),
         ]);
     }

@@ -17,6 +17,11 @@ use RuntimeException;
  */
 class PlayNGoLiveClient
 {
+    /** Least time between two packets, ms ({@see packet()}). */
+    public int $minGapMs = 1100;
+
+    private float $lastPacketAt = 0.0;
+
     public const string DEFAULT_SERVER = 'https://ascflyp.playngonetwork.com/';
 
     /** @var resource|null */
@@ -47,12 +52,21 @@ class PlayNGoLiveClient
         $this->token = $l[1];
         $this->connect();
 
-        return $this->packet("104 {$gameId} 0 \"".rawurlencode($settings).'"');
+        // as the real client sends it: the quoted XML form-encoded whole (`%22%3croot%3e…+Value…%22`)
+        return $this->packet("104 {$gameId} 0 ".strtolower(urlencode('"'.$settings.'"')));
     }
 
     /** Send one packet's lines and return the reply's lines (without the "d=" prefix). */
     public function packet(string $lines): string
     {
+        // Play'n GO cuts a session off past about one packet a second — and a
+        // feature round sends a burst (`2 6`, a `7 n` per free spin): spaced
+        // here, or every bonus round would be the one cut off, and lost
+        $wait = (int) (($this->lastPacketAt + $this->minGapMs / 1000 - microtime(true)) * 1_000_000);
+        if ($wait > 0) {
+            usleep($wait);
+        }
+        $this->lastPacketAt = microtime(true);
         $this->seq++;
         $this->write($this->invocation("d={$this->seq}\r\n{$this->token}\r\n{$lines}\r\n"));
         for ($k = 0; $k < 20; $k++) {
@@ -70,41 +84,91 @@ class PlayNGoLiveClient
     }
 
     /**
-     * One whole round at `$spinLine` (e.g. "1 10 1 10 1"): the spin, then —
-     * when it won (cascade steps "2 …") — the client's acknowledge (2 4 0),
-     * round total (2 6) and collect (4 0). Returns every reply in order.
+     * One whole round at `$spinLine` (e.g. "1 5 10 10 1"), played the way the
+     * client plays it — the server shapes its replies by what it is sent, in
+     * order. After the spin and each `2 6`:
+     *
+     *   a balance line (52 …)         the round is settled
+     *   in free spins (a running      report each total shown, `7 n` (83 n
+     *   total `3 x … L 1`, L ≥ 1)     back) — before anything else
+     *   last line `2 5 1`             acknowledge each award, `2 4 k`, then on: `2 6`
+     *   otherwise, won or free spins  collect: `4 0`
+     *
+     * (Book of Dead: one `2 6` brings all ten free spins → `7 0` … `7 10`; Rise
+     * of Olympus: a cleared grid's free spin arrives inside a `2 6` → `7 0`
+     * before the next `2 6`; Moon Princess's cascades: no reports.) A reply
+     * none of these fit is an unknown game state — thrown, named.
      *
      * @return list<array{sent: string, reply: string}>
      */
     public function round(string $spinLine): array
     {
-        $log = [['sent' => $spinLine, 'reply' => $this->packet($spinLine)]];
+        $log = [['sent' => $spinLine, 'reply' => $reply = $this->packet($spinLine)]];
         // a spin answered without a board (e.g. `90 … "IDS_IERR_INTERNAL"`) is an error, not a losing round
-        if (preg_match('/^111\b/m', $log[0]['reply']) || ! preg_match('/^1 \d+ \d+ \d+ /m', $log[0]['reply'])) {
-            throw new RuntimeException("Play'n GO error: ".trim($log[0]['reply']));
+        if (preg_match('/^111\b/m', $reply) || ! preg_match('/^1 \d+ \d+ \d+ /m', $reply)) {
+            throw new RuntimeException("Play'n GO error: ".trim($reply));
         }
-        if (! preg_match('/^2 /m', $log[0]['reply'])) {
-            return $log;
-        }
-        // acknowledge the cascade and step on while a reply ends "2 5 1" (more to come); a step
-        // may total the round (3 …) and still bring a whole new board (the portal's free round)
-        for ($k = 0; $k < 40; $k++) {
-            $log[] = ['sent' => '2 4 0', 'reply' => $this->packet('2 4 0')];
-            $log[] = ['sent' => '2 6', 'reply' => $reply = $this->packet('2 6')];
-            if (preg_match('/^111\b/m', $reply)) {
+        $reports = 0;        // `7 n` sent so far
+        $freeMode = false;   // the round has entered free spins (a total with spins left)
+        $collect = false;    // a win to collect
+        for ($k = 0; $k < 400; $k++) {
+            $lines = array_values(array_filter(array_map('trim', preg_split('/\r?\n/', $reply) ?: []), fn ($l) => $l !== ''));
+            if (preg_grep('/^111\b/', $lines)) {
                 throw new RuntimeException("Play'n GO error: ".trim($reply));
             }
-            $lines = array_values(array_filter(preg_split('/\r?\n/', $reply), fn ($l) => $l !== ''));
-            if (end($lines) !== '2 5 1') {
-                break;
+            if (preg_grep('/^52 /', $lines)) {
+                return $log;
+            }
+            // the client's next moves, in its order: report each free-spin total
+            // shown (7 n), acknowledge each award (2 4 k), then on (2 6) or collect (4 0)
+            $queue = [];
+            $totals = preg_grep('/^3 [01] \d+ \d+ \d+ \d+/', $lines);
+            foreach ($totals as $t) {
+                $f = explode(' ', $t);
+                $freeMode = $freeMode || (int) $f[4] >= 1;
+                $collect = $collect || (int) $f[2] > 0;
+            }
+            if ($freeMode) {
+                foreach ($totals as $_) {
+                    $queue[] = '7 '.$reports++;
+                }
+            }
+            if (end($lines) === '2 5 1') {
+                for ($a = 0, $n = count(preg_grep('/^2 2 8 /', $lines)); $a < $n; $a++) {
+                    $queue[] = "2 4 {$a}";
+                }
+                $queue[] = '2 6';
+            } elseif ($collect || $freeMode) {
+                $queue[] = '4 0';
+            } else {
+                throw new RuntimeException("Play'n GO: unknown state after '".end($log)['sent']."': ".mb_strimwidth(str_replace(["\r\n", "\n"], ' | ', trim($reply)), 0, 300));
+            }
+            foreach ($queue as $i => $next) {
+                $log[] = ['sent' => $next, 'reply' => $answer = $this->packet($next)];
+                if (preg_match('/^111\b/m', $answer)) {
+                    throw new RuntimeException("Play'n GO error after '{$next}': ".trim($answer));
+                }
+                $reply = $answer;   // the last one (2 6 / 4 0) decides what comes next
             }
         }
-        $log[] = ['sent' => '4 0', 'reply' => $reply = $this->packet('4 0')];
-        if (! preg_match('/^5 \d+/m', $reply)) {
-            throw new RuntimeException("Play'n GO refused the collect: ".trim($reply));
-        }
+        $tail = array_map(fn ($x) => $x['sent'].' => '.mb_strimwidth(str_replace(["\r\n", "\n"], ' | ', trim($x['reply'])), 0, 160), array_slice($log, 0, 3) + array_slice($log, -3, 3, true));
+        throw new RuntimeException("Play'n GO round never ended (400 steps): ".implode(' ;; ', $tail));
+    }
 
-        return $log;
+    /**
+     * The game-specific lines of Play'n GO's init reply (`104 …`): everything
+     * but the session plumbing our server writes itself — e.g. Rise of
+     * Olympus's `56 0` (the god in charge), without which its client fails on
+     * the first god award and freezes.
+     *
+     * @return list<string>
+     */
+    public static function initExtras(string $reply): array
+    {
+        $ours = ['104', '54', '57', '60', '52', '83', '91', '109'];
+        $lines = array_filter(array_map('trim', preg_split('/\r?\n/', (string) preg_replace('/^d=/', '', $reply)) ?: []), fn ($l) => $l !== '');
+
+        return array_values(array_filter($lines, fn ($l) => ! in_array(explode(' ', $l)[0], $ours, true)));
     }
 
     public function close(): void
