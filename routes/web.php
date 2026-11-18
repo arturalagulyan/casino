@@ -3,6 +3,7 @@
 use App\Http\Controllers\Api\GameServerController;
 use App\Http\Controllers\DemoPlayController;
 use App\Http\Controllers\GameAssetController;
+use App\Http\Controllers\ApolloController;
 use App\Http\Controllers\NetEntController;
 use App\Http\Controllers\PlayNGoController;
 use App\Http\Controllers\RoyalSpinPackAssetController;
@@ -67,6 +68,14 @@ Route::prefix('playngo/{token}')->group(function () {
 Route::get('netent/{token}/servlet/{servlet}', [NetEntController::class, 'servlet'])
     ->where('servlet', '(CasinoGameServlet|InfoServlet).*')   // InfoServlet: roulette statistics
     ->name('games.server.netent');
+
+/*
+ * Apollo Games: our page tunnels the client's WebSocket frames
+ * (`name=casino.spin…`) to `POST /apollo/{session}/casino.spin`.
+ */
+Route::post('apollo/{token}/{action}', [ApolloController::class, 'action'])
+    ->where('action', 'casino\.[A-Za-z.]+')
+    ->name('games.server.apollo');
 
 Route::get('games/{code}/{path}', [GameAssetController::class, 'asset'])
     ->where('path', '.*')

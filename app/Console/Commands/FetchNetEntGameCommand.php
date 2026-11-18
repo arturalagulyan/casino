@@ -2,6 +2,7 @@
 
 namespace App\Console\Commands;
 
+use App\Console\Commands\Concerns\ImportsBetboyGames;
 use App\Enums\BankType;
 use App\Enums\ClientProtocol;
 use App\Enums\Currency;
@@ -10,23 +11,19 @@ use App\Models\Category;
 use App\Models\Game;
 use App\Models\GameTemplate;
 use App\Models\NetEntRound;
-use App\Models\Shop;
 use App\Models\Tag;
 use App\Services\GamePlay\BundleManager;
 use App\Services\GamePlay\NetEnt\BetboySite;
 use App\Services\GamePlay\NetEnt\IncompleteRound;
 use App\Services\GamePlay\NetEnt\NetEntLibrary;
 use App\Services\GamePlay\NetEnt\NetEntLiveClient;
-use App\Services\GamePlay\NetEnt\NetEntQuirks;
 use App\Services\GamePlay\NetEnt\NetEntMirror;
+use App\Services\GamePlay\NetEnt\NetEntQuirks;
 use Illuminate\Console\Command;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\File;
-use Illuminate\Support\Facades\Http;
-use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
 use RuntimeException;
-use ZipArchive;
 
 /**
  * Import a NetEnt game from the Betboy lobby, the way FetchAmaticGameCommand
@@ -48,6 +45,8 @@ use ZipArchive;
  */
 class FetchNetEntGameCommand extends Command
 {
+    use ImportsBetboyGames;
+
     protected $signature = 'netent:fetch
         {game : Betboy game id or name (happy_riches, "Happy Riches")}
         {--code= : Template code (default: the name in StudlyCase, e.g. HappyRiches)}
@@ -282,78 +281,5 @@ class FetchNetEntGameCommand extends Command
         sort($out);
 
         return $out;
-    }
-
-    /** @param array<string, mixed> $lobby */
-    private function poster(BetboySite $betboy, array $lobby, string $code): ?string
-    {
-        $url = (string) ($this->option('poster') ?: (($lobby['pic'] ?? '') !== '' ? $betboy->absolute((string) $lobby['pic']) : ''));
-        if ($url === '') {
-            return null;
-        }
-        try {
-            $response = Http::withUserAgent('Mozilla/5.0')->timeout(30)->get($url);
-        } catch (\Throwable) {
-            return null;
-        }
-        if (! $response->successful() || ! str_starts_with((string) $response->header('Content-Type'), 'image/')) {
-            $this->warn("  poster {$url} not available");
-
-            return null;
-        }
-        // by the bytes, not the URL — Betboy serves WebP as `….jpg`
-        $ext = match (getimagesizefromstring($response->body())['mime'] ?? null) {
-            'image/webp' => 'webp', 'image/jpeg' => 'jpg', 'image/png' => 'png', 'image/gif' => 'gif',
-            default => strtolower(pathinfo((string) parse_url($url, PHP_URL_PATH), PATHINFO_EXTENSION)) ?: 'png',
-        };
-        $rel = "game-posters/{$code}.{$ext}";
-        Storage::disk('public')->put($rel, $response->body());
-        $this->line("  poster {$url} → {$rel}");
-
-        return $rel;
-    }
-
-    /** @return list<Shop>|null */
-    private function shops(): ?array
-    {
-        $wanted = (array) $this->option('shop');
-        if ($wanted === []) {
-            return Shop::query()->orderBy('id')->get()->all();
-        }
-        $shops = [];
-        foreach ($wanted as $key) {
-            $shop = Shop::query()->where(is_numeric($key) ? 'id' : 'name', $key)->first();
-            if (! $shop) {
-                $this->error("Shop '{$key}' not found.");
-
-                return null;
-            }
-            $shops[] = $shop;
-        }
-
-        return $shops;
-    }
-
-    /** Zip `$dir` under a `<Code>/` wrapper, which BundleManager strips. */
-    private function zip(string $dir, string $code): string
-    {
-        $path = storage_path("app/game-zips/{$code}.zip");
-        File::ensureDirectoryExists(dirname($path));
-        if (is_file($path)) {
-            unlink($path);
-        }
-        $archive = new ZipArchive;
-        if ($archive->open($path, ZipArchive::CREATE | ZipArchive::OVERWRITE) !== true) {
-            throw new RuntimeException("Could not create {$path}");
-        }
-        foreach (File::allFiles($dir, true) as $file) {
-            if ($file->getFilename() === '.netent-game.json') {
-                continue;
-            }
-            $archive->addFile($file->getPathname(), $code.'/'.str_replace('\\', '/', $file->getRelativePathname()));
-        }
-        $archive->close();
-
-        return $path;
     }
 }

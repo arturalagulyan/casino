@@ -31,6 +31,7 @@ return Application::configure(basePath: dirname(__DIR__))
             'game/*/server',
             'games/*/gs2c/v3/gameService',
             'playngo/*/server',
+            'apollo/*',
         ]);
     })
     ->withExceptions(function (Exceptions $exceptions): void {

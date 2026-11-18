@@ -117,6 +117,42 @@ class GameAssetController extends Controller
                 ->header('Content-Type', 'text/html');
         }
 
+        // Apollo's launch page reads `socketURL` / `language` off its URL, and its
+        // client talks over a WebSocket to that URL. We serve the actions over
+        // HTTP instead: a WebSocket shim (for that one URL only) POSTs each frame
+        // (`name=casino.spin\n<headers>\n\n<json>`) to /apollo/{session}/<action>
+        // and hands the reply back as the frame Apollo's server would send.
+        if ($config->clientProtocol() === ClientProtocol::Apollo) {
+            $languages = array_map('strtolower', (array) ($config->bonusConfig()['apollo']['languages'] ?? ['en']));
+            $lang = strtolower(substr((string) ($request->query('lang') ?: app()->getLocale()), 0, 2));
+            $server = url("/apollo/{$session->token}");
+            $params = json_encode(http_build_query([
+                'mode' => 'real', 'language' => in_array($lang, $languages, true) ? $lang : 'en',
+                'socketURL' => $server,
+            ]));
+            $serverJs = json_encode($server);
+            $inject = "<script>(function(){var s=location.search;history.replaceState(null,'',location.pathname+s+(s?'&':'?')+{$params});"
+                ."var S={$serverJs},R=window.WebSocket,key=S.replace(/^https?:\/\//,'');"
+                .'function F(u){var t=this;t.url=u;t.readyState=0;t.protocol="";t.extensions="";t.bufferedAmount=0;'
+                .'setTimeout(function(){t.readyState=1;t.onopen&&t.onopen({type:"open",target:t});},0);}'
+                .'F.CONNECTING=0;F.OPEN=1;F.CLOSING=2;F.CLOSED=3;'
+                .'F.prototype.send=function(d){var t=this,i=d.indexOf("\n\n"),h=i<0?d:d.substring(0,i),b=i<0?"{}":d.substring(i+2),n="",a="";'
+                .'h.split("\n").forEach(function(l){var k=l.indexOf("=");if(k>0){var p=l.substring(0,k).toLowerCase();if(p==="name")n=l.substring(k+1);if(p==="authorization")a=l.substring(k+1);}});'
+                .'if(!n)return;var x=new XMLHttpRequest();x.open("POST",S+"/"+n,true);x.setRequestHeader("Content-Type","application/json");'
+                .'x.onreadystatechange=function(){if(x.readyState!==4||t.readyState!==1)return;'
+                .'var st=x.status||503,body=x.responseText||"{\"category\":\"FATAL\",\"code\":\"SERVER_ERROR\",\"title\":\"SERVER_ERROR\",\"detailed\":\"\"}";'
+                .'t.onmessage&&t.onmessage({data:"response="+n+"\nstatus="+st+"\nContent-Type=application/json;charset=utf-8\n"+(st===200?"Authorization="+(x.getResponseHeader("Authorization")||a||"sessionToken")+"\n":"")+"\n"+body,target:t});};'
+                .'x.send(b);};'
+                .'F.prototype.close=function(){if(this.readyState===3)return;this.readyState=3;var t=this;setTimeout(function(){t.onclose&&t.onclose({code:1000,reason:"",wasClean:true,target:t});},0);};'
+                .'F.prototype.addEventListener=function(e,f){var o=this["on"+e];this["on"+e]=o?function(v){o(v);f(v);}:f;};'
+                .'F.prototype.removeEventListener=function(){};'
+                .'var W=function(u,p){return String(u).replace(/^wss?:\/\//,"").indexOf(key)===0?new F(u):(p===undefined?new R(u):new R(u,p));};'
+                .'W.CONNECTING=0;W.OPEN=1;W.CLOSING=2;W.CLOSED=3;W.prototype=R.prototype;window.WebSocket=W;})();</script>';
+
+            return response($this->injectHead($html, $inject.$this->jackpotTickerSnippet($game, $user)))
+                ->header('Content-Type', 'text/html');
+        }
+
         // WebSocket bundles (EGT GamePlatform, …) identify the player by a
         // `sessionId` in the page, not a POST endpoint. Force this launch's token
         // in (overwriting any stale value the tab's sessionStorage kept).

@@ -4,6 +4,8 @@ namespace App\Enums;
 
 use App\Services\GamePlay\Engine\PaylineEngine;
 use App\Services\GamePlay\Engine\TumbleEngine;
+use App\Services\GamePlay\Protocol\ApolloProtocol;
+use App\Services\GamePlay\Protocol\NetEntProtocol;
 use App\Services\GamePlay\Protocol\PlayNGoProtocol;
 
 /**
@@ -120,9 +122,20 @@ enum ClientProtocol: string
      * `server=/netent/{session}/` and `sessId=<session>` in its query string
      * (the parameters NetEnt's launcher would add). Spins are served from an
      * outcome library of rounds recorded on a NetEnt demo session
-     * ({@see \App\Services\GamePlay\Protocol\NetEntProtocol}).
+     * ({@see NetEntProtocol}).
      */
     case NetEnt = 'netent';
+
+    /**
+     * Apollo Games' casino server protocol: `casino.init` / `casino.spin` /
+     * `casino.gamble` / … with JSON bodies. Apollo's client sends them as
+     * WebSocket text frames (`name=<action>\n<headers>\n\n<json>`); our page
+     * replaces the browser's WebSocket for that one URL with a shim that
+     * POSTs each frame to `/apollo/{session}/<action>` and hands the reply back
+     * as a frame. Spins are served from an outcome library of rounds recorded
+     * on a Betboy demo session ({@see ApolloProtocol}).
+     */
+    case Apollo = 'apollo';
 
     public function label(): string
     {
@@ -137,6 +150,7 @@ enum ClientProtocol: string
             self::PragmaticPayline => 'Pragmatic Play gs2c payline (modern HTTP)',
             self::PlayNGo => "Play'n GO (line protocol over HTTP)",
             self::NetEnt => 'NetEnt (CasinoGameServlet over HTTP)',
+            self::Apollo => 'Apollo Games (casino.* over HTTP)',
         };
     }
 
