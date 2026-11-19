@@ -70,6 +70,12 @@ class PlayNGoLibrary
         }
         $n = (clone $q)->count();
 
-        return $n === 0 ? null : $q->orderBy('id')->offset(random_int(0, $n - 1))->first();
+        if ($n === 0) {
+            return null;
+        }
+        // the id alone: sorting whole rows (their JSON steps) runs MySQL out of sort memory
+        $id = $q->orderBy('id')->offset(random_int(0, $n - 1))->value('id');
+
+        return PlayNGoRound::query()->find($id);
     }
 }

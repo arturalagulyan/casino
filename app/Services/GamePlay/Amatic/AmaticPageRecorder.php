@@ -19,7 +19,7 @@ class AmaticPageRecorder
     public function __construct(private readonly string $webdriver = '') {}
 
     /**
-     * @return list<string> absolute URLs that answered 200
+     * @return list<string> absolute URLs that answered 200 (or 206, media)
      */
     public function record(string $pageUrl): array
     {
@@ -54,7 +54,7 @@ class AmaticPageRecorder
                 sleep(5);
                 foreach ((array) Http::timeout(120)->post("{$s}/se/log", ['type' => 'performance'])->json('value') as $entry) {
                     $m = json_decode((string) ($entry['message'] ?? ''), true)['message'] ?? [];
-                    if (($m['method'] ?? '') === 'Network.responseReceived' && (int) ($m['params']['response']['status'] ?? 0) === 200) {
+                    if (($m['method'] ?? '') === 'Network.responseReceived' && in_array((int) ($m['params']['response']['status'] ?? 0), [200, 206], true)) {   // 206: media (video) is fetched in ranges
                         $found[] = (string) $m['params']['response']['url'];
                     }
                 }

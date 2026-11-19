@@ -74,7 +74,7 @@ class BetboySite
     /**
      * A fresh DEMO session of a game. Returns the launch URL (one host per
      * session, e.g. https://<session>.joker-entry.link/) and the page it
-     * redirects to — the provider's real client URL with its parameters.
+     * redirects to (IGT: frames) — the provider's real client URL with its parameters.
      *
      * @return array{session: string, launch: string, page: string}
      */
@@ -98,7 +98,12 @@ class BetboySite
         if ($launch === '') {
             throw new RuntimeException("Betboy didn't launch '{$stringId}': ".json_encode($run));
         }
-        $page = Http::withUserAgent('Mozilla/5.0')->withOptions(['allow_redirects' => false])->timeout(30)->get($launch)->header('Location');
+        $response = Http::withUserAgent('Mozilla/5.0')->withOptions(['allow_redirects' => false])->timeout(30)->get($launch);
+        $page = $response->header('Location');
+        // IGT: no redirect — a wrapper page framing the client
+        if ($page === '' && preg_match('#<iframe\b[^>]*\bsrc="([^"]+)"#i', $response->body(), $m)) {
+            $page = html_entity_decode($m[1]);
+        }
         if ($page === '') {
             throw new RuntimeException("Betboy's launch {$launch} didn't redirect to a game page");
         }

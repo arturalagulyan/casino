@@ -117,6 +117,21 @@ class GameAssetController extends Controller
                 ->header('Content-Type', 'text/html');
         }
 
+        // IGT's page reads `currency`, `denom`, `gameStatic` (the game's folder)
+        // and `server` (ours: /igt/{session}/rgs?) off its URL — split on `&`
+        // and `=` without decoding, so they go in as they are.
+        if ($config->clientProtocol() === ClientProtocol::Igt) {
+            $folder = (string) ($config->bonusConfig()['igt']['folder'] ?? '');
+            $iso = $user->wallet?->currency;
+            $params = json_encode('currency='.($iso instanceof \BackedEnum ? $iso->value : (string) ($iso ?: 'EUR')).'&denom='.((float) ($config->bonusConfig()['igt']['denom'] ?? 0.01))
+                .'&gameStatic='.url("/games/{$code}~v{$bundle->version}/{$folder}").'/'
+                .'&server='.url("/igt/{$session->token}/rgs").'?');
+            $inject = "<script>(function(){history.replaceState(null,'',location.pathname+'?'+{$params});})();</script>";
+
+            return response($this->injectHead($html, $inject.$this->jackpotTickerSnippet($game, $user)))
+                ->header('Content-Type', 'text/html');
+        }
+
         // Apollo's launch page reads `socketURL` / `language` off its URL, and its
         // client talks over a WebSocket to that URL. We serve the actions over
         // HTTP instead: a WebSocket shim (for that one URL only) POSTs each frame

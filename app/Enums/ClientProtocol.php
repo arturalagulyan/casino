@@ -5,6 +5,7 @@ namespace App\Enums;
 use App\Services\GamePlay\Engine\PaylineEngine;
 use App\Services\GamePlay\Engine\TumbleEngine;
 use App\Services\GamePlay\Protocol\ApolloProtocol;
+use App\Services\GamePlay\Protocol\IgtProtocol;
 use App\Services\GamePlay\Protocol\NetEntProtocol;
 use App\Services\GamePlay\Protocol\PlayNGoProtocol;
 
@@ -137,6 +138,15 @@ enum ClientProtocol: string
      */
     case Apollo = 'apollo';
 
+    /**
+     * IGT's RGS protocol ("Skateboard" HTML5 clients): `GET|POST
+     * {server}/<action>&…` — authenticate, paytable, currency, initstate,
+     * play — JSON in and out. Our page sets `server=/igt/{session}/rgs?`.
+     * Spins are served from an outcome library of rounds recorded on a
+     * Betboy demo session ({@see IgtProtocol}).
+     */
+    case Igt = 'igt';
+
     public function label(): string
     {
         return match ($this) {
@@ -151,6 +161,7 @@ enum ClientProtocol: string
             self::PlayNGo => "Play'n GO (line protocol over HTTP)",
             self::NetEnt => 'NetEnt (CasinoGameServlet over HTTP)',
             self::Apollo => 'Apollo Games (casino.* over HTTP)',
+            self::Igt => 'IGT (RGS WebEngine over HTTP)',
         };
     }
 
