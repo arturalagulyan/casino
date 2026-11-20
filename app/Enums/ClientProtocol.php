@@ -7,6 +7,7 @@ use App\Services\GamePlay\Engine\TumbleEngine;
 use App\Services\GamePlay\Protocol\ApolloProtocol;
 use App\Services\GamePlay\Protocol\IgtProtocol;
 use App\Services\GamePlay\Protocol\NetEntProtocol;
+use App\Services\GamePlay\Protocol\NovolineProtocol;
 use App\Services\GamePlay\Protocol\PlayNGoProtocol;
 
 /**
@@ -147,6 +148,15 @@ enum ClientProtocol: string
      */
     case Igt = 'igt';
 
+    /**
+     * Greentube's game server (Novoline HTML5 slots): one WebSocket of text
+     * frames (type character + ÿ-separated fields). Our page's WebSocket shim
+     * POSTs each frame to /novoline/{session}/ws. Spins are served from an
+     * outcome library of rounds recorded on a Betboy demo session
+     * ({@see NovolineProtocol}).
+     */
+    case Novoline = 'novoline';
+
     public function label(): string
     {
         return match ($this) {
@@ -162,6 +172,7 @@ enum ClientProtocol: string
             self::NetEnt => 'NetEnt (CasinoGameServlet over HTTP)',
             self::Apollo => 'Apollo Games (casino.* over HTTP)',
             self::Igt => 'IGT (RGS WebEngine over HTTP)',
+            self::Novoline => 'Novoline / Greentube (WebSocket shim → HTTP)',
         };
     }
 

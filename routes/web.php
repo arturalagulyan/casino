@@ -6,6 +6,7 @@ use App\Http\Controllers\DemoPlayController;
 use App\Http\Controllers\GameAssetController;
 use App\Http\Controllers\IgtController;
 use App\Http\Controllers\NetEntController;
+use App\Http\Controllers\NovolineController;
 use App\Http\Controllers\PlayNGoController;
 use App\Http\Controllers\RoyalSpinPackAssetController;
 use App\Http\Controllers\RtpSimulationReportController;
@@ -83,6 +84,12 @@ Route::post('apollo/{token}/{action}', [ApolloController::class, 'action'])
  */
 Route::match(['get', 'post'], 'igt/{token}/rgs', [IgtController::class, 'engine'])
     ->name('games.server.igt');
+
+/*
+ * Novoline (Greentube): our page's WebSocket shim POSTs each client frame.
+ */
+Route::post('novoline/{token}/ws', [NovolineController::class, 'frame'])
+    ->name('games.server.novoline');
 
 Route::get('games/{code}/{path}', [GameAssetController::class, 'asset'])
     ->where('path', '.*')

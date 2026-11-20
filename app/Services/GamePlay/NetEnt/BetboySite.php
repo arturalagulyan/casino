@@ -104,6 +104,10 @@ class BetboySite
         if ($page === '' && preg_match('#<iframe\b[^>]*\bsrc="([^"]+)"#i', $response->body(), $m)) {
             $page = html_entity_decode($m[1]);
         }
+        // Greentube (Novoline): the launch page is the client itself
+        if ($page === '' && str_contains($response->body(), 'jsout.js')) {
+            $page = $launch;
+        }
         if ($page === '') {
             throw new RuntimeException("Betboy's launch {$launch} didn't redirect to a game page");
         }

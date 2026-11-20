@@ -33,6 +33,7 @@ return Application::configure(basePath: dirname(__DIR__))
             'playngo/*/server',
             'apollo/*',
             'igt/*',
+            'novoline/*',
         ]);
     })
     ->withExceptions(function (Exceptions $exceptions): void {
