@@ -2,6 +2,7 @@
 
 use App\Http\Controllers\Api\GameServerController;
 use App\Http\Controllers\ApolloController;
+use App\Http\Controllers\BooongoController;
 use App\Http\Controllers\DemoPlayController;
 use App\Http\Controllers\GameAssetController;
 use App\Http\Controllers\IgtController;
@@ -90,6 +91,12 @@ Route::match(['get', 'post'], 'igt/{token}/rgs', [IgtController::class, 'engine'
  */
 Route::post('novoline/{token}/ws', [NovolineController::class, 'frame'])
     ->name('games.server.novoline');
+
+/*
+ * Booongo: its game runner POSTs `{server_url}?gsc=<command>` with `server_url=/booongo/{session}/engine`.
+ */
+Route::post('booongo/{token}/engine', [BooongoController::class, 'engine'])
+    ->name('games.server.booongo');
 
 Route::get('games/{code}/{path}', [GameAssetController::class, 'asset'])
     ->where('path', '.*')

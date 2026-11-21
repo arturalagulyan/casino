@@ -132,6 +132,20 @@ class GameAssetController extends Controller
                 ->header('Content-Type', 'text/html');
         }
 
+        // Booongo: our page (built by BooongoMirror) starts the game runner with
+        // its server, token and language from window.BNG — the runner then
+        // POSTs `{server}?gsc=<command>` to /booongo/{session}/engine.
+        if ($config->clientProtocol() === ClientProtocol::Booongo) {
+            $languages = (array) ($config->bonusConfig()['booongo']['languages'] ?? ['en']);
+            $lang = strtolower(substr((string) ($request->query('lang') ?: app()->getLocale()), 0, 2));
+            $bng = json_encode(['server' => url("/booongo/{$session->token}/engine"), 'token' => $session->token,
+                'lang' => in_array($lang, $languages, true) ? $lang : 'en'], JSON_UNESCAPED_SLASHES);
+            $inject = "<script>window.BNG={$bng};</script>";
+
+            return response($this->injectHead($html, $inject.$this->jackpotTickerSnippet($game, $user)))
+                ->header('Content-Type', 'text/html');
+        }
+
         // Novoline (Greentube): our page (built by NovolineMirror) starts the client
         // with `hostname` = window.NOVO.host; the client opens
         // wss://<hostname>/mux?websocket=… — a WebSocket shim (for that host only)

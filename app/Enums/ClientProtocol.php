@@ -5,6 +5,7 @@ namespace App\Enums;
 use App\Services\GamePlay\Engine\PaylineEngine;
 use App\Services\GamePlay\Engine\TumbleEngine;
 use App\Services\GamePlay\Protocol\ApolloProtocol;
+use App\Services\GamePlay\Protocol\BooongoProtocol;
 use App\Services\GamePlay\Protocol\IgtProtocol;
 use App\Services\GamePlay\Protocol\NetEntProtocol;
 use App\Services\GamePlay\Protocol\NovolineProtocol;
@@ -157,6 +158,14 @@ enum ClientProtocol: string
      */
     case Novoline = 'novoline';
 
+    /**
+     * Booongo's game server: the game runner POSTs `{server_url}?gsc=<command>`
+     * (login / start / play / sync) with JSON bodies. Our page sets
+     * `server_url=/booongo/{session}/engine`. Spins are served from an outcome
+     * library of rounds recorded on a Betboy demo session ({@see BooongoProtocol}).
+     */
+    case Booongo = 'booongo';
+
     public function label(): string
     {
         return match ($this) {
@@ -173,6 +182,7 @@ enum ClientProtocol: string
             self::Apollo => 'Apollo Games (casino.* over HTTP)',
             self::Igt => 'IGT (RGS WebEngine over HTTP)',
             self::Novoline => 'Novoline / Greentube (WebSocket shim → HTTP)',
+            self::Booongo => 'Booongo (WebEngine over HTTP)',
         };
     }
 
