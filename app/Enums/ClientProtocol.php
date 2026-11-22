@@ -177,6 +177,16 @@ enum ClientProtocol: string
      */
     case Egt = 'egt';
 
+    /**
+     * Merkur's (Edict "EOC") game server: the launcher calls
+     * `WebEngine.php?<path>` with JSON bodies — the gateway's launcher data,
+     * then `…/commands/commands` {gameActionId: INIT | PLAY | FINISH_GAME |
+     * RISK_*}. Our page sets `serverURL=/merkur/{session}/engine?`. Spins are
+     * served from an outcome library of rounds recorded on a Betboy demo
+     * session ({@see \App\Services\GamePlay\Protocol\MerkurProtocol}).
+     */
+    case Merkur = 'merkur';
+
     public function label(): string
     {
         return match ($this) {
@@ -195,6 +205,7 @@ enum ClientProtocol: string
             self::Novoline => 'Novoline / Greentube (WebSocket shim → HTTP)',
             self::Booongo => 'Booongo (WebEngine over HTTP)',
             self::Egt => 'EGT (WebSocket shim → HTTP)',
+            self::Merkur => 'Merkur / Edict (WebEngine over HTTP)',
         };
     }
 

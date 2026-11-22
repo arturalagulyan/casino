@@ -2,6 +2,7 @@
 
 use App\Http\Controllers\Api\GameServerController;
 use App\Http\Controllers\ApolloController;
+use App\Http\Controllers\MerkurController;
 use App\Http\Controllers\BooongoController;
 use App\Http\Controllers\EgtController;
 use App\Http\Controllers\DemoPlayController;
@@ -104,6 +105,13 @@ Route::post('booongo/{token}/engine', [BooongoController::class, 'engine'])
  */
 Route::post('egt/{token}/ws', [EgtController::class, 'frame'])
     ->name('games.server.egt');
+
+/*
+ * Merkur (Edict): the launcher calls `serverURL` + `<path>` — our
+ * /merkur/{session}/engine?<path>, the path being the raw query string.
+ */
+Route::match(['get', 'post', 'put', 'delete'], 'merkur/{token}/engine', [MerkurController::class, 'engine'])
+    ->name('games.server.merkur');
 
 Route::get('games/{code}/{path}', [GameAssetController::class, 'asset'])
     ->where('path', '.*')

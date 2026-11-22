@@ -146,6 +146,23 @@ class GameAssetController extends Controller
                 ->header('Content-Type', 'text/html');
         }
 
+        // Merkur (Edict): the launcher (iframe2.html, base /mk/commonStatic2/)
+        // reads `game`, `lang`, `serverURL` and `session` off its URL — split on
+        // `&` and `=` without decoding, so they go in as they are. serverURL is
+        // ours: the launcher appends WebEngine.php's "path" as the query string.
+        if ($config->clientProtocol() === ClientProtocol::Merkur) {
+            $merkur = (array) ($config->bonusConfig()['merkur'] ?? []);
+            $languages = (array) ($merkur['languages'] ?? ['en']);
+            $lang = strtolower(substr((string) ($request->query('lang') ?: app()->getLocale()), 0, 2));
+            $html = str_replace('href="/mk/commonStatic2/"', 'href="'.url("/games/{$code}~v{$bundle->version}/commonStatic2").'/"', $html);
+            $params = json_encode('game='.($merkur['game_key'] ?? '').'&lang='.(in_array($lang, $languages, true) ? $lang : 'en')
+                .'&serverURL='.url("/merkur/{$session->token}/engine").'?&session='.url("/merkur/{$session->token}/session"), JSON_UNESCAPED_SLASHES);
+            $inject = "<script>(function(){history.replaceState(null,'',location.pathname+'?'+{$params});})();</script>";
+
+            return response($this->injectHead($html, $inject.$this->jackpotTickerSnippet($game, $user)))
+                ->header('Content-Type', 'text/html');
+        }
+
         // Novoline (Greentube): our page (built by NovolineMirror) starts the client
         // with `hostname` = window.NOVO.host; the client opens
         // wss://<hostname>/mux?websocket=… — a WebSocket shim (for that host only)
@@ -396,6 +413,12 @@ class GameAssetController extends Controller
 
         if (str_ends_with($rel, '.js')) {
             $content = $this->patchLegacyGmslQuirks($content, $bundle, dirname($rel));
+        }
+
+        // Merkur's launcher and help pages name the host's `/mk/commonStatic2/…`
+        // (the gaming lib rewrites help images to it at run time)
+        if ($template->client_protocol === ClientProtocol::Merkur && preg_match('/\.(html|css|js)$/i', $rel) && str_contains($content, '/mk/commonStatic2/')) {
+            $content = str_replace('/mk/commonStatic2/', url("/games/{$template->code}~v{$bundle->version}/commonStatic2").'/', $content);
         }
 
         return response($content, 200, [

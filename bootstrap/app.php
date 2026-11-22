@@ -32,6 +32,7 @@ return Application::configure(basePath: dirname(__DIR__))
             'games/*/gs2c/v3/gameService',
             'playngo/*/server',
             'apollo/*',
+            'merkur/*',
             'igt/*',
             'novoline/*',
             'booongo/*',
