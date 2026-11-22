@@ -176,6 +176,44 @@ class GameAssetController extends Controller
                 ->header('Content-Type', 'text/html');
         }
 
+        // EGT: our page (built by EgtMirror) completes the client's connectionParams
+        // from window.EGT — the client then opens
+        // `<protocol>://<host>:<port>?sessionKey=…` with host = /egt/{session}/ws/
+        // on our origin; a WebSocket shim (for that host only) POSTs each frame
+        // to /egt/{session}/ws, in order, and hands back the frames the reply lists.
+        if ($config->clientProtocol() === ClientProtocol::Egt) {
+            $languages = (array) ($config->bonusConfig()['egt']['languages'] ?? ['en']);
+            $lang = strtolower(substr((string) ($request->query('lang') ?: app()->getLocale()), 0, 2));
+            $server = url("/egt/{$session->token}/ws");
+            $host = (string) preg_replace('#^https?://#', '', $server).'/';
+            $egt = json_encode([
+                'host' => $host, 'port' => (string) (parse_url($server, PHP_URL_PORT) ?: (str_starts_with($server, 'https') ? 443 : 80)),
+                'protocol' => str_starts_with($server, 'https') ? 'wss' : 'ws', 'sessionKey' => $session->token,
+                'lang' => in_array($lang, $languages, true) ? $lang : 'en',
+                'baseUrl' => rtrim((string) parse_url(url("/games/{$code}~v{$bundle->version}"), PHP_URL_PATH), '/'),
+                'player' => 'player'.$user->id,
+            ], JSON_UNESCAPED_SLASHES);
+            $serverJs = json_encode($server, JSON_UNESCAPED_SLASHES);
+            $inject = "<script>window.EGT={$egt};(function(){var S={$serverJs},R=window.WebSocket,key=window.EGT.host.replace(/\/+$/,'');"
+                .'function F(u){var t=this;t.url=u;t.readyState=0;t.protocol="";t.extensions="";t.bufferedAmount=0;t.binaryType="blob";t._h={};t._q=Promise.resolve();'
+                .'setTimeout(function(){t.readyState=1;t._e("open",{type:"open",target:t});},0);}'
+                .'F.CONNECTING=0;F.OPEN=1;F.CLOSING=2;F.CLOSED=3;'
+                .'F.prototype._e=function(n,e){var f=this["on"+n];f&&f.call(this,e);(this._h[n]||[]).slice().forEach(function(g){g.call(this,e);},this);};'
+                .'F.prototype.addEventListener=function(n,f){(this._h[n]=this._h[n]||[]).push(f);};'
+                .'F.prototype.removeEventListener=function(n,f){this._h[n]=(this._h[n]||[]).filter(function(g){return g!==f;});};'
+                .'F.prototype.send=function(d){var t=this;t._q=t._q.then(function(){if(t.readyState!==1)return;'
+                .'return fetch(S,{method:"POST",body:String(d),headers:{"Content-Type":"text/plain;charset=UTF-8","X-Requested-With":"XMLHttpRequest"},credentials:"same-origin"})'
+                .'.then(function(r){if(r.status===410){t.close();return[];}return r.ok?r.json():[];})'
+                .'.then(function(a){(a||[]).forEach(function(m){if(t.readyState===1)t._e("message",{type:"message",data:m,target:t});});})'
+                .'.catch(function(){});});};'
+                .'F.prototype.close=function(){if(this.readyState===3)return;this.readyState=3;var t=this;setTimeout(function(){t._e("close",{type:"close",code:1000,reason:"",wasClean:true,target:t});},0);};'
+                .'var W=function(u,p){return String(u).replace(/^wss?:\/\//i,"").toLowerCase().indexOf(key.toLowerCase())===0?new F(u):(p===undefined?new R(u):new R(u,p));};'
+                .'W.CONNECTING=0;W.OPEN=1;W.CLOSING=2;W.CLOSED=3;W.prototype=R.prototype;window.WebSocket=W;})();</script>';
+
+            return response($this->injectHead($html, $inject.$this->jackpotTickerSnippet($game, $user)))
+                ->header('Content-Type', 'text/html');
+        }
+
         // Apollo's launch page reads `socketURL` / `language` off its URL, and its
         // client talks over a WebSocket to that URL. We serve the actions over
         // HTTP instead: a WebSocket shim (for that one URL only) POSTs each frame

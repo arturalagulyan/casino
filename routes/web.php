@@ -3,6 +3,7 @@
 use App\Http\Controllers\Api\GameServerController;
 use App\Http\Controllers\ApolloController;
 use App\Http\Controllers\BooongoController;
+use App\Http\Controllers\EgtController;
 use App\Http\Controllers\DemoPlayController;
 use App\Http\Controllers\GameAssetController;
 use App\Http\Controllers\IgtController;
@@ -97,6 +98,12 @@ Route::post('novoline/{token}/ws', [NovolineController::class, 'frame'])
  */
 Route::post('booongo/{token}/engine', [BooongoController::class, 'engine'])
     ->name('games.server.booongo');
+
+/*
+ * EGT: our page's WebSocket shim POSTs each client frame (JSON, or a bare `ping`).
+ */
+Route::post('egt/{token}/ws', [EgtController::class, 'frame'])
+    ->name('games.server.egt');
 
 Route::get('games/{code}/{path}', [GameAssetController::class, 'asset'])
     ->where('path', '.*')

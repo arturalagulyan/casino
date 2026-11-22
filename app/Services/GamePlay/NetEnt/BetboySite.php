@@ -106,7 +106,9 @@ class BetboySite
         }
         // Greentube (Novoline): the launch page is the client itself
         // Booongo: the launch page is the game runner's own page
-        if ($page === '' && (str_contains($response->body(), 'jsout.js') || str_contains($response->body(), 'window._PROVIDER'))) {
+        // EGT: the launch page is the client's own page (initDesktopHtml(connectionParams))
+        if ($page === '' && (str_contains($response->body(), 'jsout.js') || str_contains($response->body(), 'window._PROVIDER')
+            || str_contains($response->body(), 'initDesktopHtml('))) {
             $page = $launch;
         }
         if ($page === '') {

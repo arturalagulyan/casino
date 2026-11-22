@@ -6,6 +6,7 @@ use App\Services\GamePlay\Engine\PaylineEngine;
 use App\Services\GamePlay\Engine\TumbleEngine;
 use App\Services\GamePlay\Protocol\ApolloProtocol;
 use App\Services\GamePlay\Protocol\BooongoProtocol;
+use App\Services\GamePlay\Protocol\EgtProtocol;
 use App\Services\GamePlay\Protocol\IgtProtocol;
 use App\Services\GamePlay\Protocol\NetEntProtocol;
 use App\Services\GamePlay\Protocol\NovolineProtocol;
@@ -166,6 +167,16 @@ enum ClientProtocol: string
      */
     case Booongo = 'booongo';
 
+    /**
+     * EGT's (Amusnet's) game server: one WebSocket of JSON frames — login /
+     * settings / subscribe / bet {gameCommand: bet|gamble|collect} — plus a
+     * bare `ping`. Our page's WebSocket shim POSTs each frame to
+     * /egt/{session}/ws. Spins are served from an outcome library of rounds
+     * recorded on a Betboy demo session ({@see EgtProtocol}). The legacy
+     * {@see self::GamePlatform} emulates the same wire with our own maths.
+     */
+    case Egt = 'egt';
+
     public function label(): string
     {
         return match ($this) {
@@ -183,6 +194,7 @@ enum ClientProtocol: string
             self::Igt => 'IGT (RGS WebEngine over HTTP)',
             self::Novoline => 'Novoline / Greentube (WebSocket shim → HTTP)',
             self::Booongo => 'Booongo (WebEngine over HTTP)',
+            self::Egt => 'EGT (WebSocket shim → HTTP)',
         };
     }
 

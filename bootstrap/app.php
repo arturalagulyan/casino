@@ -35,6 +35,7 @@ return Application::configure(basePath: dirname(__DIR__))
             'igt/*',
             'novoline/*',
             'booongo/*',
+            'egt/*',
         ]);
     })
     ->withExceptions(function (Exceptions $exceptions): void {
