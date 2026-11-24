@@ -187,6 +187,28 @@ enum ClientProtocol: string
      */
     case Merkur = 'merkur';
 
+    /**
+     * Pragmatic Play's real game service ("gs2c", the client Betboy serves):
+     * `POST <contextPath>gameService` with a form body (`action=doInit|doSpin|
+     * doCollect|doBonus|…`) → a flat `key=value&…` body. Our page sets
+     * `gameService=/pragmatic/{session}/gameService`. Spins are served from an
+     * outcome library of rounds recorded on a Betboy demo session
+     * ({@see \App\Services\GamePlay\Protocol\PragmaticPlayProtocol}). Not to
+     * be confused with {@see self::Pragmatic} / {@see self::PragmaticTumble} /
+     * {@see self::PragmaticPayline}, the legacy re-implementations with our own maths.
+     */
+    case PragmaticPlay = 'pragmatic_play';
+
+    /**
+     * Wazdan's RGS (the GWT client Betboy serves): JSON requests
+     * `{service, act: START|PRIZE_TO_BANK|GAMBLING_*|…, arg, id}` over a
+     * WebSocket, AES-encrypted with the client's default key. Our page's
+     * WebSocket shim POSTs each frame to `/wazdan/{session}`. Spins are served
+     * from an outcome library of rounds recorded on a Betboy demo session
+     * ({@see \App\Services\GamePlay\Protocol\WazdanProtocol}).
+     */
+    case Wazdan = 'wazdan';
+
     public function label(): string
     {
         return match ($this) {
@@ -206,6 +228,8 @@ enum ClientProtocol: string
             self::Booongo => 'Booongo (WebEngine over HTTP)',
             self::Egt => 'EGT (WebSocket shim → HTTP)',
             self::Merkur => 'Merkur / Edict (WebEngine over HTTP)',
+            self::PragmaticPlay => 'Pragmatic Play (recorded gs2c over HTTP)',
+            self::Wazdan => 'Wazdan (WebSocket shim → HTTP)',
         };
     }
 

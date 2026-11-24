@@ -37,6 +37,10 @@ return Application::configure(basePath: dirname(__DIR__))
             'novoline/*',
             'booongo/*',
             'egt/*',
+            'pragmatic/*',
+            'wazdan/*',
+            'wz/common/envelope.json',
+            'wz/common/api.json',
         ]);
     })
     ->withExceptions(function (Exceptions $exceptions): void {

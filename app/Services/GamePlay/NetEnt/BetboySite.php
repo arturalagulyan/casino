@@ -107,8 +107,10 @@ class BetboySite
         // Greentube (Novoline): the launch page is the client itself
         // Booongo: the launch page is the game runner's own page
         // EGT: the launch page is the client's own page (initDesktopHtml(connectionParams))
+        // Pragmatic: the launch page is the client's own page (Html5GameManager.init({gameConfig…}))
+        // Wazdan: the launch page is the client's own page (var SID2 = [char codes of its parameters])
         if ($page === '' && (str_contains($response->body(), 'jsout.js') || str_contains($response->body(), 'window._PROVIDER')
-            || str_contains($response->body(), 'initDesktopHtml('))) {
+            || str_contains($response->body(), 'initDesktopHtml(') || str_contains($response->body(), 'Html5GameManager.init(') || str_contains($response->body(), 'var SID2 = ['))) {
             $page = $launch;
         }
         if ($page === '') {

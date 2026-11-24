@@ -13,6 +13,8 @@ use App\Services\Fx;
 use App\Services\GamePlay\GameConfig;
 use App\Services\GamePlay\NetEnt\NetEntCurrencyFile;
 use App\Services\GamePlay\Protocol\GamePlatformLobby;
+use App\Services\GamePlay\Wazdan\WazdanLiveClient;
+use App\Services\GamePlay\Wazdan\WazdanMirror;
 use App\Services\Legacy\LegacyGameReader;
 use App\Services\SeamlessWallet\GameLaunch;
 use Illuminate\Http\Request;
@@ -146,6 +148,33 @@ class GameAssetController extends Controller
                 ->header('Content-Type', 'text/html');
         }
 
+        // Pragmatic Play: our page (the legacy client's gs2c/html5Game.html, see
+        // PragmaticLegacyBundle) hands Html5GameManager the gameConfig in window.PRG —
+        // the recorded one with our game service (/pragmatic/{session}/gameService:
+        // the client derives saveSettings.do etc. from its folder), the game's
+        // datapath in this bundle, the language and a blank (fun-style) currency
+        // sign replaced by the wallet's.
+        if ($config->clientProtocol() === ClientProtocol::PragmaticPlay) {
+            $prg = (array) ($config->bonusConfig()['pragmatic'] ?? []);
+            $languages = (array) ($prg['languages'] ?? ['en']);
+            $lang = strtolower(substr((string) ($request->query('lang') ?: app()->getLocale()), 0, 2));
+            $iso = $user->wallet?->currency;
+            $iso = $iso instanceof \BackedEnum ? (string) $iso->value : (string) ($iso ?: 'EUR');
+            $datapath = url("/games/{$code}~v{$bundle->version}/".($prg['datapath'] ?? $prg['symbol'])).'/';
+            $gameConfig = array_merge((array) ($prg['config'] ?? []), [
+                'datapath' => $datapath,
+                'datapath_alternative' => $datapath,
+                'gameService' => url("/pragmatic/{$session->token}/gameService"),
+                'mgckey' => $session->token,
+                'lang' => in_array($lang, $languages, true) ? $lang : 'en',
+                'currency' => $iso, 'currencyOriginal' => $iso,
+            ]);
+            $inject = '<script>window.PRG='.json_encode(['config' => $gameConfig], JSON_UNESCAPED_SLASHES).';</script>';
+
+            return response($this->injectHead($html, $inject.$this->jackpotTickerSnippet($game, $user)))
+                ->header('Content-Type', 'text/html');
+        }
+
         // Merkur (Edict): the launcher (iframe2.html, base /mk/commonStatic2/)
         // reads `game`, `lang`, `serverURL` and `session` off its URL — split on
         // `&` and `=` without decoding, so they go in as they are. serverURL is
@@ -226,6 +255,60 @@ class GameAssetController extends Controller
                 .'F.prototype.close=function(){if(this.readyState===3)return;this.readyState=3;var t=this;setTimeout(function(){t._e("close",{type:"close",code:1000,reason:"",wasClean:true,target:t});},0);};'
                 .'var W=function(u,p){return String(u).replace(/^wss?:\/\//i,"").toLowerCase().indexOf(key.toLowerCase())===0?new F(u):(p===undefined?new R(u):new R(u,p));};'
                 .'W.CONNECTING=0;W.OPEN=1;W.CLOSING=2;W.CLOSED=3;W.prototype=R.prototype;window.WebSocket=W;})();</script>';
+
+            return response($this->injectHead($html, $inject.$this->jackpotTickerSnippet($game, $user)))
+                ->header('Content-Type', 'text/html');
+        }
+
+        // Wazdan's launch page hands the GWT client its parameters as
+        // `var SID2 = [char codes]` (`host=…;port=…;cmd=…;help_url=…;…`). Ours:
+        // the captured ones with host = /wazdan/{session} on our origin, the
+        // rules page from /wazdan/{session}/get.php. The client talks binary
+        // WebSocket frames (the hex of its AES-encrypted JSON); a WebSocket shim
+        // POSTs each to /wazdan/{session}, in order, and hands back the reply.
+        if ($config->clientProtocol() === ClientProtocol::Wazdan) {
+            $wz = (array) ($config->bonusConfig()['wazdan'] ?? []);
+            $mobile = (bool) preg_match('/Mobi|Android|iPhone|iPad|iPod/i', (string) $request->userAgent());
+            $server = url("/wazdan/{$session->token}");
+            $p = WazdanLiveClient::params((string) ($wz['sid'] ?? ''));
+            $p = array_merge($p, [
+                'lang' => strtolower(substr((string) ($request->query('lang') ?: app()->getLocale()), 0, 2)) ?: 'en',
+                'host' => (string) preg_replace('#^https?://#', '', $server).'/', 'port' => (string) (parse_url($server, PHP_URL_PORT) ?: (str_starts_with($server, 'https') ? 443 : 80)),
+                'help_url' => "{$server}/get.php", 'diag_url' => url('/wz/common/api.json'),
+                'platform' => $mobile ? 'mobile' : 'desktop', 'mode' => 'real',
+            ]);
+            $gparams = $p['gparams'] ?? null;
+            unset($p['gparams']);
+            $sid = implode('', array_map(fn ($k, $v) => "{$k}={$v};", array_keys($p), $p)).($gparams !== null ? "gparams={$gparams};" : '');
+            $html = str_replace('var SID2 = [];', 'var SID2 = ['.implode(',', array_map('ord', str_split($sid))).'];', $html);
+            $html = (string) preg_replace("#var isMobile = Boolean\('[^']*'\);#", "var isMobile = Boolean('".($mobile ? '1' : '')."');", $html);
+            $html = (string) preg_replace("#var assetsBase = '([^']*)';#", "var assetsBase = '".url("/games/{$code}~v{$bundle->version}")."/$1';", $html);
+            $serverJs = json_encode($server, JSON_UNESCAPED_SLASHES);
+            // GWT runs its code in a hidden iframe (the module's own window):
+            // the shim goes into every iframe the page adds, built from that
+            // window's own Blob / ArrayBuffer so the client's type checks hold
+            $inject = "<script>(function(){var S={$serverJs};"
+                .'function I(w){if(!w||w.__wzShim)return;w.__wzShim=1;var R=w.WebSocket;'
+                .'function F(u){var t=this;t.url=u;t.readyState=0;t.protocol="";t.extensions="";t.bufferedAmount=0;t.binaryType="blob";t._h={};t._q=Promise.resolve();'
+                .'setTimeout(function(){t.readyState=1;t._e("open",{type:"open",target:t});},0);}'
+                .'F.CONNECTING=0;F.OPEN=1;F.CLOSING=2;F.CLOSED=3;'
+                .'F.prototype._e=function(n,e){var f=this["on"+n];f&&f.call(this,e);(this._h[n]||[]).slice().forEach(function(g){g.call(this,e);},this);};'
+                .'F.prototype.addEventListener=function(n,f){(this._h[n]=this._h[n]||[]).push(f);};'
+                .'F.prototype.removeEventListener=function(n,f){this._h[n]=(this._h[n]||[]).filter(function(g){return g!==f;});};'
+                .'function txt(d){if(typeof d==="string")return Promise.resolve(d);if(d&&typeof d.text==="function"&&typeof d.size==="number")return d.text();'
+                .'var u=d&&d.buffer?new Uint8Array(d.buffer,d.byteOffset,d.byteLength):new Uint8Array(d);var s="";for(var i=0;i<u.length;i++)s+=String.fromCharCode(u[i]);return Promise.resolve(s);}'
+                .'F.prototype.send=function(d){var t=this;t._q=t._q.then(function(){if(t.readyState!==1)return;return txt(d).then(function(b){'
+                .'return fetch(S,{method:"POST",body:b,headers:{"Content-Type":"text/plain;charset=UTF-8","X-Requested-With":"XMLHttpRequest"},credentials:"same-origin"});})'
+                .'.then(function(r){return r.ok?r.text():"";})'
+                .'.then(function(h){if(!h||t.readyState!==1)return;var m;if(t.binaryType==="arraybuffer"){var a=new w.Uint8Array(h.length);for(var i=0;i<h.length;i++)a[i]=h.charCodeAt(i);m=a.buffer;}else m=new w.Blob([h]);'
+                .'t._e("message",{type:"message",data:m,target:t});})'
+                .'.catch(function(){});});};'
+                .'F.prototype.close=function(){if(this.readyState===3)return;this.readyState=3;var t=this;setTimeout(function(){t._e("close",{type:"close",code:1000,reason:"",wasClean:true,target:t});},0);};'
+                .'var K=S.replace(/^https?:\/\//,"");var W=function(u,p){return String(u).replace(/^wss?:\/\//,"").indexOf(K)===0?new F(u):(p===undefined?new R(u):new R(u,p));};'
+                .'W.CONNECTING=0;W.OPEN=1;W.CLOSING=2;W.CLOSED=3;W.prototype=R.prototype;w.WebSocket=W;}'
+                .'I(window);new MutationObserver(function(ms){ms.forEach(function(m){m.addedNodes.forEach(function(n){'
+                .'if(n.tagName==="IFRAME"){try{I(n.contentWindow);}catch(e){}}});});}).observe(document.documentElement,{childList:true,subtree:true});'
+                .'})();</script>';
 
             return response($this->injectHead($html, $inject.$this->jackpotTickerSnippet($game, $user)))
                 ->header('Content-Type', 'text/html');
@@ -402,6 +485,15 @@ class GameAssetController extends Controller
         // bundle lacks (NetEnt never had ALL) is made at request time
         if (! $rel && $template->client_protocol === ClientProtocol::NetEnt && ($file = NetEntCurrencyFile::for($path))) {
             return response($file['body'], 200, ['Content-Type' => $file['type'], 'Cache-Control' => 'public, max-age=3600']);
+        }
+
+        // Wazdan: what every Wazdan game shares (content-addressed `assets/…`,
+        // `common/…`, the rules pages' `_common/…` and images) lives once in
+        // the shared store, not in each bundle — see WazdanMirror
+        if (! $rel && $template->client_protocol === ClientProtocol::Wazdan
+            && ($file = WazdanMirror::shared($path)) !== null) {
+            return response()->file($file, ['Content-Type' => $this->mimeType($path) ?? (mime_content_type($file) ?: 'application/octet-stream'),
+                'Cache-Control' => 'public, max-age=86400']);
         }
 
         if (! $rel) {

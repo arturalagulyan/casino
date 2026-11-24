@@ -4,9 +4,11 @@ use App\Http\Controllers\Api\GameServerController;
 use App\Http\Controllers\ApolloController;
 use App\Http\Controllers\MerkurController;
 use App\Http\Controllers\BooongoController;
+use App\Http\Controllers\PragmaticPlayController;
 use App\Http\Controllers\EgtController;
 use App\Http\Controllers\DemoPlayController;
 use App\Http\Controllers\GameAssetController;
+use App\Http\Controllers\WazdanController;
 use App\Http\Controllers\IgtController;
 use App\Http\Controllers\NetEntController;
 use App\Http\Controllers\NovolineController;
@@ -112,6 +114,28 @@ Route::post('egt/{token}/ws', [EgtController::class, 'frame'])
  */
 Route::match(['get', 'post', 'put', 'delete'], 'merkur/{token}/engine', [MerkurController::class, 'engine'])
     ->name('games.server.merkur');
+
+/*
+ * Pragmatic Play: its client calls `<contextPath>gameService` (and saveSettings.do, …)
+ * with contextPath = /pragmatic/{session}/ — form bodies, `key=value&…` replies.
+ */
+Route::match(['get', 'post'], 'pragmatic/{token}/{endpoint?}', [PragmaticPlayController::class, 'endpoint'])
+    ->where('endpoint', '.*')
+    ->name('games.server.pragmatic');
+
+/*
+ * Wazdan: our page's WebSocket shim POSTs each client frame (hex of the
+ * AES-encrypted JSON) to /wazdan/{session}; the client's rules page comes
+ * from its `help_url` = /wazdan/{session}/get.php. Its error reporter posts
+ * to the host's /wz/common/envelope.json — taken and dropped; its diag_url
+ * (the host's /wz/common/api.json, POSTed) answers ok.
+ */
+Route::post('wazdan/{token}', [WazdanController::class, 'frame'])
+    ->name('games.server.wazdan');
+Route::get('wazdan/{token}/get.php', [WazdanController::class, 'help'])
+    ->name('games.server.wazdan.help');
+Route::match(['get', 'post'], 'wz/common/envelope.json', fn () => response()->noContent());
+Route::match(['get', 'post'], 'wz/common/api.json', fn () => response()->json(['status' => 'ok']));   // its diag_url
 
 Route::get('games/{code}/{path}', [GameAssetController::class, 'asset'])
     ->where('path', '.*')
