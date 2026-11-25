@@ -209,6 +209,17 @@ enum ClientProtocol: string
      */
     case Wazdan = 'wazdan';
 
+    /**
+     * Playtech's NGM HTML5 games as Betboy serves them (the GWT "platform"
+     * chrome + a GWT game module) — not the legacy Playtech bundles above.
+     * Socket.IO 0.9 over a WebSocket, JSON messages typed by `ID`
+     * (40021 CasinoSpinRequest → the game's spin response …). Our page's
+     * WebSocket shim POSTs each message to `/playtech/{session}`. Spins are
+     * served from an outcome library of rounds recorded on a Betboy demo
+     * session ({@see \App\Services\GamePlay\Protocol\PlaytechNgmProtocol}).
+     */
+    case PlaytechNgm = 'playtech_ngm';
+
     public function label(): string
     {
         return match ($this) {
@@ -230,6 +241,7 @@ enum ClientProtocol: string
             self::Merkur => 'Merkur / Edict (WebEngine over HTTP)',
             self::PragmaticPlay => 'Pragmatic Play (recorded gs2c over HTTP)',
             self::Wazdan => 'Wazdan (WebSocket shim → HTTP)',
+            self::PlaytechNgm => 'Playtech NGM (Socket.IO shim → HTTP)',
         };
     }
 

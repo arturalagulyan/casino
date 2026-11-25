@@ -8,6 +8,7 @@ use App\Http\Controllers\PragmaticPlayController;
 use App\Http\Controllers\EgtController;
 use App\Http\Controllers\DemoPlayController;
 use App\Http\Controllers\GameAssetController;
+use App\Http\Controllers\PlaytechNgmController;
 use App\Http\Controllers\WazdanController;
 use App\Http\Controllers\IgtController;
 use App\Http\Controllers\NetEntController;
@@ -126,15 +127,22 @@ Route::match(['get', 'post'], 'pragmatic/{token}/{endpoint?}', [PragmaticPlayCon
 /*
  * Wazdan: our page's WebSocket shim POSTs each client frame (hex of the
  * AES-encrypted JSON) to /wazdan/{session}; the client's rules page comes
- * from its `help_url` = /wazdan/{session}/get.php. Its error reporter posts
+ * from its `help_url` = /wazdan/{session}/help (not get.php: nginx hands any `.php` path to fastcgi). Its error reporter posts
  * to the host's /wz/common/envelope.json — taken and dropped; its diag_url
  * (the host's /wz/common/api.json, POSTed) answers ok.
  */
 Route::post('wazdan/{token}', [WazdanController::class, 'frame'])
     ->name('games.server.wazdan');
-Route::get('wazdan/{token}/get.php', [WazdanController::class, 'help'])
+Route::get('wazdan/{token}/help', [WazdanController::class, 'help'])
     ->name('games.server.wazdan.help');
 Route::match(['get', 'post'], 'wz/common/envelope.json', fn () => response()->noContent());
+
+/*
+ * Playtech (NGM HTML5): our page's WebSocket shim POSTs each Socket.IO
+ * message to /playtech/{session}; the reply is the list of messages to hand back.
+ */
+Route::post('playtech/{token}', [PlaytechNgmController::class, 'message'])
+    ->name('games.server.playtech');
 Route::match(['get', 'post'], 'wz/common/api.json', fn () => response()->json(['status' => 'ok']));   // its diag_url
 
 Route::get('games/{code}/{path}', [GameAssetController::class, 'asset'])

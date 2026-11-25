@@ -12,6 +12,7 @@ use App\Models\User;
 use App\Services\Fx;
 use App\Services\GamePlay\GameConfig;
 use App\Services\GamePlay\NetEnt\NetEntCurrencyFile;
+use App\Services\GamePlay\Playtech\PlaytechMirror;
 use App\Services\GamePlay\Protocol\GamePlatformLobby;
 use App\Services\GamePlay\Wazdan\WazdanLiveClient;
 use App\Services\GamePlay\Wazdan\WazdanMirror;
@@ -263,7 +264,7 @@ class GameAssetController extends Controller
         // Wazdan's launch page hands the GWT client its parameters as
         // `var SID2 = [char codes]` (`host=…;port=…;cmd=…;help_url=…;…`). Ours:
         // the captured ones with host = /wazdan/{session} on our origin, the
-        // rules page from /wazdan/{session}/get.php. The client talks binary
+        // rules page from /wazdan/{session}/help (Betboy: get.php; a `.php` path would hit nginx's fastcgi location). The client talks binary
         // WebSocket frames (the hex of its AES-encrypted JSON); a WebSocket shim
         // POSTs each to /wazdan/{session}, in order, and hands back the reply.
         if ($config->clientProtocol() === ClientProtocol::Wazdan) {
@@ -274,7 +275,7 @@ class GameAssetController extends Controller
             $p = array_merge($p, [
                 'lang' => strtolower(substr((string) ($request->query('lang') ?: app()->getLocale()), 0, 2)) ?: 'en',
                 'host' => (string) preg_replace('#^https?://#', '', $server).'/', 'port' => (string) (parse_url($server, PHP_URL_PORT) ?: (str_starts_with($server, 'https') ? 443 : 80)),
-                'help_url' => "{$server}/get.php", 'diag_url' => url('/wz/common/api.json'),
+                'help_url' => "{$server}/help", 'diag_url' => url('/wz/common/api.json'),
                 'platform' => $mobile ? 'mobile' : 'desktop', 'mode' => 'real',
             ]);
             $gparams = $p['gparams'] ?? null;
@@ -305,6 +306,57 @@ class GameAssetController extends Controller
                 .'.catch(function(){});});};'
                 .'F.prototype.close=function(){if(this.readyState===3)return;this.readyState=3;var t=this;setTimeout(function(){t._e("close",{type:"close",code:1000,reason:"",wasClean:true,target:t});},0);};'
                 .'var K=S.replace(/^https?:\/\//,"");var W=function(u,p){return String(u).replace(/^wss?:\/\//,"").indexOf(K)===0?new F(u):(p===undefined?new R(u):new R(u,p));};'
+                .'W.CONNECTING=0;W.OPEN=1;W.CLOSING=2;W.CLOSED=3;W.prototype=R.prototype;w.WebSocket=W;}'
+                .'I(window);new MutationObserver(function(ms){ms.forEach(function(m){m.addedNodes.forEach(function(n){'
+                .'if(n.tagName==="IFRAME"){try{I(n.contentWindow);}catch(e){}}});});}).observe(document.documentElement,{childList:true,subtree:true});'
+                .'})();</script>';
+
+            return response($this->injectHead($html, $inject.$this->jackpotTickerSnippet($game, $user)))
+                ->header('Content-Type', 'text/html');
+        }
+
+        // Playtech (NGM): the entry is the platform page (commonStatic/game.html),
+        // which reads its hosts off its URL — `staticID` (where the game and
+        // commonStatic files are), `sessionID` (where env_config.php and the
+        // Socket.IO handshake are), `sectionID` (pt), `protocol` — and loads the
+        // game module (pt/<rgame>/index.html) in an iframe. Both hosts are this
+        // bundle's base. The Socket.IO socket is a shim: it answers the
+        // connect / heartbeat frames itself and POSTs each `3:::{json}`
+        // message to /playtech/{session}, handing back the messages that come back.
+        if ($config->clientProtocol() === ClientProtocol::PlaytechNgm) {
+            $pt = (array) ($config->bonusConfig()['playtech'] ?? []);
+            $mobile = (bool) preg_match('/Mobi|Android|iPhone|iPad|iPod/i', (string) $request->userAgent());
+            $host = (string) preg_replace('#^https?://#', '', url("/games/{$code}~v{$bundle->version}"));
+            $params = json_encode(http_build_query([
+                'game' => $pt['game'] ?? '', 'rgame' => $pt['rgame'] ?? '', 'real' => 1, 'language' => 'en', 'lang' => 'en', 'hub' => 1,
+                'username' => 'player', 'temptoken' => $pt['rgame'] ?? '', 'preferedmode' => 'real',
+                'staticID' => $host, 'sessionID' => $host, 'sectionID' => 'pt', 'sID' => 'player',
+                'protocol' => $request->isSecure() ? 'https://' : 'http://', 'title' => $game->title ?? $template->title,
+                'mobile' => $mobile ? '1' : '',
+            ], '', '&', PHP_QUERY_RFC3986));
+            $serverJs = json_encode(url("/playtech/{$session->token}"), JSON_UNESCAPED_SLASHES);
+            // the platform works some URLs out from its own page's path (…/pt/commonStatic/game.html)
+            $pagePath = json_encode((string) parse_url(url("/games/{$code}~v{$bundle->version}/pt/commonStatic/game.html"), PHP_URL_PATH), JSON_UNESCAPED_SLASHES);
+            $inject = "<script>(function(){var s=location.search;history.replaceState(null,'',{$pagePath}+s+(s?'&':'?')+{$params});"
+                ."var S={$serverJs};"
+                .'function I(w){if(!w||w.__ptShim)return;w.__ptShim=1;var R=w.WebSocket;'
+                .'function F(u){var t=this;t.url=u;t.readyState=0;t.protocol="";t.extensions="";t.bufferedAmount=0;t.binaryType="blob";t._h={};t._q=Promise.resolve();'
+                .'setTimeout(function(){t.readyState=1;t._e("open",{type:"open",target:t});t._m("1::");},0);'
+                .'t._hb=setInterval(function(){t._m("2::");},20000);}'
+                .'F.CONNECTING=0;F.OPEN=1;F.CLOSING=2;F.CLOSED=3;'
+                .'F.prototype._e=function(n,e){var f=this["on"+n];f&&f.call(this,e);(this._h[n]||[]).slice().forEach(function(g){g.call(this,e);},this);};'
+                .'F.prototype._m=function(d){if(this.readyState===1)this._e("message",{type:"message",data:d,target:this});};'
+                .'F.prototype.addEventListener=function(n,f){(this._h[n]=this._h[n]||[]).push(f);};'
+                .'F.prototype.removeEventListener=function(n,f){this._h[n]=(this._h[n]||[]).filter(function(g){return g!==f;});};'
+                .'F.prototype.send=function(d){var t=this;d=String(d);if(d.indexOf("3:::")!==0)return;var j=d.slice(4);'
+                .'if(/^\{\s*"ID"\s*:\s*19\s*[,}]/.test(j)){setTimeout(function(){t._m(\'3:::{"ID":18}\');},0);return;}'
+                .'t._q=t._q.then(function(){if(t.readyState!==1)return;'
+                .'return fetch(S,{method:"POST",body:j,headers:{"Content-Type":"application/json","X-Requested-With":"XMLHttpRequest"},credentials:"same-origin"})'
+                .'.then(function(r){return r.ok?r.json():[];})'
+                .'.then(function(a){(a||[]).forEach(function(m){t._m("3:::"+JSON.stringify(m));});})'
+                .'.catch(function(){});});};'
+                .'F.prototype.close=function(){if(this.readyState===3)return;this.readyState=3;clearInterval(this._hb);var t=this;setTimeout(function(){t._e("close",{type:"close",code:1000,reason:"",wasClean:true,target:t});},0);};'
+                .'var W=function(u,p){return /\/ws\/\d+\/websocket\//.test(String(u))?new F(u):(p===undefined?new R(u):new R(u,p));};'
                 .'W.CONNECTING=0;W.OPEN=1;W.CLOSING=2;W.CLOSED=3;W.prototype=R.prototype;w.WebSocket=W;}'
                 .'I(window);new MutationObserver(function(ms){ms.forEach(function(m){m.addedNodes.forEach(function(n){'
                 .'if(n.tagName==="IFRAME"){try{I(n.contentWindow);}catch(e){}}});});}).observe(document.documentElement,{childList:true,subtree:true});'
@@ -494,6 +546,42 @@ class GameAssetController extends Controller
             && ($file = WazdanMirror::shared($path)) !== null) {
             return response()->file($file, ['Content-Type' => $this->mimeType($path) ?? (mime_content_type($file) ?: 'application/octet-stream'),
                 'Cache-Control' => 'public, max-age=86400']);
+        }
+
+        // Playtech (NGM): the session host's env_config.php (where the socket is)
+        // and the Socket.IO handshake (`<sid>:<heartbeat>:<close>:websocket` —
+        // our page's shim then fakes the socket itself) are answered here, under
+        // the bundle's base, which play() hands the platform as its session host;
+        // the platform chrome every game shares (commonStatic/…) lives once in
+        // the shared store — see PlaytechMirror
+        // a reload of the Playtech platform page (play() moved the URL there): launch again
+        if ($template->client_protocol === ClientProtocol::PlaytechNgm && $path === 'pt/commonStatic/game.html' && request()->query('token')) {
+            return redirect()->route('games.play', ['code' => $template->code, 'token' => request()->query('token')]);
+        }
+        if (! $rel && $template->client_protocol === ClientProtocol::PlaytechNgm) {
+            if (str_ends_with($path, 'commonStatic/json/env_config.php')) {
+                $secure = request()->isSecure();
+                $host = request()->getHttpHost();
+                $port = (string) (request()->getPort() ?: ($secure ? 443 : 80));
+
+                return response()->json([
+                    'socketConnection' => ['isSecure' => $secure, 'host' => request()->getHost(), 'port' => $port],
+                    'loginParameters' => ['casinoName' => ''], 'skin' => 'galacasino',
+                    'FeNetwork' => ['host' => $host, 'connectionSettings' => ['isSecure' => $secure]],
+                ], 200, ['Cache-Control' => 'no-store']);
+            }
+            // where the game modules are: under this bundle's base, not the host's root
+            if (str_ends_with($path, 'commonStatic/data/games_location_live.json')) {
+                return response()->json(['games_location' => rtrim((string) parse_url(url("/games/{$template->code}~v{$bundle->version}/pt"), PHP_URL_PATH), '/').'/'],
+                    200, ['Cache-Control' => 'no-store']);
+            }
+            if (str_ends_with($path, '/session.php')) {
+                return response('pt:90:75:websocket', 200, ['Content-Type' => 'text/plain', 'Cache-Control' => 'no-store']);
+            }
+            if (($file = PlaytechMirror::shared($path)) !== null) {
+                return response()->file($file, ['Content-Type' => $this->mimeType($path) ?? (mime_content_type($file) ?: 'application/octet-stream'),
+                    'Cache-Control' => 'public, max-age=86400']);
+            }
         }
 
         if (! $rel) {
