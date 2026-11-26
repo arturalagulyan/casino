@@ -3,6 +3,7 @@
 namespace App\Services\GamePlay\Booongo;
 
 use App\Models\BooongoRound;
+use App\Services\GamePlay\ReturnSteering;
 use Illuminate\Support\Facades\Cache;
 use RuntimeException;
 
@@ -10,15 +11,13 @@ use RuntimeException;
  * Picks the recorded Booongo round a spin is served from.
  *
  * The library's own return is Booongo's (rounds drawn uniformly reproduce its
- * distribution). Our controls sit on top, as for Play'n GO: a winning draw is
- * swapped for a losing round often enough to bring the return down to the
- * shop's target, and a draw paying more than the bank (or the max-win cap)
- * can cover is swapped for one that fits — never the other way round, so a
- * target above the library's return is capped at it.
+ * distribution). Our controls sit on top: {@see ReturnSteering} steers
+ * it to the shop's target both ways, and a draw paying more than the bank (or
+ * the max-win cap) can cover is then swapped for one that fits.
  */
 class BooongoLibrary
 {
-    /** @return array{rounds: int, rtp: float, max_cents: int, features: int} */
+    /** @return array{rounds: int, rtp: float, rare_rtp: float, hit: float, max_cents: int, features: int} */
     public function stats(string $game): array
     {
         return Cache::remember("booongo:library:{$game}", 600, function () use ($game) {
@@ -30,7 +29,7 @@ class BooongoLibrary
                 'rtp' => $staked > 0 ? 100 * (float) (clone $q)->sum('win_cents') / $staked : 0.0,
                 'max_cents' => (int) (clone $q)->max('win_cents'),
                 'features' => (clone $q)->where('feature', true)->count(),
-            ];
+            ] + ReturnSteering::stats(clone $q, 'win_cents', 'bet_cents');
         });
     }
 
@@ -51,10 +50,11 @@ class BooongoLibrary
             return BooongoRound::query()->findOrFail($forced);
         }
         $round = $this->random($game);
-        $keep = $stats['rtp'] > 0 ? min(1.0, $rtpTarget / $stats['rtp']) : 1.0;
-        if ($round->win_cents > 0 && mt_rand() / mt_getrandmax() > $keep) {
-            $round = $this->random($game, 0) ?? $round;
-        }
+        $round = match (ReturnSteering::decide($stats, $rtpTarget, $round->win_cents, $round->bet_cents)) {
+            ReturnSteering::LOSE => $this->random($game, 0) ?? $round,
+            ReturnSteering::WIN => $this->random($game, null, true) ?? $round,
+            default => $round,
+        };
         if ($round->win_cents > $maxCents) {
             $round = $this->random($game, $maxCents) ?? $this->random($game, 0) ?? $round;
         }
@@ -62,11 +62,14 @@ class BooongoLibrary
         return $round;
     }
 
-    private function random(string $game, ?int $maxCents = null): ?BooongoRound
+    private function random(string $game, ?int $maxCents = null, bool $winning = false): ?BooongoRound
     {
         $q = BooongoRound::query()->where('game_key', $game);
         if ($maxCents !== null) {
             $q->where('win_cents', '<=', $maxCents);
+        }
+        if ($winning) {
+            ReturnSteering::ordinaryWins($q, 'win_cents', 'bet_cents');
         }
         $n = (clone $q)->count();
 

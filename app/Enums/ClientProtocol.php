@@ -220,6 +220,16 @@ enum ClientProtocol: string
      */
     case PlaytechNgm = 'playtech_ngm';
 
+    /**
+     * Microgaming's Titan HTML5 games as Betboy serves them: the shell calls
+     * the casino's "Veyron" API (`/accounts/login/…`, then
+     * `/games/module/<mid>/client/<cid>/play` with an XML game packet wrapped in
+     * JSON) — our page points it at /microgaming/{session}/engine?<path>. Spins
+     * are served from an outcome library of rounds recorded on a Betboy demo
+     * session ({@see \App\Services\GamePlay\Protocol\MicrogamingProtocol}).
+     */
+    case Microgaming = 'microgaming';
+
     public function label(): string
     {
         return match ($this) {
@@ -242,6 +252,7 @@ enum ClientProtocol: string
             self::PragmaticPlay => 'Pragmatic Play (recorded gs2c over HTTP)',
             self::Wazdan => 'Wazdan (WebSocket shim → HTTP)',
             self::PlaytechNgm => 'Playtech NGM (Socket.IO shim → HTTP)',
+            self::Microgaming => 'Microgaming Titan (Veyron XML packets over HTTP)',
         };
     }
 

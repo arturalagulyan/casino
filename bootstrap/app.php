@@ -38,7 +38,7 @@ return Application::configure(basePath: dirname(__DIR__))
             'booongo/*',
             'egt/*',
             'pragmatic/*',
-            'playtech/*', 'wazdan/*',
+            'playtech/*', 'wazdan/*', 'microgaming/*', 'games/*/commonStatic/validate.json',
             'wz/common/envelope.json',
             'wz/common/api.json',
         ]);

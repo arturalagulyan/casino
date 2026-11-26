@@ -3,6 +3,7 @@
 namespace App\Services\GamePlay\NetEnt;
 
 use App\Models\NetEntRound;
+use App\Services\GamePlay\ReturnSteering;
 use Illuminate\Support\Facades\Cache;
 use RuntimeException;
 
@@ -10,15 +11,13 @@ use RuntimeException;
  * Picks the recorded NetEnt round a spin is served from.
  *
  * The library's own return is NetEnt's (rounds drawn uniformly reproduce its
- * distribution). Our controls sit on top, as for Play'n GO: a winning draw is
- * swapped for a losing round often enough to bring the return down to the
- * shop's target, and a draw paying more than the bank (or the max-win cap)
- * can cover is swapped for one that fits — never the other way round, so a
- * target above the library's return is capped at it.
+ * distribution). Our controls sit on top: {@see ReturnSteering} steers
+ * it to the shop's target both ways, and a draw paying more than the bank (or
+ * the max-win cap) can cover is then swapped for one that fits.
  */
 class NetEntLibrary
 {
-    /** @return array{rounds: int, rtp: float, max_coins: int, features: int} */
+    /** @return array{rounds: int, rtp: float, rare_rtp: float, hit: float, max_coins: int, features: int} */
     public function stats(string $game): array
     {
         return Cache::remember("netent:library:{$game}", 600, function () use ($game) {
@@ -30,7 +29,7 @@ class NetEntLibrary
                 'rtp' => $staked > 0 ? 100 * (float) (clone $q)->sum('win_coins') / $staked : 0.0,
                 'max_coins' => (int) (clone $q)->max('win_coins'),
                 'features' => (clone $q)->where('feature', true)->count(),
-            ];
+            ] + ReturnSteering::stats(clone $q, 'win_coins', 'bet_coins');
         });
     }
 
@@ -51,10 +50,11 @@ class NetEntLibrary
             return NetEntRound::query()->findOrFail($forced);
         }
         $round = $this->random($game);
-        $keep = $stats['rtp'] > 0 ? min(1.0, $rtpTarget / $stats['rtp']) : 1.0;
-        if ($round->win_coins > 0 && mt_rand() / mt_getrandmax() > $keep) {
-            $round = $this->random($game, 0) ?? $round;
-        }
+        $round = match (ReturnSteering::decide($stats, $rtpTarget, $round->win_coins, $round->bet_coins)) {
+            ReturnSteering::LOSE => $this->random($game, 0) ?? $round,
+            ReturnSteering::WIN => $this->random($game, null, true) ?? $round,
+            default => $round,
+        };
         if ($round->win_coins > $maxCoins) {
             $round = $this->random($game, $maxCoins) ?? $this->random($game, 0) ?? $round;
         }
@@ -62,11 +62,14 @@ class NetEntLibrary
         return $round;
     }
 
-    private function random(string $game, ?int $maxCoins = null): ?NetEntRound
+    private function random(string $game, ?int $maxCoins = null, bool $winning = false): ?NetEntRound
     {
         $q = NetEntRound::query()->where('game_key', $game);
         if ($maxCoins !== null) {
             $q->where('win_coins', '<=', $maxCoins);
+        }
+        if ($winning) {
+            ReturnSteering::ordinaryWins($q, 'win_coins', 'bet_coins');
         }
         $n = (clone $q)->count();
 

@@ -41,4 +41,6 @@ return [
         'token' => env('BETBOY_TOKEN'),
     ],
 
+    // Microgaming imports play each game once in headless Chromium (Playwright's node_modules)
+    'microgaming' => ['playwright' => env('MICROGAMING_PLAYWRIGHT', '/opt/pw/node_modules')],
 ];

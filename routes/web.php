@@ -3,6 +3,7 @@
 use App\Http\Controllers\Api\GameServerController;
 use App\Http\Controllers\ApolloController;
 use App\Http\Controllers\MerkurController;
+use App\Http\Controllers\MicrogamingController;
 use App\Http\Controllers\BooongoController;
 use App\Http\Controllers\PragmaticPlayController;
 use App\Http\Controllers\EgtController;
@@ -125,6 +126,19 @@ Route::match(['get', 'post'], 'pragmatic/{token}/{endpoint?}', [PragmaticPlayCon
     ->name('games.server.pragmatic');
 
 /*
+ * Microgaming (Titan): the shell's config is /microgaming/{session}/config.js
+ * (Betboy's mg/config.php — not `.php`: nginx hands those to fastcgi) and its
+ * API root /microgaming/{session}/engine?<path> (Betboy's WebEngine.php?<path>).
+ */
+Route::get('microgaming/{token}/config.js', [MicrogamingController::class, 'config'])
+    ->name('games.server.microgaming.config');
+Route::match(['get', 'post', 'delete'], 'microgaming/{token}/engine', [MicrogamingController::class, 'engine'])
+    ->name('games.server.microgaming');
+Route::match(['get', 'post'], 'microgaming/{token}/{path}', [MicrogamingController::class, 'page'])
+    ->where('path', '.*')
+    ->name('games.server.microgaming.page');
+
+/*
  * Wazdan: our page's WebSocket shim POSTs each client frame (hex of the
  * AES-encrypted JSON) to /wazdan/{session}; the client's rules page comes
  * from its `help_url` = /wazdan/{session}/help (not get.php: nginx hands any `.php` path to fastcgi). Its error reporter posts
@@ -145,6 +159,10 @@ Route::post('playtech/{token}', [PlaytechNgmController::class, 'message'])
     ->name('games.server.playtech');
 Route::match(['get', 'post'], 'wz/common/api.json', fn () => response()->json(['status' => 'ok']));   // its diag_url
 
+// Microgaming's classic shell POSTs its version check to the static host's commonStatic/validate.json
+Route::post('games/{code}/{path}', [GameAssetController::class, 'asset'])
+    ->where('path', '(.*/)?commonStatic/validate\\.json')
+    ->name('games.asset.post');
 Route::get('games/{code}/{path}', [GameAssetController::class, 'asset'])
     ->where('path', '.*')
     ->name('games.asset');

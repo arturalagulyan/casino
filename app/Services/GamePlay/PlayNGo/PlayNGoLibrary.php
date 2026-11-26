@@ -3,6 +3,7 @@
 namespace App\Services\GamePlay\PlayNGo;
 
 use App\Models\PlayNGoRound;
+use App\Services\GamePlay\ReturnSteering;
 use Illuminate\Support\Facades\Cache;
 use RuntimeException;
 
@@ -10,15 +11,13 @@ use RuntimeException;
  * Picks the recorded Play'n GO round a spin is served from.
  *
  * The library's own return is Play'n GO's (rounds drawn uniformly reproduce
- * its distribution). Our controls sit on top: a winning draw is swapped for a
- * losing round often enough to bring the return down to the shop's target,
- * and a draw paying more than the bank (or the max-win cap) can cover is
- * swapped for a round that fits — never the other way round, so a target
- * above the library's return is simply capped at it.
+ * its distribution). Our controls sit on top: {@see ReturnSteering} steers
+ * it to the shop's target both ways, and a draw paying more than the bank (or
+ * the max-win cap) can cover is then swapped for one that fits.
  */
 class PlayNGoLibrary
 {
-    /** @return array{rounds: int, rtp: float, max_coins: int} the library's size, return (% of stake) and top win */
+    /** @return array{rounds: int, rtp: float, rare_rtp: float, hit: float, max_coins: int} the library's size, return (% of stake) and top win */
     public function stats(string $gid): array
     {
         return Cache::remember("playngo:library:{$gid}", 600, function () use ($gid) {
@@ -30,14 +29,14 @@ class PlayNGoLibrary
                 'rounds' => $rounds,
                 'rtp' => $staked > 0 ? 100 * (float) (clone $q)->sum('win_coins') / $staked : 0.0,
                 'max_coins' => (int) (clone $q)->max('win_coins'),
-            ];
+            ] + ReturnSteering::stats(clone $q, 'win_coins', 'bet_coins');
         });
     }
 
     /**
-     * A round for one spin: drawn uniformly, then swapped for a losing round
-     * with the probability that brings the library's return to `$rtpTarget`,
-     * and for a cheaper round when it pays more than `$maxCoins`.
+     * A round for one spin: drawn uniformly, then steered to `$rtpTarget`
+     * ({@see ReturnSteering}), and swapped for a cheaper round when it pays
+     * more than `$maxCoins`.
      */
     public function pick(string $gid, float $rtpTarget, int $maxCoins): PlayNGoRound
     {
@@ -50,10 +49,11 @@ class PlayNGoLibrary
             return PlayNGoRound::query()->findOrFail($forced);
         }
         $round = $this->random($gid);
-        $keep = $stats['rtp'] > 0 ? min(1.0, $rtpTarget / $stats['rtp']) : 1.0;
-        if ($round->win_coins > 0 && mt_rand() / mt_getrandmax() > $keep) {
-            $round = $this->random($gid, 0) ?? $round;
-        }
+        $round = match (ReturnSteering::decide($stats, $rtpTarget, $round->win_coins, $round->bet_coins)) {
+            ReturnSteering::LOSE => $this->random($gid, 0) ?? $round,
+            ReturnSteering::WIN => $this->random($gid, null, true) ?? $round,
+            default => $round,
+        };
         if ($round->win_coins > $maxCoins) {
             $round = $this->random($gid, $maxCoins) ?? $this->random($gid, 0) ?? $round;
         }
@@ -62,11 +62,14 @@ class PlayNGoLibrary
     }
 
     /** A uniformly drawn round, optionally among those paying at most `$maxCoins`. */
-    private function random(string $gid, ?int $maxCoins = null): ?PlayNGoRound
+    private function random(string $gid, ?int $maxCoins = null, bool $winning = false): ?PlayNGoRound
     {
         $q = PlayNGoRound::query()->where('game_key', $gid);
         if ($maxCoins !== null) {
             $q->where('win_coins', '<=', $maxCoins);
+        }
+        if ($winning) {
+            ReturnSteering::ordinaryWins($q, 'win_coins', 'bet_coins');
         }
         $n = (clone $q)->count();
 

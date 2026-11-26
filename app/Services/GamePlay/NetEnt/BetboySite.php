@@ -80,24 +80,8 @@ class BetboySite
      */
     public function demo(string $stringId, string $device = 'desktop'): array
     {
-        // Betboy limits how often games are launched (error 6038, "Too many game
-        // launches"); sampling drops a session per unplayable bonus — wait it out
-        for ($wait = 60; ; $wait = min($wait * 2, 600)) {
-            try {
-                $run = $this->rpc('Game.run', ['gameStringId' => $stringId, 'place' => 'game_list', 'lang' => 'en',
-                    'deviceType' => $device, 'theme' => 'dark', 'isDemo' => true]);
-                break;
-            } catch (RuntimeException $e) {
-                if (! str_contains($e->getMessage(), '"code":6038') || $wait >= 600) {
-                    throw $e;
-                }
-                sleep($wait);
-            }
-        }
-        $launch = (string) ($run['url'] ?? '');
-        if ($launch === '') {
-            throw new RuntimeException("Betboy didn't launch '{$stringId}': ".json_encode($run));
-        }
+        $run = $this->run($stringId, $device);
+        $launch = (string) $run['url'];
         $response = Http::withUserAgent('Mozilla/5.0')->withOptions(['allow_redirects' => false])->timeout(30)->get($launch);
         $page = $response->header('Location');
         // IGT: no redirect — a wrapper page framing the client
@@ -118,6 +102,39 @@ class BetboySite
         }
 
         return ['session' => (string) ($run['stringId'] ?? ''), 'launch' => $launch, 'page' => $page];
+    }
+
+    /**
+     * A DEMO launch's URL, as is — for providers whose launch page is the
+     * client itself, read by their own live client (Microgaming's Titan page).
+     */
+    public function launchUrl(string $stringId, string $device = 'desktop'): string
+    {
+        return (string) $this->run($stringId, $device)['url'];
+    }
+
+    /** @return array<string, mixed> Game.run's result for a DEMO launch (with a non-empty url) */
+    private function run(string $stringId, string $device): array
+    {
+        // Betboy limits how often games are launched (error 6038, "Too many game
+        // launches"); sampling drops a session per unplayable bonus — wait it out
+        for ($wait = 60; ; $wait = min($wait * 2, 600)) {
+            try {
+                $run = $this->rpc('Game.run', ['gameStringId' => $stringId, 'place' => 'game_list', 'lang' => 'en',
+                    'deviceType' => $device, 'theme' => 'dark', 'isDemo' => true]);
+                break;
+            } catch (RuntimeException $e) {
+                if (! str_contains($e->getMessage(), '"code":6038') || $wait >= 600) {
+                    throw $e;
+                }
+                sleep($wait);
+            }
+        }
+        if ((string) ($run['url'] ?? '') === '') {
+            throw new RuntimeException("Betboy didn't launch '{$stringId}': ".json_encode($run));
+        }
+
+        return $run;
     }
 
     public function absolute(string $path): string

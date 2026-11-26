@@ -176,6 +176,29 @@ class GameAssetController extends Controller
                 ->header('Content-Type', 'text/html');
         }
 
+        // Microgaming (Titan): our page (built by MicrogamingMirror) names the
+        // static host as {{MG_STATIC}} (this bundle's base — its own <base> is
+        // {{MG_STATIC}}commonStatic/) and the session host as {{MG_SESSION}}
+        // (/microgaming/{session}: config.js and the engine?<path> API)
+        if ($config->clientProtocol() === ClientProtocol::Microgaming) {
+            $static = url("/games/{$code}~v{$bundle->version}").'/';
+            $path = (string) parse_url($static, PHP_URL_PATH);
+            // the shells put the game folder at the host's root (`"GamesPath":"/mg/"`, `url(/mg/<game>/…)`): ours is this bundle
+            $html = str_replace(['"GamesPath":"{{MG_STATIC}}"', '"GamesPath":"/mg/"', '"GamesFolder":"/mg/"'],
+                ['"GamesPath":"'.$path.'"', '"GamesPath":"'.$path.'"', '"GamesFolder":"'.$path.'"'], $html);
+            $html = (string) preg_replace('#(?<=[("\'=\s])/mg/#', $path, $html);
+            // CoreAssets 10_10_2's UrlHelper joins "//<host>/" + "/" + GamesPath — with our absolute path,
+            // "//host///games/…", which Betboy's server folds and ours doesn't route: use the paths as they are
+            $html = str_replace(
+                ['""+this.getAuthority()+this.removeLeadingSlash(this.mgsInfo.AppPath)+"/"+this.mgsInfo.GamesFolder+"/"',
+                    '""+this.getAuthority()+this.removeLeadingSlash(this.mgsInfo.AppPath)+"/"+this.mgsInfo.GamesPath'],
+                ['""+this.mgsInfo.GamesFolder', '""+this.mgsInfo.GamesPath'], $html);
+            $html = str_replace(['{{MG_STATIC}}', '{{MG_SESSION}}'], [$static, url("/microgaming/{$session->token}")], $html);
+
+            return response($this->injectHead($html, $this->jackpotTickerSnippet($game, $user)))
+                ->header('Content-Type', 'text/html');
+        }
+
         // Merkur (Edict): the launcher (iframe2.html, base /mk/commonStatic2/)
         // reads `game`, `lang`, `serverURL` and `session` off its URL — split on
         // `&` and `=` without decoding, so they go in as they are. serverURL is
@@ -584,6 +607,12 @@ class GameAssetController extends Controller
             }
         }
 
+        // Microgaming: shell files asked for under the game's folder (`<game>//commonStatic/logo.png`)
+        if (! $rel && $template->client_protocol === ClientProtocol::Microgaming) {
+            $path = (string) preg_replace('#/{2,}#', '/', $path);
+            $rel = $bundle->filePath($path) ?? (preg_match('#(?:^|/)(commonStatic/.+)$#', $path, $cs) ? $bundle->filePath($cs[1]) : null);
+        }
+
         if (! $rel) {
             abort(404);
         }
@@ -599,6 +628,11 @@ class GameAssetController extends Controller
         // (the gaming lib rewrites help images to it at run time)
         if ($template->client_protocol === ClientProtocol::Merkur && preg_match('/\.(html|css|js)$/i', $rel) && str_contains($content, '/mk/commonStatic2/')) {
             $content = str_replace('/mk/commonStatic2/', url("/games/{$template->code}~v{$bundle->version}/commonStatic2").'/', $content);
+        }
+
+        // Microgaming: the mirror names the static host {{MG_STATIC}} — this bundle's base
+        if ($template->client_protocol === ClientProtocol::Microgaming && preg_match('/\.(html|css|js|json)$/i', $rel) && str_contains($content, '{{MG_STATIC}}')) {
+            $content = str_replace('{{MG_STATIC}}', url("/games/{$template->code}~v{$bundle->version}").'/', $content);
         }
 
         return response($content, 200, [
