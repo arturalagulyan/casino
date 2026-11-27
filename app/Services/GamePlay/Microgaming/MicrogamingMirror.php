@@ -36,6 +36,9 @@ class MicrogamingMirror
 
     private const string EXT = 'png|jpg|jpeg|webp|gif|svg|json|atlas|fnt|xml|mp3|ogg|m4a|mp4|webm|wav|woff2?|ttf|otf|css|js';
 
+    /** Cocos Creator's texture extension ids. */
+    private const array COCOS_EXT = ['.png', '.jpg', '.jpeg', '.bmp', '.webp', '.pvr', '.pkm'];
+
     private string $outDir = '';
 
     /** @var array<string, bool> host-relative path => fetched ok */
@@ -206,6 +209,12 @@ class MicrogamingMirror
             $queue = array_values(array_diff(array_keys(array_filter($this->seen)), $before));
         }
 
+        // 6. Cocos Creator bundles load some packs, and the images of their
+        // textures, only when a scene opens (Book of Mega Moolah's free spins):
+        // fetch every pack a bundle lists, then every texture's image
+        $this->getMany($this->cocosPacks($folder), false);
+        $this->getMany($this->cocosNatives($folder), false);
+
         $files = File::allFiles($this->outDir, true);
 
         return [
@@ -312,6 +321,109 @@ class MicrogamingMirror
         }
 
         return array_values(array_unique($paths));
+    }
+
+    /**
+     * Every pack (`import/<id[0,2]>/<id>.json`) the fetched Cocos Creator bundle
+     * configs (`assets/<bundle>/config.json`) list.
+     *
+     * @return list<string>
+     */
+    private function cocosPacks(string $folder): array
+    {
+        $out = [];
+        foreach (array_keys(array_filter($this->seen)) as $rel) {
+            if (! preg_match('#^'.preg_quote($folder, '#').'/assets/[^/]+/config\.json$#', $rel)) {
+                continue;
+            }
+            $config = json_decode($this->read($rel), true);
+            foreach (array_keys((array) ($config['packs'] ?? [])) as $pack) {
+                $out[] = dirname($rel).'/import/'.substr((string) $pack, 0, 2)."/{$pack}.json";
+            }
+        }
+
+        return $out;
+    }
+
+    /**
+     * The image (`native/<uuid[0,2]>/<uuid><ext>`) of every texture in the
+     * fetched texture packs (`{"type":"cc.Texture2D","data":"<ext>,…|…"}`, one
+     * entry per pack member). The Languages bundle is left out: its other
+     * languages' textures are never shown, and the capture loaded the played one's.
+     *
+     * @return list<string>
+     */
+    private function cocosNatives(string $folder): array
+    {
+        $out = [];
+        foreach (array_keys(array_filter($this->seen)) as $rel) {
+            if (! preg_match('#^'.preg_quote($folder, '#').'/assets/([^/]+)/config\.json$#', $rel, $b) || strcasecmp($b[1], 'Languages') === 0) {
+                continue;
+            }
+            $config = (array) json_decode($this->read($rel), true);
+            $uuids = (array) ($config['uuids'] ?? []);
+            foreach ((array) ($config['packs'] ?? []) as $pack => $members) {
+                $data = json_decode($this->read(dirname($rel).'/import/'.substr((string) $pack, 0, 2)."/{$pack}.json"), true);
+                foreach (self::cocosTextures($data) as $i => $entry) {
+                    $member = $members[$i] ?? null;
+                    $uuid = self::cocosUuid((string) (is_int($member) ? ($uuids[$member] ?? '') : $member));
+                    $ext = self::COCOS_EXT[(int) strtok($entry, ',_@')] ?? null;
+                    if ($uuid !== '' && $ext !== null) {
+                        $out[] = dirname($rel).'/native/'.substr($uuid, 0, 2)."/{$uuid}{$ext}";
+                    }
+                }
+            }
+        }
+
+        return $out;
+    }
+
+    /**
+     * A pack's textures: member index => its serialised texture ("<ext id>,<filters>…").
+     * A texture-only pack is `{"type":"cc.Texture2D","data":"…|…"}`; a mixed one is
+     * `[version, uuids, strings, classes, masks, [member: [[data…], [class index], …]]]`.
+     *
+     * @return array<int, string>
+     */
+    private static function cocosTextures(mixed $pack): array
+    {
+        if (is_array($pack) && ($pack['type'] ?? null) === 'cc.Texture2D' && is_string($pack['data'] ?? null)) {
+            return explode('|', $pack['data']);
+        }
+        if (! is_array($pack) || ! array_is_list($pack) || ! is_array($pack[3] ?? null) || ! is_array($pack[5] ?? null)) {
+            return [];
+        }
+        $classes = array_map(fn ($c) => is_array($c) ? ($c[0] ?? null) : $c, $pack[3]);
+        $out = [];
+        foreach ($pack[5] as $i => $member) {
+            $class = $member[1][0] ?? null;
+            $data = $member[0][0] ?? null;
+            if (is_int($class) && ($classes[$class] ?? null) === 'cc.Texture2D' && is_string($data)) {
+                $out[$i] = $data;
+            }
+        }
+
+        return $out;
+    }
+
+    /** A config's compressed uuid (22 chars, base64) → the 36-char form files are named by. */
+    public static function cocosUuid(string $short): string
+    {
+        if (strlen($short) !== 22) {
+            return $short;
+        }
+        $b64 = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/';
+        $hex = substr($short, 0, 2);
+        for ($i = 2; $i < 22; $i += 2) {
+            $a = strpos($b64, $short[$i]);
+            $c = strpos($b64, $short[$i + 1]);
+            if ($a === false || $c === false) {
+                return $short;
+            }
+            $hex .= sprintf('%x%x%x', $a >> 2, (($a & 3) << 2) | ($c >> 4), $c & 15);
+        }
+
+        return substr($hex, 0, 8).'-'.substr($hex, 8, 4).'-'.substr($hex, 12, 4).'-'.substr($hex, 16, 4).'-'.substr($hex, 20);
     }
 
     /** @return list<string> host-relative paths a fetched file names */

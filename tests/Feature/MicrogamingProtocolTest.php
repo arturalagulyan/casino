@@ -136,6 +136,32 @@ class MicrogamingProtocolTest extends TestCase
         $this->assertEquals(107.2 - 0.3 + 2.1, (float) $player->wallet->fresh()->balance);
     }
 
+    public function test_a_reload_inside_a_round_gets_the_setups_bet_block(): void
+    {
+        [, , $s] = $this->microgamingGame();
+        // Book of Mega Moolah: a step reply has no <Bet> — resumed in its free spins, the client built no reel window
+        $round = MicrogamingRound::create(['game_key' => 'test_mg_html', 'bet_cents' => 30, 'win_cents' => 60, 'feature' => true,
+            'start_credit' => 10000, 'steps' => [
+                ['q' => 'Spin', 'p' => [], 'r' => '<Pkt><Id verb="Spin"/><Response><Player balance="10030" totalWin="60"/><Slot win="60" state="1"><VisArea numRows="3" numCols="5"/>'
+                    .'<NextSpin nextNumChips="1" nextChipSize="1" freeSpinsRemaining="1"/></Slot></Response></Pkt>'],
+                ['q' => 'FreeSpin', 'p' => [], 'r' => '<Pkt><Id verb="FreeSpin"/><Response><Player balance="10030" totalWin="60"/><Slot win="0" state="3"><NextSpin freeSpinsRemaining="0"/></Slot></Response></Pkt>'],
+            ]]);
+        Cache::put('microgaming:force:test_mg_html', $round->id, 60);
+        $this->packet($s, "<Request verbex='Spin' chipSize='2' numChips='1' activePaylines='0' offerId='0' instanceId='0'/>");
+
+        $refresh = $this->packet($s, "<Request verbex='Refresh'/>");
+        $this->assertSame('Refresh', MicrogamingLiveClient::attr($refresh, 'Id', 'verb'));
+        $this->assertSame('1', MicrogamingLiveClient::attr($refresh, 'Slot', 'state'));   // still the step last served
+        $this->assertSame(1, substr_count($refresh, '<Bet '));
+        $this->assertStringContainsString('</Slot><Bet ', $refresh);
+        $this->assertSame('2', MicrogamingLiveClient::attr($refresh, 'Bet', 'chipSize'));
+        $this->assertSame('1,2,5', MicrogamingLiveClient::attr($refresh, 'Bet', 'validChips'));   // our chips (bet options), as setup() offers
+        $this->assertStringContainsString('<Payline payline="0" paylineCost="30"/>', $refresh);
+
+        // and the round carries on where it was
+        $this->assertSame('3', MicrogamingLiveClient::attr($this->packet($s, "<Request verbex='FreeSpin'/>"), 'Slot', 'state'));
+    }
+
     public function test_a_different_pick_switches_to_a_round_where_it_was_made(): void
     {
         [, $player, $s] = $this->microgamingGame();

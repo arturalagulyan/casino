@@ -70,6 +70,8 @@ class MicrogamingProtocol
             if (($init = MicrogamingLiveClient::quantum((string) ($this->config($context)['init'] ?? ''))) !== null) {
                 // a Quantum Refresh carries the bet settings: the setup's, with the round's stack
                 $xml = $this->quantumEdit($xml, fn (array $q) => array_merge($q, ['RequestType' => 'Refresh', 'Settings' => $init['Settings'] ?? []]));
+            } else {
+                $xml = $this->withSetupParts($context, $xml, $state);
             }
 
             return $this->withBalance($xml, (float) $state['shown']);
@@ -77,6 +79,31 @@ class MicrogamingProtocol
         $context->statePut(['microgaming' => null]);
 
         return $this->setup($context);
+    }
+
+    /**
+     * A round's step served as a Refresh lacks what only a Refresh carries: the
+     * `<Bet>` block (chips, active games — without it Book of Mega Moolah builds
+     * no reel window and fails, resumed in its free spins) and the `<ReelSets>`.
+     * Both come from the recorded setup, the bet at the round's.
+     *
+     * @param  array<string, mixed>  $state
+     */
+    private function withSetupParts(GameContext $context, string $xml, array $state): string
+    {
+        $init = (string) ($this->config($context)['init'] ?? '');
+        if (! preg_match('/<ReelSets\b/', $xml) && preg_match('#<ReelSets\b.*?</ReelSets>#s', $init, $sets) && ($at = strpos($xml, '</Slot>')) !== false) {
+            $xml = substr_replace($xml, $sets[0], $at, 0);
+        }
+        if (! preg_match('/<Bet\b/', $xml) && preg_match('#<Bet\b[^>]*(?<!/)>.*?</Bet>|<Bet\b[^>]*/>#s', $init, $bet) && ($at = strpos($xml, '</Slot>')) !== false) {
+            $xml = substr_replace($xml, $bet[0], $at + strlen('</Slot>'), 0);
+            $xml = $this->setAttr($xml, 'Bet', [
+                'validChips' => implode(',', $this->chips($context)),
+                'chipSize' => (string) $state['chip'], 'numChips' => (string) $state['coins'],
+            ]);
+        }
+
+        return $xml;
     }
 
     /** The recorded Refresh at our balance and chips, with the player's last bet. */
