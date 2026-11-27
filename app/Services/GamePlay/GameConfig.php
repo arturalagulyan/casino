@@ -810,6 +810,8 @@ class GameConfig
             'win_slots' => isset($c['win_slots']) ? (int) $c['win_slots'] : null,
             'init_tail' => isset($c['init_tail']) ? (string) $c['init_tail'] : null,
             'spin_tail' => isset($c['spin_tail']) ? (string) $c['spin_tail'] : null,
+            // init tail for a session resumed inside free spins (captured init is base-game)
+            'free_init_tail' => isset($c['free_init_tail']) ? (string) $c['free_init_tail'] : null,
             'overlay_strips' => array_values(array_map(fn ($s) => array_map('intval', (array) $s), (array) ($c['overlay_strips'] ?? []))),
             'overlay_rp' => array_values(array_map('intval', (array) ($c['overlay_rp'] ?? []))),
             'buy' => array_values(array_map('intval', (array) ($c['buy'] ?? []))),

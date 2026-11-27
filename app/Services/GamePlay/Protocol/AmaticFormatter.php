@@ -338,8 +338,13 @@ class AmaticFormatter
         // (none), booster factor and the coin tail.
         $client = $cfg->amaticClient();
         $slots = $client['win_slots'] ?? $this->winSlots($cfg);
+        // The captured init tail is a base-game one. Some clients read free-game
+        // state from it on resume (All Ways Candy: the bonus multiplier, 0 there,
+        // which the free-spin panel can't draw — the intro overlay then never
+        // clears), so a resume inside free spins may carry its own tail.
+        $initTail = $freeLeft > 0 && $client['free_init_tail'] !== null ? $client['free_init_tail'] : $client['init_tail'];
         $trailer = match (true) {
-            $client['init_tail'] !== null && $cfg->freeSymbolCandidates() === [] => $this->hex2($slots).str_repeat('10', $slots).$client['init_tail'].'#00101010|0',
+            $initTail !== null && $cfg->freeSymbolCandidates() === [] => $this->hex2($slots).str_repeat('10', $slots).$initTail.'#00101010|0',
             $this->isCoins($cfg) => $this->hex2($this->winSlots($cfg)).str_repeat('10', $this->winSlots($cfg))
                 .'10'.$this->hexFmt(self::COIN_BOOSTER).$this->coinTail($cfg).'#00101010|0',
             $cfg->freeSymbolCandidates() !== [] => '0a'.str_repeat('10', 10).$this->freeSymbol($state, $gmsl),

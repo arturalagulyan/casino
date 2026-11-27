@@ -408,4 +408,20 @@ class AmaticProtocolTest extends TestCase
         $this->assertStringEndsWith(str_repeat('00', 8).'13#101010', $frame);
         $this->assertSame(3, $session->fresh()->state['features']['free_symbol']);
     }
+
+    public function test_resume_inside_free_spins_sends_the_free_init_tail(): void
+    {
+        [, $game, $player] = $this->amaticGame();
+        $session = $this->openSession($player, $game);
+        $game->template->update(['bonus_config' => ['client' => [
+            'win_slots' => 10, 'init_tail' => 'abc0f10', 'spin_tail' => '0f12', 'free_init_tail' => 'abc0f12',
+        ]]]);
+
+        // base game: the captured init tail
+        $this->assertStringEndsWith('abc0f10#00101010|0', $this->send($session, 'A/u25')[0]);
+
+        // resumed inside free spins: the free one (All Ways Candy's ×2 multiplier field)
+        $session->update(['state' => ['features' => ['last_bet' => 1.0, 'last_lines' => 1, 'free_total' => 10, 'free_left' => 10]]]);
+        $this->assertStringEndsWith('abc0f12#00101010|0', $this->send($session, 'A/u25')[0]);
+    }
 }
