@@ -193,6 +193,9 @@ class GameAssetController extends Controller
                 ['""+this.getAuthority()+this.removeLeadingSlash(this.mgsInfo.AppPath)+"/"+this.mgsInfo.GamesFolder+"/"',
                     '""+this.getAuthority()+this.removeLeadingSlash(this.mgsInfo.AppPath)+"/"+this.mgsInfo.GamesPath'],
                 ['""+this.mgsInfo.GamesFolder', '""+this.mgsInfo.GamesPath'], $html);
+            // the mobile shell's (Gods of Giza) version check: SESSIONBASE + "/validate/validate.php" — nginx hands
+            // any `.php` path to fastcgi, so it goes without (page() answers it with the recorded reply)
+            $html = str_replace('"/validate/validate.php"', '"/validate/validate"', $html);
             $html = str_replace(['{{MG_STATIC}}', '{{MG_SESSION}}'], [$static, url("/microgaming/{$session->token}")], $html);
 
             return response($this->injectHead($html, $this->jackpotTickerSnippet($game, $user)))
@@ -634,9 +637,15 @@ class GameAssetController extends Controller
         if ($template->client_protocol === ClientProtocol::Microgaming && preg_match('/\.(html|css|js|json)$/i', $rel) && str_contains($content, '{{MG_STATIC}}')) {
             $content = str_replace('{{MG_STATIC}}', url("/games/{$template->code}~v{$bundle->version}").'/', $content);
         }
+        $type = $this->mimeType($rel) ?? ($disk->mimeType($rel) ?: 'application/octet-stream');
+        // Microgaming's webpack shells (Sun Tide) load script chunks named `….json` with <script>: under a
+        // `nosniff` header (dev's nginx) a browser runs them only when they're served as JavaScript
+        if ($template->client_protocol === ClientProtocol::Microgaming && str_ends_with($rel, '.json') && str_starts_with(ltrim($content), '(window[')) {
+            $type = 'text/javascript; charset=utf-8';
+        }
 
         return response($content, 200, [
-            'Content-Type' => $this->mimeType($rel) ?? ($disk->mimeType($rel) ?: 'application/octet-stream'),
+            'Content-Type' => $type,
             'Cache-Control' => 'public, max-age=3600',
         ]);
     }
