@@ -90,6 +90,15 @@ To switch to key-based auth later, add the public key to the server's
 the pasted value keeps its trailing newline), and change `password:` back to
 `key:` in `.github/workflows/deploy.yml`.
 
+### Domain (slotpol.eu)
+
+The host's Apache owns :80/:443 (it also serves the legacy site on the bare
+IP). `/etc/apache2/sites-available/slotpol.eu.conf` reverse-proxies the domain
+to the `web` container on `127.0.0.1:8080` and `/slots` to the game socket on
+`127.0.0.1:2087` (modules: `proxy proxy_http proxy_wstunnel headers ssl`).
+TLS: `certbot --apache -d slotpol.eu`. Server `.env`: `APP_URL=https://slotpol.eu`,
+`GAME_SOCKET_SCHEME=wss`, `GAME_SOCKET_PUBLIC_PORT=443`.
+
 ### Manual deploy / first run on a fresh server
 
 ```bash

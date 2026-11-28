@@ -25,6 +25,11 @@ return Application::configure(basePath: dirname(__DIR__))
             'player' => EnsurePlayer::class,
         ]);
 
+        // Served behind the host Apache (slotpol.eu, TLS) -> Docker nginx ->
+        // php-fpm. Trust the forwarded scheme/host/port so generated URLs are
+        // https:// on the domain instead of the inner http hop.
+        $middleware->trustProxies(at: '*');
+
         // Legacy game bundles POST here cross-site from an <iframe> with a
         // game-session token — no CSRF cookie.
         $middleware->validateCsrfTokens(except: [
